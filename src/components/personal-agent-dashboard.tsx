@@ -6,6 +6,8 @@ import { authClient } from "@/lib/auth-client";
 import { enablePushNotifications } from "@/lib/push-client";
 import { defaultPreferences, PreferencesPanel, type UserPreferences } from "@/components/preferences-panel";
 import { NotificationCenter, type AppNotification } from "@/components/notification-center";
+import { buildEscalationPlan, defaultEscalationPolicy } from "@/lib/escalations";
+import { syncNativeEscalationAlarms, type NativeEscalationAlarm } from "@/lib/native-escalations";
 
 type Category = "personal" | "work" | "meeting";
 type Priority = "urgent" | "important" | "normal";
@@ -81,6 +83,7 @@ export function PersonalAgentDashboard() {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const [escalationRevision, setEscalationRevision] = useState(0);
   const { data: session } = authClient.useSession();
   const signedIn = Boolean(session?.user);
 
@@ -112,6 +115,46 @@ export function PersonalAgentDashboard() {
     } catch (error) { setMessage(error instanceof Error ? error.message : "دریافت برنامه انجام نشد"); }
     finally { setLoading(false); }
   }, [session?.user]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    let cancelled = false;
+    async function syncEscalations() {
+      if (signedIn) {
+        const response = await fetch("/api/escalations", { method: "POST" });
+        if (!response.ok || cancelled) return;
+        const result = await response.json();
+        const alarms = result.data.alarms as NativeEscalationAlarm[];
+        const nativeResult = await syncNativeEscalationAlarms(alarms);
+        if (nativeResult.scheduled > 0 && !cancelled) {
+          await fetch("/api/escalations", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ attemptIds: alarms.map((alarm) => alarm.id) }) });
+        }
+        return;
+      }
+
+      const now = new Date();
+      const policy = preferences ? {
+        urgentEscalationEnabled: preferences.urgentEscalationEnabled,
+        urgentRepeatMinutes: preferences.urgentRepeatMinutes,
+        urgentMaxRepeats: preferences.urgentMaxRepeats,
+        androidAlarmEnabled: preferences.androidAlarmEnabled,
+        highPriorityEnabled: preferences.highPriorityEnabled,
+        smsEscalationEnabled: preferences.smsEscalationEnabled,
+        callEscalationEnabled: preferences.callEscalationEnabled,
+      } : defaultEscalationPolicy;
+      const alarms: NativeEscalationAlarm[] = items.filter((item) => item.source === "task" && item.priority === "urgent" && !item.done && item.dueAt && new Date(item.dueAt) <= now).flatMap((item) => buildEscalationPlan(now, policy).filter((entry) => entry.level === "ANDROID_ALARM").map((entry) => ({
+        id: `guest:${item.id}:${entry.attemptNumber}`,
+        taskId: item.id,
+        title: item.title,
+        level: "ANDROID_ALARM" as const,
+        attemptNumber: entry.attemptNumber,
+        scheduledFor: entry.scheduledFor.toISOString(),
+      })));
+      if (!cancelled) await syncNativeEscalationAlarms(alarms);
+    }
+    void syncEscalations().catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [escalationRevision, hydrated, items, preferences, signedIn]);
 
   const loadNotifications = useCallback(async () => {
     if (!session?.user) return;
@@ -164,7 +207,7 @@ export function PersonalAgentDashboard() {
     if (!response.ok) {
       setItems((all) => all.map((candidate) => candidate.id === item.id ? { ...candidate, done: !nextDone } : candidate));
       setMessage("تغییر وضعیت ذخیره نشد؛ دوباره تلاش کن.");
-    }
+    } else setEscalationRevision((value) => value + 1);
   }
 
   async function remove(item: Item) {
@@ -231,7 +274,7 @@ export function PersonalAgentDashboard() {
     <section className="workspace">
       <header className="topbar"><div><p className="eyebrow">{tehranDate.format(new Date())}</p><h1>{view === "settings" ? "تنظیمات من" : view === "assistant" ? "گفتگو با همراه" : view === "calendar" ? "تقویم من" : view === "tasks" ? "همه کارها و جلسات" : `سلام، ${greetingName}`}</h1></div><div className="top-actions"><button className="settings-button" onClick={() => setView("settings")}>تنظیمات</button><button className="icon-button" aria-label="اعلان‌ها" title="مرکز اعلان‌ها" onClick={() => { const next = !notificationCenter; setNotificationCenter(next); if (next) void loadNotifications(); }}>اعلان{unreadNotifications > 0 && <span>{unreadNotifications}</span>}</button><button className="primary-button" onClick={() => openComposer()}>برنامه جدید</button></div></header>
       {message && <p className="page-message">{message}</p>}
-      {view === "settings" ? <PreferencesPanel initial={preferences} signedIn={signedIn} onSaved={setPreferences} /> : view === "assistant" ? <Assistant onAdd={() => openComposer()} onChanged={loadRemote} /> : view === "calendar" ? <Calendar items={items} onEdit={openComposer} onAdd={(date) => openComposer(null, date)} /> : <>
+      {view === "settings" ? <PreferencesPanel key={preferences ? "stored" : "default"} initial={preferences} signedIn={signedIn} onSaved={setPreferences} onNativePermissionChanged={() => setEscalationRevision((value) => value + 1)} /> : view === "assistant" ? <Assistant onAdd={() => openComposer()} onChanged={loadRemote} /> : view === "calendar" ? <Calendar items={items} onEdit={openComposer} onAdd={(date) => openComposer(null, date)} /> : <>
         <section className="summary-grid"><article className="focus-card"><div><p>تمرکز امروز</p><strong>{open} کار باقی مانده</strong></div><div className="progress-ring" style={{ "--progress": `${progress * 3.6}deg` } as React.CSSProperties}><span>{progress}٪</span></div></article><article className="summary-card peach"><div><small>جلسه بعدی</small><strong>{nextMeeting?.title || "جلسه‌ای ثبت نشده"}</strong><p>{nextMeeting ? `${itemDate(nextMeeting)}، ساعت ${itemTime(nextMeeting)}` : "برنامه‌ات آزاد است"}</p></div></article><article className="summary-card lavender"><div><small>پیشنهاد همراه</small><strong>{open ? "از مهم‌ترین کار شروع کن" : "برنامه‌ات مرتب است"}</strong><p>{open ? `${open} کار باز داری` : "زمانی برای استراحت بگذار"}</p></div></article></section>
         <section className="content-card"><div className="card-heading"><div><h2>{view === "today" ? "برنامه امروز" : "فهرست برنامه‌ها"}</h2><p>{signedIn ? "اطلاعات این صفحه از حساب تو خوانده می‌شود" : "این داده‌ها فقط برای نمایش و روی همین دستگاه هستند"}</p></div><div className="filters"><button className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>همه</button>{(Object.keys(categories) as Category[]).map((key) => <button key={key} className={filter === key ? "active" : ""} onClick={() => setFilter(key)}>{categories[key][0]}</button>)}</div></div>
           <div className="task-list">{loading ? <div className="empty-state">در حال دریافت برنامه…</div> : visible.length === 0 ? <div className="empty-state">اینجا فعلاً خلوت است؛ یک برنامه تازه اضافه کن.</div> : visible.map((item) => { const itemKey = `${item.source}-${item.id}`; const confirming = pendingDelete === itemKey; return <article className={`task-row ${item.done ? "done" : ""}`} key={itemKey}><button className={`check-button ${item.source === "meeting" ? "meeting-check" : ""}`} onClick={() => void toggle(item)} aria-label={item.source === "meeting" ? "جلسه" : "تغییر وضعیت"}>{item.source === "meeting" ? "" : item.done ? "✓" : ""}</button><div className="task-main"><strong>{item.title}</strong><div><span className={`tag ${categories[item.category][1]}`}>{categories[item.category][0]}</span><span className={`tag ${priorities[item.priority][1]}`}>{priorities[item.priority][0]}</span></div></div><div className="task-time"><strong>{itemTime(item)}</strong><small>{itemDate(item)}</small></div><div className="item-actions">{confirming ? <><button className="delete-button confirm-delete" onClick={() => void remove(item)}>تأیید حذف</button><button className="edit-button" onClick={() => setPendingDelete("")}>انصراف</button></> : <><button className="edit-button" onClick={() => openComposer(item)}>ویرایش</button><button className="delete-button" onClick={() => setPendingDelete(itemKey)}>حذف</button></>}</div></article>; })}</div>

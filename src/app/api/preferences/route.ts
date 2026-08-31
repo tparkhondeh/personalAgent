@@ -2,7 +2,7 @@ import { db } from "@/lib/db";
 import { jsonError, requireApiSession } from "@/lib/api";
 import { userPreferenceInputSchema } from "@/lib/validation";
 
-function serializePreference(preference: { timezone: string; locale: string; workdayStartsAt: string; workdayEndsAt: string; workingDays: string; defaultReminderMins: number; quietHoursStartsAt: string; quietHoursEndsAt: string; planningProfile: string | null }) {
+function serializePreference(preference: { timezone: string; locale: string; workdayStartsAt: string; workdayEndsAt: string; workingDays: string; defaultReminderMins: number; quietHoursStartsAt: string; quietHoursEndsAt: string; planningProfile: string | null; urgentEscalationEnabled: boolean; urgentRepeatMinutes: number; urgentMaxRepeats: number; androidAlarmEnabled: boolean; highPriorityEnabled: boolean; smsEscalationEnabled: boolean; callEscalationEnabled: boolean; emergencyContactName: string | null; emergencyPhone: string | null }) {
   return { ...preference, workingDays: preference.workingDays.split(",").filter(Boolean), planningProfile: preference.planningProfile || "BALANCED" };
 }
 
@@ -25,7 +25,9 @@ export async function PUT(request: Request) {
       update: { ...values, workingDays: workingDays.join(",") },
       create: { ...values, workingDays: workingDays.join(","), userId: session.user.id },
     });
-    await tx.auditLog.create({ data: { userId: session.user.id, action: "PREFERENCES_UPDATED", entityType: "UserPreference", entityId: saved.id, input: JSON.stringify(parsed.data) } });
+    await tx.escalationAttempt.updateMany({ where: { userId: session.user.id, status: { in: ["PENDING", "PROCESSING", "READY_FOR_DEVICE", "SCHEDULED"] } }, data: { status: "CANCELLED" } });
+    const { emergencyPhone, ...auditSafeInput } = parsed.data;
+    await tx.auditLog.create({ data: { userId: session.user.id, action: "PREFERENCES_UPDATED", entityType: "UserPreference", entityId: saved.id, input: JSON.stringify({ ...auditSafeInput, emergencyPhone: emergencyPhone ? "[REDACTED]" : null }) } });
     return saved;
   });
   return Response.json({ data: serializePreference(preference) });

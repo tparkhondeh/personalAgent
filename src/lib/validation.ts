@@ -51,9 +51,22 @@ export const userPreferenceInputSchema = z.object({
   quietHoursStartsAt: clockTimeSchema,
   quietHoursEndsAt: clockTimeSchema,
   planningProfile: z.enum(["BALANCED", "FOCUS", "FLEXIBLE"]),
+  urgentEscalationEnabled: z.boolean().default(true),
+  urgentRepeatMinutes: z.number().int().min(10).max(1440).default(15),
+  urgentMaxRepeats: z.number().int().min(1).max(6).default(3),
+  androidAlarmEnabled: z.boolean().default(true),
+  highPriorityEnabled: z.boolean().default(true),
+  smsEscalationEnabled: z.boolean().default(false),
+  callEscalationEnabled: z.boolean().default(false),
+  emergencyContactName: z.string().trim().max(100).optional().transform((value) => value || null),
+  emergencyPhone: z.string().trim().max(30).regex(/^[+0-9۰-۹٠-٩\s()-]*$/, "شماره تماس معتبر نیست").optional().transform((value) => value || null),
 }).refine((value) => value.workdayStartsAt !== value.workdayEndsAt, { message: "شروع و پایان ساعت کاری نمی‌تواند یکسان باشد", path: ["workdayEndsAt"] });
 
 export const notificationReadSchema = z.object({
   id: z.string().trim().min(1).optional(),
   all: z.boolean().optional(),
 }).refine((value) => Boolean(value.id) !== Boolean(value.all), { message: "یک اعلان یا همه اعلان‌ها را انتخاب کن" });
+
+export const escalationAcknowledgeSchema = z.object({
+  attemptIds: z.array(z.string().trim().min(1)).min(1).max(100),
+});

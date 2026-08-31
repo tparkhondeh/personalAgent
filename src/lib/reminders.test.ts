@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { isInsideQuietHours, nextRecurrence, reminderIdempotencyKey } from "./reminders";
+import { isInsideQuietHours, moveOutsideQuietHours, nextRecurrence, reminderIdempotencyKey } from "./reminders";
 
 describe("reminder utilities", () => {
   it("creates a stable idempotency key", () => {
     const date = new Date("2026-08-30T10:00:00.000Z");
     expect(reminderIdempotencyKey("user-1", "task-1", date, "PUSH")).toBe("user-1:task-1:2026-08-30T10:00:00.000Z:PUSH");
+  });
+
+  it("moves strong alerts to the end of quiet hours", () => {
+    const moved = moveOutsideQuietHours(new Date("2026-08-31T23:00:00.000Z"), "22:00", "08:00", "UTC");
+    expect(moved.toISOString()).toBe("2026-09-01T08:00:00.000Z");
   });
 
   it("recognizes quiet hours that cross midnight", () => {

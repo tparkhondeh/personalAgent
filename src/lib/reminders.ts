@@ -18,3 +18,11 @@ export function isInsideQuietHours(now: Date, start: string, end: string, timezo
   const startMinutes = toMinutes(start); const endMinutes = toMinutes(end);
   return startMinutes > endMinutes ? current >= startMinutes || current < endMinutes : current >= startMinutes && current < endMinutes;
 }
+
+export function moveOutsideQuietHours(date: Date, start: string, end: string, timezone = "Asia/Tehran") {
+  const candidate = new Date(date);
+  for (let quarterHour = 0; quarterHour < 96 && isInsideQuietHours(candidate, start, end, timezone); quarterHour++) {
+    candidate.setTime(candidate.getTime() + 15 * 60_000);
+  }
+  return candidate;
+}

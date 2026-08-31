@@ -1,8 +1,12 @@
 # معماری MVP همراه
 
-مرورگر کاربر → برنامه Next.js → احراز هویت و API → Prisma → SQLite/LibSQL
+مرورگر/PWA یا اپ Android → برنامه Next.js → احراز هویت و API → Prisma → SQLite/LibSQL
 
 Agent از طریق AI SDK به ارائه‌دهنده LLM وصل می‌شود. Scheduler نیز Reminderهای موعدرسیده را پیدا و اعلان داخل برنامه یا Push ارسال می‌کند.
+
+اپ Android با Capacitor رابط فعلی را در Build آزمایشی اجرا می‌کند و Alarmهای محلی را با پلاگین رسمی Local Notifications زمان‌بندی می‌کند. Build انتشار فقط به Origin امن HTTPS متصل خواهد شد.
+
+Escalation برای کار فوری عقب‌افتاده یک ماشین حالت Idempotent است: `PENDING` → `PROCESSING` → `SENT` یا `READY_FOR_DEVICE` → `SCHEDULED`. تغییر موعد یا پایان کار، رکوردهای فعال را `CANCELLED` می‌کند. تماس و پیامک تا زمان انتخاب سرویس‌دهنده فقط `SIMULATED` می‌شوند.
 
 ## مرزهای سیستم
 
@@ -11,6 +15,9 @@ Agent از طریق AI SDK به ارائه‌دهنده LLM وصل می‌شود
 - `src/lib/validation.ts`: اعتبارسنجی ورودی‌ها با Zod
 - `src/lib/agent.ts`: اتصال قابل‌تعویض LLM و Prompt امنیتی
 - `src/lib/reminders.ts`: زمان‌بندی، Quiet Hours و Idempotency
+- `src/lib/escalations.ts`: برنامه چندمرحله‌ای و شناسه‌های پایدار هشدار
+- `src/lib/native-escalations.ts`: مجوز و Alarm محلی Android
+- `android`: پروژه بومی جدا از هسته وب
 - `prisma/schema.prisma`: مدل داده و روابط
 
 ## اصول امنیتی
@@ -22,5 +29,7 @@ Agent از طریق AI SDK به ارائه‌دهنده LLM وصل می‌شود
 5. عملیات در `AuditLog` ثبت می‌شوند.
 6. Endpoint زمان‌بندی با `CRON_SECRET` محافظت می‌شود.
 7. زمان‌ها به UTC ذخیره و با Timezone کاربر نمایش داده می‌شوند.
+8. ورود و ثبت‌نام Rate Limit دارند و پاسخ‌ها هدرهای امنیتی دریافت می‌کنند.
+9. مجوز اعلان و Alarm فقط با اقدام روشن کاربر درخواست می‌شود.
 
 برای حجم زیاد، دیتابیس به PostgreSQL و Scheduler به Worker مستقل منتقل می‌شود. مرزها برای این مهاجرت جدا شده‌اند.

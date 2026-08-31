@@ -10,7 +10,7 @@ export function configureWebPush() {
   return true;
 }
 
-export async function sendWebPush(subscription: { endpoint: string; p256dh: string; auth: string }, payload: { title: string; body: string; url?: string; tag?: string }) {
+export async function sendWebPush(subscription: { endpoint: string; p256dh: string; auth: string }, payload: { title: string; body: string; url?: string; tag?: string; urgent?: boolean }) {
   if (!configureWebPush()) return { sent: false, reason: "VAPID_NOT_CONFIGURED" };
   await webPush.sendNotification({ endpoint: subscription.endpoint, keys: { p256dh: subscription.p256dh, auth: subscription.auth } }, JSON.stringify(payload));
   return { sent: true };

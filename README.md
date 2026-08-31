@@ -14,6 +14,9 @@
 - گفتگوی ساختاریافته با حالت محلی یا LLM و تأیید پیش از اجرا
 - یادآوری Idempotent، مرکز اعلان، اعلان محلی و زیرساخت Web Push
 - PWA قابل نصب روی موبایل و دسکتاپ با پوسته آفلاین پایه
+- پروژه بومی Android با Capacitor، آیکون و Splash اختصاصی
+- هشدار چندمرحله‌ای کار فوری: اعلان، Alarm اندروید، اولویت بالا و Mock امن پیامک/تماس
+- Backup سازگار SQLite، کنترل Rollback و هدرهای امنیتی
 - تست Unit، Type Check، Lint، Build و CI
 
 ## اجرای محلی
@@ -24,7 +27,7 @@
 pnpm install
 Copy-Item .env.example .env
 pnpm db:generate
-pnpm exec prisma db execute --file prisma/migrations/20260830170000_init/migration.sql
+pnpm db:init
 pnpm dev
 ```
 
@@ -37,7 +40,12 @@ pnpm typecheck
 pnpm lint
 pnpm test
 pnpm build
+pnpm audit --prod --audit-level high
 ```
+
+## اپلیکیشن Android
+
+ساختار Android آماده است. ساخت APK آزمایشی پس از نصب JDK و Android SDK با `pnpm android:build:debug` انجام می‌شود. نسخه انتشار تا تأیید آدرس امن Production ساخته نمی‌شود.
 
 ## متغیرهای محیطی
 
@@ -52,5 +60,7 @@ pnpm build
 - [معماری سیستم](docs/architecture.md)
 - [منابع متن‌باز و مجوزها](docs/open-source-review.md)
 - [برنامه Deploy، Backup و Rollback](docs/deployment.md)
+- [راهنمای اپ Android](docs/android.md)
+- [کنترل‌های امنیت، Backup و Rollback](docs/security-backup-rollback.md)
 
 مجوز انتشار اختصاصی پروژه هنوز توسط مالک تعیین نشده است. کپی مستقیم از پروژه‌های AGPL انجام نشده و فقط از الگوهای معماری عمومی آن‌ها استفاده شده است.

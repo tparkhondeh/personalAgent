@@ -25,6 +25,7 @@ model User {
   preferences   UserPreference?
   auditLogs     AuditLog[]
   pushSubscriptions PushSubscription[]
+  escalationAttempts EscalationAttempt[]
 }
 
 model Session {
@@ -88,6 +89,7 @@ model Task {
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   reminders       Reminder[]
   calendarEvents  CalendarEvent[]
+  escalationAttempts EscalationAttempt[]
   @@index([userId, status, dueAt])
 }
 
@@ -191,8 +193,39 @@ model UserPreference {
   quietHoursStartsAt  String   @default("22:00")
   quietHoursEndsAt    String   @default("08:00")
   planningProfile     String?
+  urgentEscalationEnabled Boolean @default(true)
+  urgentRepeatMinutes Int      @default(15)
+  urgentMaxRepeats    Int      @default(3)
+  androidAlarmEnabled Boolean  @default(true)
+  highPriorityEnabled Boolean  @default(true)
+  smsEscalationEnabled Boolean @default(false)
+  callEscalationEnabled Boolean @default(false)
+  emergencyContactName String?
+  emergencyPhone       String?
   updatedAt           DateTime @updatedAt
   user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model EscalationAttempt {
+  id             String   @id @default(cuid())
+  userId         String
+  taskId         String
+  level          String
+  attemptNumber  Int      @default(1)
+  scheduledFor   DateTime
+  status         String   @default("PENDING")
+  provider       String   @default("LOCAL")
+  idempotencyKey String   @unique
+  sentAt         DateTime?
+  acknowledgedAt DateTime?
+  lastError      String?
+  metadata       String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task           Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  @@index([userId, status, scheduledFor])
+  @@index([taskId, createdAt])
 }
 
 model AuditLog {

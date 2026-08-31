@@ -25,6 +25,9 @@ self.addEventListener("push", (event) => {
     badge: "/icon.svg",
     data: { url: data.url || "/" },
     tag: data.tag || "hamrah-reminder",
+    requireInteraction: Boolean(data.urgent),
+    renotify: Boolean(data.urgent),
+    vibrate: data.urgent ? [300, 150, 300, 150, 500] : [180, 100, 180],
   }));
 });
 

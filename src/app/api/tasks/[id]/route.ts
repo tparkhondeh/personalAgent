@@ -16,6 +16,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const data = { ...updates, startAt: updates.startAt ? new Date(updates.startAt) : undefined, dueAt: updates.dueAt ? new Date(updates.dueAt) : undefined, completedAt: updates.status === "DONE" ? new Date() : updates.status ? null : undefined };
   const task = await db.$transaction(async (tx) => {
     const updated = await tx.task.update({ where: { id }, data });
+    if (updates.dueAt !== undefined || updates.status !== undefined || updates.priority !== undefined) {
+      await tx.escalationAttempt.updateMany({ where: { taskId: id, status: { in: ["PENDING", "PROCESSING", "READY_FOR_DEVICE", "SCHEDULED"] } }, data: { status: "CANCELLED" } });
+    }
     if (updates.dueAt !== undefined || reminderMinutes !== undefined) {
       await tx.reminder.deleteMany({ where: { taskId: id } });
       if (updated.dueAt) {

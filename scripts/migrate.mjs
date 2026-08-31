@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { createClient } from "@libsql/client";
 import { readFile } from "node:fs/promises";
 
@@ -9,6 +10,8 @@ await client.execute("CREATE TABLE IF NOT EXISTS _hamrah_migrations (id TEXT PRI
 
 const migrations = [
   ["20260830170000_init", new URL("../prisma/migrations/20260830170000_init/migration.sql", import.meta.url)],
+  ["20260831090000_add_escalation_policy", new URL("../prisma/migrations/20260831090000_add_escalation_policy/migration.sql", import.meta.url)],
+  ["20260831100000_add_emergency_contact", new URL("../prisma/migrations/20260831100000_add_emergency_contact/migration.sql", import.meta.url)],
 ];
 
 for (const [id, file] of migrations) {

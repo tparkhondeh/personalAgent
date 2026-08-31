@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
+import { enableNativeEscalationAlarms, isNativeAndroid } from "@/lib/native-escalations";
 
 type WorkingDay = "SAT" | "SUN" | "MON" | "TUE" | "WED" | "THU" | "FRI";
 type PlanningProfile = "BALANCED" | "FOCUS" | "FLEXIBLE";
@@ -16,6 +17,15 @@ export type UserPreferences = {
   quietHoursStartsAt: string;
   quietHoursEndsAt: string;
   planningProfile: PlanningProfile;
+  urgentEscalationEnabled: boolean;
+  urgentRepeatMinutes: number;
+  urgentMaxRepeats: number;
+  androidAlarmEnabled: boolean;
+  highPriorityEnabled: boolean;
+  smsEscalationEnabled: boolean;
+  callEscalationEnabled: boolean;
+  emergencyContactName: string | null;
+  emergencyPhone: string | null;
 };
 
 export const defaultPreferences: UserPreferences = {
@@ -28,15 +38,31 @@ export const defaultPreferences: UserPreferences = {
   quietHoursStartsAt: "22:00",
   quietHoursEndsAt: "08:00",
   planningProfile: "BALANCED",
+  urgentEscalationEnabled: true,
+  urgentRepeatMinutes: 15,
+  urgentMaxRepeats: 3,
+  androidAlarmEnabled: true,
+  highPriorityEnabled: true,
+  smsEscalationEnabled: false,
+  callEscalationEnabled: false,
+  emergencyContactName: null,
+  emergencyPhone: null,
 };
 
 const dayLabels: Array<[WorkingDay, string]> = [["SAT", "شنبه"], ["SUN", "یکشنبه"], ["MON", "دوشنبه"], ["TUE", "سه‌شنبه"], ["WED", "چهارشنبه"], ["THU", "پنجشنبه"], ["FRI", "جمعه"]];
 
-export function PreferencesPanel({ initial, signedIn, onSaved }: { initial: UserPreferences | null; signedIn: boolean; onSaved: (preference: UserPreferences) => void }) {
+export function PreferencesPanel({ initial, signedIn, onSaved, onNativePermissionChanged }: { initial: UserPreferences | null; signedIn: boolean; onSaved: (preference: UserPreferences) => void; onNativePermissionChanged?: () => void }) {
   const starting = initial || defaultPreferences;
   const [workingDays, setWorkingDays] = useState<WorkingDay[]>(starting.workingDays);
   const [pending, setPending] = useState(false);
   const [status, setStatus] = useState("");
+  const [nativeAndroid, setNativeAndroid] = useState(false);
+  const [nativeStatus, setNativeStatus] = useState("");
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setNativeAndroid(isNativeAndroid()), 0);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   function toggleDay(day: WorkingDay) {
     setWorkingDays((days) => days.includes(day) ? days.filter((value) => value !== day) : [...days, day]);
@@ -56,6 +82,15 @@ export function PreferencesPanel({ initial, signedIn, onSaved }: { initial: User
       quietHoursStartsAt: String(data.get("quietHoursStartsAt")),
       quietHoursEndsAt: String(data.get("quietHoursEndsAt")),
       planningProfile: data.get("planningProfile") as PlanningProfile,
+      urgentEscalationEnabled: data.has("urgentEscalationEnabled"),
+      urgentRepeatMinutes: Number(data.get("urgentRepeatMinutes")),
+      urgentMaxRepeats: Number(data.get("urgentMaxRepeats")),
+      androidAlarmEnabled: data.has("androidAlarmEnabled"),
+      highPriorityEnabled: data.has("highPriorityEnabled"),
+      smsEscalationEnabled: data.has("smsEscalationEnabled"),
+      callEscalationEnabled: data.has("callEscalationEnabled"),
+      emergencyContactName: String(data.get("emergencyContactName") || "").trim() || null,
+      emergencyPhone: String(data.get("emergencyPhone") || "").trim() || null,
     };
     setPending(true); setStatus("");
     const response = await fetch("/api/preferences", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
@@ -66,7 +101,14 @@ export function PreferencesPanel({ initial, signedIn, onSaved }: { initial: User
     setStatus("تنظیمات ذخیره شد و از این پس در برنامه‌ریزی استفاده می‌شود.");
   }
 
+  async function enableAndroidAlarm() {
+    setNativeStatus("در حال بررسی مجوزهای اندروید...");
+    const result = await enableNativeEscalationAlarms();
+    setNativeStatus(result.message);
+    if (result.enabled) onNativePermissionChanged?.();
+  }
+
   if (!signedIn) return <section className="preferences-card preferences-signin"><p className="eyebrow">شناخت شخصی</p><h2>برنامه را با سبک زندگی خودت هماهنگ کن</h2><p>برای ذخیره ساعت کاری، روزهای آزاد و زمان یادآوری ابتدا وارد حساب شو.</p><Link className="submit-button" href="/login">ورود یا ساخت حساب</Link></section>;
 
-  return <section className="preferences-card"><div className="preferences-heading"><div><p className="eyebrow">شناخت اولیه</p><h2>{initial ? "تنظیمات برنامه‌ریزی" : "اول سبک روزت را مشخص کنیم"}</h2><p>همراه از این اطلاعات برای پیشنهاد زمان مناسب و جلوگیری از اعلان در ساعت استراحت استفاده می‌کند.</p></div><span>منطقه زمانی تهران</span></div><form onSubmit={save}><div className="field-grid"><label>شروع ساعت کاری<input name="workdayStartsAt" type="time" required defaultValue={starting.workdayStartsAt} /></label><label>پایان ساعت کاری<input name="workdayEndsAt" type="time" required defaultValue={starting.workdayEndsAt} /></label></div><fieldset><legend>روزهای کاری</legend><div className="working-days">{dayLabels.map(([day, label]) => <label className={workingDays.includes(day) ? "selected" : ""} key={day}><input type="checkbox" checked={workingDays.includes(day)} onChange={() => toggleDay(day)} />{label}</label>)}</div></fieldset><div className="field-grid"><label>یادآوری پیش‌فرض<select name="defaultReminderMins" defaultValue={String(starting.defaultReminderMins)}><option value="0">همان لحظه</option><option value="15">۱۵ دقیقه قبل</option><option value="30">۳۰ دقیقه قبل</option><option value="60">۱ ساعت قبل</option><option value="1440">یک روز قبل</option></select></label><label>سبک برنامه‌ریزی<select name="planningProfile" defaultValue={starting.planningProfile}><option value="BALANCED">متعادل</option><option value="FOCUS">تمرکز عمیق</option><option value="FLEXIBLE">انعطاف‌پذیر</option></select></label></div><div className="field-grid"><label>شروع زمان سکوت<input name="quietHoursStartsAt" type="time" required defaultValue={starting.quietHoursStartsAt} /></label><label>پایان زمان سکوت<input name="quietHoursEndsAt" type="time" required defaultValue={starting.quietHoursEndsAt} /></label></div>{status && <p className="preference-status" role="status">{status}</p>}<button className="submit-button" disabled={pending}>{pending ? "در حال ذخیره..." : "ذخیره تنظیمات"}</button></form></section>;
+  return <section className="preferences-card"><div className="preferences-heading"><div><p className="eyebrow">شناخت اولیه</p><h2>{initial ? "تنظیمات برنامه‌ریزی" : "اول سبک روزت را مشخص کنیم"}</h2><p>همراه از این اطلاعات برای پیشنهاد زمان مناسب و جلوگیری از اعلان در ساعت استراحت استفاده می‌کند.</p></div><span>منطقه زمانی تهران</span></div><form onSubmit={save}><div className="field-grid"><label>شروع ساعت کاری<input name="workdayStartsAt" type="time" required defaultValue={starting.workdayStartsAt} /></label><label>پایان ساعت کاری<input name="workdayEndsAt" type="time" required defaultValue={starting.workdayEndsAt} /></label></div><fieldset><legend>روزهای کاری</legend><div className="working-days">{dayLabels.map(([day, label]) => <label className={workingDays.includes(day) ? "selected" : ""} key={day}><input type="checkbox" checked={workingDays.includes(day)} onChange={() => toggleDay(day)} />{label}</label>)}</div></fieldset><div className="field-grid"><label>یادآوری پیش‌فرض<select name="defaultReminderMins" defaultValue={String(starting.defaultReminderMins)}><option value="0">همان لحظه</option><option value="15">۱۵ دقیقه قبل</option><option value="30">۳۰ دقیقه قبل</option><option value="60">۱ ساعت قبل</option><option value="1440">یک روز قبل</option></select></label><label>سبک برنامه‌ریزی<select name="planningProfile" defaultValue={starting.planningProfile}><option value="BALANCED">متعادل</option><option value="FOCUS">تمرکز عمیق</option><option value="FLEXIBLE">انعطاف‌پذیر</option></select></label></div><div className="field-grid"><label>شروع زمان سکوت<input name="quietHoursStartsAt" type="time" required defaultValue={starting.quietHoursStartsAt} /></label><label>پایان زمان سکوت<input name="quietHoursEndsAt" type="time" required defaultValue={starting.quietHoursEndsAt} /></label></div><fieldset className="escalation-settings"><legend>هشدار کار فوری عقب‌افتاده</legend><p className="preference-note">پیامک و تماس فعلاً فقط ثبت آزمایشی می‌شوند و هیچ شماره‌ای ارسال یا هزینه‌ای ایجاد نمی‌شود.</p><div className="preference-options"><label className="toggle-row"><input name="urgentEscalationEnabled" type="checkbox" defaultChecked={starting.urgentEscalationEnabled} /><span><strong>فعال‌سازی هشدار چندمرحله‌ای</strong><small>اعلان فوری و پیگیری مرحله‌به‌مرحله</small></span></label><label className="toggle-row"><input name="androidAlarmEnabled" type="checkbox" defaultChecked={starting.androidAlarmEnabled} /><span><strong>Alarm محلی اندروید</strong><small>روی گوشی و بدون سرویس پولی</small></span></label><label className="toggle-row"><input name="highPriorityEnabled" type="checkbox" defaultChecked={starting.highPriorityEnabled} /><span><strong>اعلان با اولویت بالا</strong><small>هشدار واضح‌تر در محدوده مجاز سیستم‌عامل</small></span></label><label className="toggle-row"><input name="smsEscalationEnabled" type="checkbox" defaultChecked={starting.smsEscalationEnabled} /><span><strong>پیامک آزمایشی</strong><small>فقط Mock؛ ارسال واقعی غیرفعال است</small></span></label><label className="toggle-row"><input name="callEscalationEnabled" type="checkbox" defaultChecked={starting.callEscalationEnabled} /><span><strong>تماس آزمایشی</strong><small>فقط Mock؛ تماس واقعی غیرفعال است</small></span></label></div><div className="field-grid"><label>فاصله تکرار<select name="urgentRepeatMinutes" defaultValue={String(starting.urgentRepeatMinutes)}><option value="10">۱۰ دقیقه</option><option value="15">۱۵ دقیقه</option><option value="30">۳۰ دقیقه</option><option value="60">۱ ساعت</option></select></label><label>حداکثر تکرار<select name="urgentMaxRepeats" defaultValue={String(starting.urgentMaxRepeats)}><option value="1">۱ بار</option><option value="2">۲ بار</option><option value="3">۳ بار</option><option value="4">۴ بار</option><option value="6">۶ بار</option></select></label></div><div className="field-grid"><label>نام مخاطب اضطراری<input name="emergencyContactName" maxLength={100} defaultValue={starting.emergencyContactName || ""} placeholder="اختیاری" /></label><label>شماره تماس تأییدشده<input name="emergencyPhone" dir="ltr" inputMode="tel" maxLength={30} defaultValue={starting.emergencyPhone || ""} placeholder="فعلاً فقط نگهداری امن" /></label></div>{nativeAndroid && <div className="native-alarm-control"><button className="outline-button" type="button" onClick={() => void enableAndroidAlarm()}>فعال‌سازی مجوز Alarm اندروید</button>{nativeStatus && <p role="status">{nativeStatus}</p>}</div>}</fieldset>{status && <p className="preference-status" role="status">{status}</p>}<button className="submit-button" disabled={pending}>{pending ? "در حال ذخیره..." : "ذخیره تنظیمات"}</button></form></section>;
 }

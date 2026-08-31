@@ -238,6 +238,17 @@ button:disabled { cursor: not-allowed; }
 .working-days label { min-height: 46px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--line); border-radius: 12px; background: #fafbf8; color: var(--muted); font-size: 12px; cursor: pointer; }
 .working-days label.selected { border-color: #a9bba7; background: var(--primary-soft); color: var(--primary-strong); font-weight: 680; }
 .working-days input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.escalation-settings { display: grid; gap: 16px; padding-top: 22px !important; border-top: 1px solid var(--line) !important; }
+.escalation-settings legend { margin-bottom: 2px; font-size: 16px; font-weight: 700; }
+.preference-note { margin: 0; padding: 11px 13px; border-radius: 12px; background: #f8f0e7; color: #745e4d; font-size: 12px; line-height: 1.9; }
+.preference-options { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.preferences-card .toggle-row { min-height: 72px; display: flex; align-items: center; gap: 11px; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-soft); cursor: pointer; }
+.preferences-card .toggle-row input { width: 20px; min-height: 20px; flex: none; accent-color: var(--primary-strong); }
+.toggle-row span { display: grid; gap: 3px; }
+.toggle-row strong { color: var(--ink); font-size: 13px; font-weight: 680; }
+.toggle-row small { color: var(--muted); font-size: 11px; font-weight: 450; line-height: 1.7; }
+.native-alarm-control { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.native-alarm-control p { margin: 0; color: var(--primary-strong); font-size: 12px; }
 .preference-status { margin: 0; padding: 12px 14px; border-radius: 12px; background: var(--primary-soft); color: var(--primary-strong); font-size: 13px; }
 .preferences-card .submit-button { justify-self: start; }
 .preferences-signin { display: grid; justify-items: start; gap: 13px; }
@@ -316,6 +327,7 @@ button:disabled { cursor: not-allowed; }
   .preferences-heading { display: grid; }
   .preferences-heading > span { justify-self: start; }
   .working-days { grid-template-columns: repeat(4, 1fr); }
+  .preference-options { grid-template-columns: 1fr; }
   .assistant-panel { min-height: 520px; padding-inline: 20px; }
   .chat-box { align-items: stretch; }
   .chat-box button { min-width: 62px; }

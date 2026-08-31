@@ -12,11 +12,21 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
-    "db:init": "node scripts/migrate.mjs"
+    "db:init": "node scripts/migrate.mjs",
+    "db:backup": "node scripts/backup-database.mjs",
+    "android:sync": "cap sync android",
+    "android:sync:emulator": "cross-env CAPACITOR_SERVER_URL=http://10.0.2.2:3001 cap sync android",
+    "android:open": "cap open android",
+    "android:assets": "node scripts/generate-android-assets.mjs",
+    "android:build:debug": "pnpm android:sync:emulator && cd android && gradlew.bat assembleDebug"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.51",
     "@better-auth/prisma-adapter": "^1.7.2",
+    "@capacitor/android": "8.5.0",
+    "@capacitor/app": "8.1.1",
+    "@capacitor/core": "8.5.0",
+    "@capacitor/local-notifications": "8.3.1",
     "@libsql/client": "^0.17.4",
     "@prisma/adapter-libsql": "^7.10.0",
     "@prisma/client": "^7.10.0",
@@ -33,15 +43,18 @@
     "zod": "^4.5.4"
   },
   "devDependencies": {
+    "@capacitor/cli": "8.5.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/web-push": "^3.6.4",
     "@vitest/coverage-v8": "^4.1.11",
+    "cross-env": "^10.1.0",
     "eslint": "^9",
     "eslint-config-next": "16.3.3",
     "prisma": "^7.10.0",
+    "sharp": "0.35.4",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.1.11"

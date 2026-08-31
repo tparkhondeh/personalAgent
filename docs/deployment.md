@@ -13,6 +13,10 @@
 7. پس از تأیید مالک، اتصال Reverse Proxy دامنه به `127.0.0.1:3010`.
 8. بررسی HTTPS، Cookie امن، Web Push و Logها.
 
+Migrationهای این پروژه با `pnpm db:init` و جدول داخلی `_hamrah_migrations` اجرا می‌شوند تا دیتابیس موجود بدون Reset و حذف داده ارتقا پیدا کند.
+
+Scheduler باید هر دو Endpoint محافظت‌شده `/api/internal/reminders` و `/api/internal/escalations` را با `Authorization: Bearer <CRON_SECRET>` اجرا کند.
+
 ## Backup
 
 - پیش از هر Deploy، فایل SQLite با روش snapshot سازگار SQLite کپی و تاریخ‌گذاری شود.
@@ -25,3 +29,5 @@
 Reverse Proxy و Process به نسخه قبلی بازگردد. اگر Migration ناسازگار بود، Snapshot قبل از Deploy بازگردانده و Health Check و Login دوباره آزمایش شوند.
 
 هیچ‌یک از این مراحل روی Production بدون تأیید صریح مالک اجرا نمی‌شود.
+
+Build انتشار Android نیز فقط پس از HTTPS نهایی و تأیید Production انجام می‌شود؛ `server.url` مبتنی بر HTTP صرفاً برای Emulator محلی است.
