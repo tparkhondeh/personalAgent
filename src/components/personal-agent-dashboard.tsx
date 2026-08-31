@@ -250,13 +250,13 @@ type AgentProposal = { kind: "CREATE_TASK" | "CREATE_MEETING" | "PLAN" | "NONE";
 
 function Assistant({ onAdd, onChanged }: { onAdd: () => void; onChanged: () => Promise<void> }) {
   const { data: session } = authClient.useSession();
-  const [input, setInput] = useState(""); const [reply, setReply] = useState(""); const [proposal, setProposal] = useState<AgentProposal | null>(null); const [pending, setPending] = useState(false); const [status, setStatus] = useState("");
+  const [input, setInput] = useState(""); const [reply, setReply] = useState(""); const [proposal, setProposal] = useState<AgentProposal | null>(null); const [pending, setPending] = useState(false); const [status, setStatus] = useState(""); const [conversationId, setConversationId] = useState<string>();
   async function send(event: FormEvent) {
     event.preventDefault(); if (!input.trim()) return; setPending(true); setStatus(""); setReply(""); setProposal(null);
-    const response = await fetch("/api/agent", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ message: input, timezone: "Asia/Tehran" }) });
+    const response = await fetch("/api/agent", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ message: input, timezone: "Asia/Tehran", conversationId }) });
     const body = await response.json(); setPending(false);
     if (!response.ok) { setStatus(body.error || "پاسخی دریافت نشد"); return; }
-    setReply(body.data.reply); setProposal(body.data.proposal); setInput("");
+    setReply(body.data.reply); setProposal(body.data.proposal); setConversationId(body.data.conversationId); setInput("");
   }
   async function approve() {
     if (!proposal?.title) return; setPending(true);
