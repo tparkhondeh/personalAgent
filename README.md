@@ -44,6 +44,8 @@ pnpm build
 
 ## مستندات
 
+- [مختصات و درصد پیشرفت پروژه](PROJECT_STATUS.md)
+- [پرامپت آماده برای ادامه پروژه](docs/continuation-prompt-fa.md)
 - [معماری سیستم](docs/architecture.md)
 - [منابع متن‌باز و مجوزها](docs/open-source-review.md)
 - [برنامه Deploy، Backup و Rollback](docs/deployment.md)
