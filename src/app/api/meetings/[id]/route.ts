@@ -9,6 +9,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const { id } = await params;
   const existing = await db.meeting.findFirst({ where: { id, userId: session.user.id } });
   if (!existing) return jsonError("جلسه پیدا نشد", 404);
+  const preference = await db.userPreference.findUnique({ where: { userId: session.user.id }, select: { defaultReminderMins: true } });
   const parsed = meetingUpdateSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return jsonError("اطلاعات جلسه معتبر نیست", 422, parsed.error.flatten());
 
@@ -32,7 +33,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       create: { title: updated.title, startsAt, endsAt, meetingId: id },
     });
     await tx.reminder.deleteMany({ where: { meetingId: id } });
-    const scheduledFor = new Date(startsAt.getTime() - 15 * 60_000);
+    const scheduledFor = new Date(startsAt.getTime() - (preference?.defaultReminderMins ?? 15) * 60_000);
     await tx.reminder.create({ data: { userId: session.user.id, meetingId: id, scheduledFor, channel: "PUSH", idempotencyKey: reminderIdempotencyKey(session.user.id, id, scheduledFor, "PUSH") } });
     await tx.auditLog.create({ data: { userId: session.user.id, action: "MEETING_UPDATED", entityType: "Meeting", entityId: id, input: JSON.stringify(parsed.data) } });
     return updated;

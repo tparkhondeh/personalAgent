@@ -9,6 +9,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const { id } = await params;
   const existing = await db.task.findFirst({ where: { id, userId: session.user.id } });
   if (!existing) return jsonError("کار پیدا نشد", 404);
+  const preference = await db.userPreference.findUnique({ where: { userId: session.user.id }, select: { defaultReminderMins: true } });
   const parsed = taskUpdateSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return jsonError("اطلاعات کار معتبر نیست", 422, parsed.error.flatten());
   const { reminderMinutes, ...updates } = parsed.data;
@@ -18,7 +19,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (updates.dueAt !== undefined || reminderMinutes !== undefined) {
       await tx.reminder.deleteMany({ where: { taskId: id } });
       if (updated.dueAt) {
-        const scheduledFor = new Date(updated.dueAt.getTime() - (reminderMinutes ?? 15) * 60_000);
+        const scheduledFor = new Date(updated.dueAt.getTime() - (reminderMinutes ?? preference?.defaultReminderMins ?? 15) * 60_000);
         await tx.reminder.create({ data: { userId: session.user.id, taskId: id, scheduledFor, channel: "PUSH", idempotencyKey: reminderIdempotencyKey(session.user.id, id, scheduledFor, "PUSH") } });
       }
     }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { meetingInputSchema, meetingUpdateSchema, taskInputSchema } from "./validation";
+import { meetingInputSchema, meetingUpdateSchema, taskInputSchema, userPreferenceInputSchema } from "./validation";
 
 describe("input validation", () => {
   it("rejects an empty task title", () => {
@@ -23,6 +23,16 @@ describe("input validation", () => {
 
   it("rejects invalid times in a meeting update", () => {
     const result = meetingUpdateSchema.safeParse({ startsAt: "2026-08-30T12:00:00.000Z", endsAt: "2026-08-30T11:00:00.000Z" });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts a complete personal planning profile", () => {
+    const result = userPreferenceInputSchema.safeParse({ timezone: "Asia/Tehran", locale: "fa-IR", workdayStartsAt: "09:00", workdayEndsAt: "18:00", workingDays: ["SAT", "SUN", "MON", "TUE", "WED"], defaultReminderMins: 15, quietHoursStartsAt: "22:00", quietHoursEndsAt: "08:00", planningProfile: "BALANCED" });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects a profile without a working day", () => {
+    const result = userPreferenceInputSchema.safeParse({ workdayStartsAt: "09:00", workdayEndsAt: "18:00", workingDays: [], defaultReminderMins: 15, quietHoursStartsAt: "22:00", quietHoursEndsAt: "08:00", planningProfile: "BALANCED" });
     expect(result.success).toBe(false);
   });
 });

@@ -9,7 +9,7 @@ export const taskInputSchema = z.object({
   dueAt: z.iso.datetime().optional(),
   estimatedMinutes: z.number().int().min(5).max(1440).optional(),
   recurrenceRule: z.string().max(500).optional(),
-  reminderMinutes: z.number().int().min(0).max(10080).default(15),
+  reminderMinutes: z.number().int().min(0).max(10080).optional(),
 });
 
 export const taskUpdateSchema = taskInputSchema.partial().extend({
@@ -37,3 +37,18 @@ export const meetingUpdateSchema = z.object({ ...meetingFields, attendees: meeti
   (value) => !value.startsAt || !value.endsAt || new Date(value.endsAt) > new Date(value.startsAt),
   { message: "زمان پایان باید بعد از شروع باشد", path: ["endsAt"] },
 );
+
+const clockTimeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "زمان باید به شکل ساعت و دقیقه باشد");
+const workingDaySchema = z.enum(["SAT", "SUN", "MON", "TUE", "WED", "THU", "FRI"]);
+
+export const userPreferenceInputSchema = z.object({
+  timezone: z.string().trim().min(1).max(100).default("Asia/Tehran"),
+  locale: z.string().trim().min(2).max(20).default("fa-IR"),
+  workdayStartsAt: clockTimeSchema,
+  workdayEndsAt: clockTimeSchema,
+  workingDays: z.array(workingDaySchema).min(1, "حداقل یک روز کاری انتخاب کن").max(7),
+  defaultReminderMins: z.number().int().min(0).max(10080),
+  quietHoursStartsAt: clockTimeSchema,
+  quietHoursEndsAt: clockTimeSchema,
+  planningProfile: z.enum(["BALANCED", "FOCUS", "FLEXIBLE"]),
+}).refine((value) => value.workdayStartsAt !== value.workdayEndsAt, { message: "شروع و پایان ساعت کاری نمی‌تواند یکسان باشد", path: ["workdayEndsAt"] });
