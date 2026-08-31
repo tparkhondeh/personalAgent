@@ -17,8 +17,8 @@
     "android:sync": "cap sync android",
     "android:sync:emulator": "cross-env CAPACITOR_SERVER_URL=http://10.0.2.2:3001 cap sync android",
     "android:open": "cap open android",
-    "android:assets": "node scripts/generate-android-assets.mjs",
-    "android:build:debug": "pnpm android:sync:emulator && cd android && gradlew.bat assembleDebug"
+    "android:assets": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/android-assets.ps1",
+    "android:build:debug": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/android-build.ps1"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.51",

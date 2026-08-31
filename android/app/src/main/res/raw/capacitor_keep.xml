@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@layout/activity_main,@xml/config,@drawable/ic_stat_hamrah,@raw/urgent_alarm,@string/package_name,@string/custom_url_scheme" />

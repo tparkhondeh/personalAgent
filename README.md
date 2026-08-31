@@ -45,7 +45,7 @@ pnpm audit --prod --audit-level high
 
 ## اپلیکیشن Android
 
-ساختار Android آماده است. ساخت APK آزمایشی پس از نصب JDK و Android SDK با `pnpm android:build:debug` انجام می‌شود. نسخه انتشار تا تأیید آدرس امن Production ساخته نمی‌شود.
+نسخه آزمایشی Android ساخته شده و با `pnpm android:build:debug` دوباره تولید می‌شود. خروجی محلی در `android/app/build/outputs/apk/debug/app-debug.apk` قرار می‌گیرد. نسخه عمومیِ امضاشده تا تأیید آدرس امن Production ساخته نمی‌شود.
 
 ## متغیرهای محیطی
 

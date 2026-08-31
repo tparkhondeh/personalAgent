@@ -3,6 +3,9 @@ apply plugin: 'com.android.application'
 android {
     namespace = "ir.wealthos.personalagent"
     compileSdk = rootProject.ext.compileSdkVersion
+    buildFeatures {
+        buildConfig = true
+    }
     defaultConfig {
         applicationId "ir.wealthos.personalagent"
         minSdkVersion rootProject.ext.minSdkVersion

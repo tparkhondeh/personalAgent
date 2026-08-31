@@ -14,6 +14,15 @@ function appIconSvg(background = "#F6F3EF", transparent = false) {
   </svg>`);
 }
 
+function roundAppIconSvg() {
+  return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+    <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#B3C3AB"/><stop offset="1" stop-color="#657966"/></linearGradient></defs>
+    <circle cx="256" cy="256" r="252" fill="#F6F3EF"/>
+    <circle cx="256" cy="256" r="180" fill="url(#g)"/>
+    <path d="M180 180v70c0 47 31 82 76 82 39 0 72-26 78-66m-154-16h154m-78-70v210" fill="none" stroke="#fff" stroke-width="38" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`);
+}
+
 const densities = [
   ["mdpi", 48, 108],
   ["hdpi", 72, 162],
@@ -26,35 +35,8 @@ for (const [density, iconSize, foregroundSize] of densities) {
   const directory = path.join(resourceRoot, `mipmap-${density}`);
   await mkdir(directory, { recursive: true });
   await sharp(appIconSvg()).resize(iconSize, iconSize).png().toFile(path.join(directory, "ic_launcher.png"));
-  await sharp(appIconSvg()).resize(iconSize, iconSize).png().toFile(path.join(directory, "ic_launcher_round.png"));
+  await sharp(roundAppIconSvg()).resize(iconSize, iconSize).png().toFile(path.join(directory, "ic_launcher_round.png"));
   await sharp(appIconSvg("#00000000", true)).resize(foregroundSize, foregroundSize).png().toFile(path.join(directory, "ic_launcher_foreground.png"));
-}
-
-const splashes = [
-  ["drawable", 480, 320],
-  ["drawable-land-mdpi", 480, 320],
-  ["drawable-land-hdpi", 800, 480],
-  ["drawable-land-xhdpi", 1280, 720],
-  ["drawable-land-xxhdpi", 1600, 960],
-  ["drawable-land-xxxhdpi", 1920, 1280],
-  ["drawable-port-mdpi", 320, 480],
-  ["drawable-port-hdpi", 480, 800],
-  ["drawable-port-xhdpi", 720, 1280],
-  ["drawable-port-xxhdpi", 960, 1600],
-  ["drawable-port-xxxhdpi", 1280, 1920],
-];
-
-for (const [qualifier, width, height] of splashes) {
-  for (const mode of ["light", "dark"]) {
-    const directory = path.join(resourceRoot, mode === "light" ? qualifier : `${qualifier}-night`);
-    await mkdir(directory, { recursive: true });
-    const logoWidth = Math.round(Math.min(width, height) * 0.28);
-    const logo = await sharp(appIconSvg(mode === "light" ? "#F6F3EF" : "#202A23")).resize(logoWidth, logoWidth).png().toBuffer();
-    await sharp({ create: { width, height, channels: 4, background: mode === "light" ? "#F6F3EF" : "#151B17" } })
-      .composite([{ input: logo, gravity: "center" }])
-      .png()
-      .toFile(path.join(directory, "splash.png"));
-  }
 }
 
 const sampleRate = 44_100;
@@ -77,4 +59,4 @@ const rawDirectory = path.join(resourceRoot, "raw");
 await mkdir(rawDirectory, { recursive: true });
 await writeFile(path.join(rawDirectory, "urgent_alarm.wav"), wav);
 
-console.log("Android icons and splash screens generated.");
+console.log("Android icons and urgent alarm generated.");
