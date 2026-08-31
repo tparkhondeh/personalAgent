@@ -16,14 +16,24 @@ export const taskUpdateSchema = taskInputSchema.partial().extend({
   status: z.enum(["TODO", "IN_PROGRESS", "DONE", "CANCELLED"]).optional(),
 });
 
-export const meetingInputSchema = z.object({
+const meetingAttendeesSchema = z.array(z.string().trim().max(200)).max(100);
+const meetingTimezoneSchema = z.string().max(100);
+
+const meetingFields = {
   title: z.string().trim().min(1).max(180),
   description: z.string().trim().max(3000).optional(),
   agenda: z.string().trim().max(5000).optional(),
-  attendees: z.array(z.string().trim().max(200)).max(100).default([]),
+  attendees: meetingAttendeesSchema.default([]),
   location: z.string().trim().max(500).optional(),
   meetingUrl: z.url().optional(),
   startsAt: z.iso.datetime(),
   endsAt: z.iso.datetime(),
-  timezone: z.string().max(100).default("Asia/Tehran"),
-}).refine((value) => new Date(value.endsAt) > new Date(value.startsAt), { message: "زمان پایان باید بعد از شروع باشد", path: ["endsAt"] });
+  timezone: meetingTimezoneSchema.default("Asia/Tehran"),
+};
+
+export const meetingInputSchema = z.object(meetingFields).refine((value) => new Date(value.endsAt) > new Date(value.startsAt), { message: "زمان پایان باید بعد از شروع باشد", path: ["endsAt"] });
+
+export const meetingUpdateSchema = z.object({ ...meetingFields, attendees: meetingAttendeesSchema, timezone: meetingTimezoneSchema }).partial().refine(
+  (value) => !value.startsAt || !value.endsAt || new Date(value.endsAt) > new Date(value.startsAt),
+  { message: "زمان پایان باید بعد از شروع باشد", path: ["endsAt"] },
+);

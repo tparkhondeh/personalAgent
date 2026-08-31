@@ -57,6 +57,11 @@ function localDateInput(offsetDays = 0) {
   return `${get("year")}-${get("month")}-${get("day")}`;
 }
 
+function localTimeInput(value?: string) {
+  if (!value) return "09:00";
+  return new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Tehran", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(value));
+}
+
 function tehranIso(date: string, time: string) { return new Date(`${date}T${time || "09:00"}:00+03:30`).toISOString(); }
 
 export function PersonalAgentDashboard() {
@@ -64,6 +69,8 @@ export function PersonalAgentDashboard() {
   const [view, setView] = useState<View>("today");
   const [filter, setFilter] = useState<Category | "all">("all");
   const [composer, setComposer] = useState(false);
+  const [editing, setEditing] = useState<Item | null>(null);
+  const [pendingDelete, setPendingDelete] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [notificationStatus, setNotificationStatus] = useState("فعال‌سازی اعلان‌ها");
@@ -122,10 +129,10 @@ export function PersonalAgentDashboard() {
   }
 
   async function remove(item: Item) {
-    if (!signedIn) { setItems((all) => all.filter((candidate) => candidate.id !== item.id)); return; }
+    if (!signedIn) { setItems((all) => all.filter((candidate) => candidate.id !== item.id)); setPendingDelete(""); return; }
     const endpoint = item.source === "meeting" ? `/api/meetings/${item.id}` : `/api/tasks/${item.id}`;
     const response = await fetch(endpoint, { method: "DELETE" });
-    if (response.ok) setItems((all) => all.filter((candidate) => candidate.id !== item.id));
+    if (response.ok) { setItems((all) => all.filter((candidate) => candidate.id !== item.id)); setPendingDelete(""); }
     else setMessage("حذف انجام نشد؛ دوباره تلاش کن.");
   }
 
@@ -134,13 +141,16 @@ export function PersonalAgentDashboard() {
     catch (error) { setNotificationStatus(error instanceof Error ? error.message : "فعال‌سازی اعلان ناموفق بود"); }
   }
 
-  async function add(event: FormEvent<HTMLFormElement>) {
+  function openComposer(item: Item | null = null) { setEditing(item); setComposer(true); }
+  function closeComposer() { setEditing(null); setComposer(false); }
+
+  async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
     const data = new FormData(form);
     const title = String(data.get("title") || "").trim();
     const category = data.get("category") as Category;
-    const priority = data.get("priority") as Priority;
+    const priority = category === "meeting" ? "important" : data.get("priority") as Priority;
     const date = String(data.get("date") || localDateInput());
     const time = String(data.get("time") || "09:00");
     const startsAt = tehranIso(date, time);
@@ -148,18 +158,19 @@ export function PersonalAgentDashboard() {
     setMessage("");
     if (!signedIn) {
       const duration = Number(data.get("duration") || 60);
-      setItems((all) => [{ id: crypto.randomUUID(), title, category, priority, source: category === "meeting" ? "meeting" : "task", startsAt: category === "meeting" ? startsAt : undefined, endsAt: category === "meeting" ? new Date(new Date(startsAt).getTime() + duration * 60_000).toISOString() : undefined, dueAt: category === "meeting" ? undefined : startsAt, done: false }, ...all]);
-      form.reset(); setComposer(false); return;
+      const nextItem: Item = { id: editing?.id || crypto.randomUUID(), title, category, priority, source: category === "meeting" ? "meeting" : "task", startsAt: category === "meeting" ? startsAt : undefined, endsAt: category === "meeting" ? new Date(new Date(startsAt).getTime() + duration * 60_000).toISOString() : undefined, dueAt: category === "meeting" ? undefined : startsAt, done: editing?.done || false };
+      setItems((all) => editing ? all.map((item) => item.id === editing.id && item.source === editing.source ? nextItem : item) : [nextItem, ...all]);
+      form.reset(); closeComposer(); return;
     }
     const isMeeting = category === "meeting";
     const duration = Number(data.get("duration") || 60);
-    const endpoint = isMeeting ? "/api/meetings" : "/api/tasks";
+    const endpoint = isMeeting ? editing ? `/api/meetings/${editing.id}` : "/api/meetings" : editing ? `/api/tasks/${editing.id}` : "/api/tasks";
     const body = isMeeting
-      ? { title, startsAt, endsAt: new Date(new Date(startsAt).getTime() + duration * 60_000).toISOString(), timezone: "Asia/Tehran", attendees: [] }
+      ? { title, startsAt, endsAt: new Date(new Date(startsAt).getTime() + duration * 60_000).toISOString(), timezone: "Asia/Tehran", ...(editing ? {} : { attendees: [] }) }
       : { title, category: category === "work" ? "WORK" : "PERSONAL", priority: priority.toUpperCase(), dueAt: startsAt, reminderMinutes: Number(data.get("reminderMinutes") || 15) };
-    const response = await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    const response = await fetch(endpoint, { method: editing ? "PATCH" : "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
     if (!response.ok) { const result = await response.json().catch(() => null); setMessage(result?.error || "ثبت برنامه انجام نشد."); return; }
-    form.reset(); setComposer(false); await loadRemote();
+    form.reset(); closeComposer(); await loadRemote();
   }
 
   const greetingName = session?.user.name?.split(" ")[0] || "دوست من";
@@ -171,23 +182,25 @@ export function PersonalAgentDashboard() {
       <div className="profile"><div className="avatar">{session?.user.name?.slice(0, 1) || "ه"}</div><div><strong>{session?.user.name || "نسخه آزمایشی"}</strong><small>{signedIn ? "حساب متصل است" : "برای ذخیره دائمی وارد شو"}</small></div>{signedIn ? <button aria-label="خروج" title="خروج" onClick={() => authClient.signOut()}>خروج</button> : <Link className="login-link" href="/login">ورود</Link>}</div>
     </aside>
     <section className="workspace">
-      <header className="topbar"><div><p className="eyebrow">{tehranDate.format(new Date())}</p><h1>{view === "assistant" ? "گفتگو با همراه" : view === "calendar" ? "تقویم من" : view === "tasks" ? "همه کارها و جلسات" : `سلام، ${greetingName}`}</h1></div><div className="top-actions"><button className="icon-button" aria-label="اعلان‌ها" title={notificationStatus} onClick={enableNotifications}>اعلان<span /></button><button className="primary-button" onClick={() => setComposer(true)}>برنامه جدید</button></div></header>
+      <header className="topbar"><div><p className="eyebrow">{tehranDate.format(new Date())}</p><h1>{view === "assistant" ? "گفتگو با همراه" : view === "calendar" ? "تقویم من" : view === "tasks" ? "همه کارها و جلسات" : `سلام، ${greetingName}`}</h1></div><div className="top-actions"><button className="icon-button" aria-label="اعلان‌ها" title={notificationStatus} onClick={enableNotifications}>اعلان<span /></button><button className="primary-button" onClick={() => openComposer()}>برنامه جدید</button></div></header>
       {message && <p className="page-message">{message}</p>}
-      {view === "assistant" ? <Assistant onAdd={() => setComposer(true)} onChanged={loadRemote} /> : view === "calendar" ? <Calendar items={items} /> : <>
+      {view === "assistant" ? <Assistant onAdd={() => openComposer()} onChanged={loadRemote} /> : view === "calendar" ? <Calendar items={items} /> : <>
         <section className="summary-grid"><article className="focus-card"><div><p>تمرکز امروز</p><strong>{open} کار باقی مانده</strong></div><div className="progress-ring" style={{ "--progress": `${progress * 3.6}deg` } as React.CSSProperties}><span>{progress}٪</span></div></article><article className="summary-card peach"><div><small>جلسه بعدی</small><strong>{nextMeeting?.title || "جلسه‌ای ثبت نشده"}</strong><p>{nextMeeting ? `${itemDate(nextMeeting)}، ساعت ${itemTime(nextMeeting)}` : "برنامه‌ات آزاد است"}</p></div></article><article className="summary-card lavender"><div><small>پیشنهاد همراه</small><strong>{open ? "از مهم‌ترین کار شروع کن" : "برنامه‌ات مرتب است"}</strong><p>{open ? `${open} کار باز داری` : "زمانی برای استراحت بگذار"}</p></div></article></section>
         <section className="content-card"><div className="card-heading"><div><h2>{view === "today" ? "برنامه امروز" : "فهرست برنامه‌ها"}</h2><p>{signedIn ? "اطلاعات این صفحه از حساب تو خوانده می‌شود" : "این داده‌ها فقط برای نمایش و روی همین دستگاه هستند"}</p></div><div className="filters"><button className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>همه</button>{(Object.keys(categories) as Category[]).map((key) => <button key={key} className={filter === key ? "active" : ""} onClick={() => setFilter(key)}>{categories[key][0]}</button>)}</div></div>
-          <div className="task-list">{loading ? <div className="empty-state">در حال دریافت برنامه…</div> : visible.length === 0 ? <div className="empty-state">اینجا فعلاً خلوت است؛ یک برنامه تازه اضافه کن.</div> : visible.map((item) => <article className={`task-row ${item.done ? "done" : ""}`} key={`${item.source}-${item.id}`}><button className={`check-button ${item.source === "meeting" ? "meeting-check" : ""}`} onClick={() => void toggle(item)} aria-label={item.source === "meeting" ? "جلسه" : "تغییر وضعیت"}>{item.source === "meeting" ? "" : item.done ? "✓" : ""}</button><div className="task-main"><strong>{item.title}</strong><div><span className={`tag ${categories[item.category][1]}`}>{categories[item.category][0]}</span><span className={`tag ${priorities[item.priority][1]}`}>{priorities[item.priority][0]}</span></div></div><div className="task-time"><strong>{itemTime(item)}</strong><small>{itemDate(item)}</small></div><button className="more-button delete-button" aria-label={`حذف ${item.title}`} title="حذف" onClick={() => void remove(item)}>×</button></article>)}</div>
+          <div className="task-list">{loading ? <div className="empty-state">در حال دریافت برنامه…</div> : visible.length === 0 ? <div className="empty-state">اینجا فعلاً خلوت است؛ یک برنامه تازه اضافه کن.</div> : visible.map((item) => { const itemKey = `${item.source}-${item.id}`; const confirming = pendingDelete === itemKey; return <article className={`task-row ${item.done ? "done" : ""}`} key={itemKey}><button className={`check-button ${item.source === "meeting" ? "meeting-check" : ""}`} onClick={() => void toggle(item)} aria-label={item.source === "meeting" ? "جلسه" : "تغییر وضعیت"}>{item.source === "meeting" ? "" : item.done ? "✓" : ""}</button><div className="task-main"><strong>{item.title}</strong><div><span className={`tag ${categories[item.category][1]}`}>{categories[item.category][0]}</span><span className={`tag ${priorities[item.priority][1]}`}>{priorities[item.priority][0]}</span></div></div><div className="task-time"><strong>{itemTime(item)}</strong><small>{itemDate(item)}</small></div><div className="item-actions">{confirming ? <><button className="delete-button confirm-delete" onClick={() => void remove(item)}>تأیید حذف</button><button className="edit-button" onClick={() => setPendingDelete("")}>انصراف</button></> : <><button className="edit-button" onClick={() => openComposer(item)}>ویرایش</button><button className="delete-button" onClick={() => setPendingDelete(itemKey)}>حذف</button></>}</div></article>; })}</div>
         </section>
       </>}
     </section>
-    <nav className="mobile-nav"><Nav active={view === "today"} label="امروز" onClick={() => { setView("today"); setFilter("all"); }} /><Nav active={view === "tasks"} label="کارها" onClick={() => setView("tasks")} /><button className="mobile-add" aria-label="برنامه جدید" onClick={() => setComposer(true)}>جدید</button><Nav active={view === "calendar"} label="تقویم" onClick={() => setView("calendar")} /><Nav active={view === "assistant"} label="همراه" onClick={() => setView("assistant")} /></nav>
-    {composer && <Composer onClose={() => setComposer(false)} onSubmit={add} />}
+    <nav className="mobile-nav"><Nav active={view === "today"} label="امروز" onClick={() => { setView("today"); setFilter("all"); }} /><Nav active={view === "tasks"} label="کارها" onClick={() => setView("tasks")} /><button className="mobile-add" aria-label="برنامه جدید" onClick={() => openComposer()}>جدید</button><Nav active={view === "calendar"} label="تقویم" onClick={() => setView("calendar")} /><Nav active={view === "assistant"} label="همراه" onClick={() => setView("assistant")} /></nav>
+    {composer && <Composer initial={editing} onClose={closeComposer} onSubmit={save} />}
   </main>;
 }
 
-function Composer({ onClose, onSubmit }: { onClose: () => void; onSubmit: (event: FormEvent<HTMLFormElement>) => void }) {
-  const [category, setCategory] = useState<Category>("personal");
-  return <div className="modal-backdrop" onMouseDown={onClose}><form className="composer" onSubmit={onSubmit} onMouseDown={(event) => event.stopPropagation()}><div className="composer-heading"><div><small>یک قدم تازه</small><h2>{category === "meeting" ? "جلسه جدید" : "کار جدید"}</h2></div><button type="button" onClick={onClose}>×</button></div><label>عنوان<input name="title" autoFocus required placeholder={category === "meeting" ? "مثلاً جلسه با تیم فروش" : "مثلاً تماس با تیم فروش"} /></label><div className="field-grid"><label>دسته‌بندی<select name="category" value={category} onChange={(event) => setCategory(event.target.value as Category)}><option value="personal">شخصی</option><option value="work">شرکتی</option><option value="meeting">جلسه</option></select></label><label>اولویت<select name="priority" disabled={category === "meeting"}><option value="normal">عادی</option><option value="important">مهم</option><option value="urgent">فوری</option></select></label></div><div className="field-grid"><label>تاریخ<input name="date" type="date" defaultValue={localDateInput()} required /></label><label>ساعت<input name="time" type="time" defaultValue="09:00" required /></label></div><div className="field-grid">{category === "meeting" ? <label>مدت جلسه<select name="duration" defaultValue="60"><option value="30">۳۰ دقیقه</option><option value="60">۱ ساعت</option><option value="90">۱.۵ ساعت</option><option value="120">۲ ساعت</option></select></label> : <label>یادآوری<select name="reminderMinutes" defaultValue="15"><option value="0">همان لحظه</option><option value="15">۱۵ دقیقه قبل</option><option value="60">۱ ساعت قبل</option><option value="1440">یک روز قبل</option></select></label>}<span /></div><button className="submit-button">ثبت در برنامه</button></form></div>;
+function Composer({ initial, onClose, onSubmit }: { initial: Item | null; onClose: () => void; onSubmit: (event: FormEvent<HTMLFormElement>) => void }) {
+  const [category, setCategory] = useState<Category>(initial?.category || "personal");
+  const moment = initial ? itemMoment(initial) : undefined;
+  const duration = initial?.source === "meeting" && initial.startsAt && initial.endsAt ? String(Math.round((new Date(initial.endsAt).getTime() - new Date(initial.startsAt).getTime()) / 60_000)) : "60";
+  return <div className="modal-backdrop" onMouseDown={onClose}><form className="composer" onSubmit={onSubmit} onMouseDown={(event) => event.stopPropagation()}><div className="composer-heading"><div><small>{initial ? "به‌روزرسانی برنامه" : "یک قدم تازه"}</small><h2>{initial ? category === "meeting" ? "ویرایش جلسه" : "ویرایش کار" : category === "meeting" ? "جلسه جدید" : "کار جدید"}</h2></div><button type="button" onClick={onClose}>بستن</button></div><label>عنوان<input name="title" autoFocus required defaultValue={initial?.title} placeholder={category === "meeting" ? "مثلاً جلسه با تیم فروش" : "مثلاً تماس با تیم فروش"} /></label><div className="field-grid"><label>دسته‌بندی<select name="category" value={category} onChange={(event) => setCategory(event.target.value as Category)}>{initial?.source === "meeting" ? <option value="meeting">جلسه</option> : <><option value="personal">شخصی</option><option value="work">شرکتی</option>{!initial && <option value="meeting">جلسه</option>}</>}</select></label><label>اولویت<select name="priority" disabled={category === "meeting"} defaultValue={initial?.priority || "normal"}><option value="normal">عادی</option><option value="important">مهم</option><option value="urgent">فوری</option></select></label></div><div className="field-grid"><label>تاریخ<input name="date" type="date" defaultValue={moment ? dateKey(moment) : localDateInput()} required /></label><label>ساعت<input name="time" type="time" defaultValue={localTimeInput(moment)} required /></label></div><div className="field-grid">{category === "meeting" ? <label>مدت جلسه<select name="duration" defaultValue={duration}><option value="30">۳۰ دقیقه</option><option value="60">۱ ساعت</option><option value="90">۱.۵ ساعت</option><option value="120">۲ ساعت</option></select></label> : <label>یادآوری<select name="reminderMinutes" defaultValue="15"><option value="0">همان لحظه</option><option value="15">۱۵ دقیقه قبل</option><option value="60">۱ ساعت قبل</option><option value="1440">یک روز قبل</option></select></label>}<span /></div><button className="submit-button">{initial ? "ذخیره تغییرات" : "ثبت در برنامه"}</button></form></div>;
 }
 
 function Nav({ active, label, badge, onClick }: { active: boolean; label: string; badge?: number; onClick: () => void }) { return <button className={`nav-button ${active ? "active" : ""}`} onClick={onClick}>{label}{badge !== undefined && <small>{badge}</small>}</button>; }

@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { jsonError, requireApiSession } from "@/lib/api";
 import { taskUpdateSchema } from "@/lib/validation";
+import { reminderIdempotencyKey } from "@/lib/reminders";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireApiSession(request.headers);
@@ -11,10 +12,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const parsed = taskUpdateSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return jsonError("اطلاعات کار معتبر نیست", 422, parsed.error.flatten());
   const { reminderMinutes, ...updates } = parsed.data;
-  void reminderMinutes;
   const data = { ...updates, startAt: updates.startAt ? new Date(updates.startAt) : undefined, dueAt: updates.dueAt ? new Date(updates.dueAt) : undefined, completedAt: updates.status === "DONE" ? new Date() : updates.status ? null : undefined };
   const task = await db.$transaction(async (tx) => {
     const updated = await tx.task.update({ where: { id }, data });
+    if (updates.dueAt !== undefined || reminderMinutes !== undefined) {
+      await tx.reminder.deleteMany({ where: { taskId: id } });
+      if (updated.dueAt) {
+        const scheduledFor = new Date(updated.dueAt.getTime() - (reminderMinutes ?? 15) * 60_000);
+        await tx.reminder.create({ data: { userId: session.user.id, taskId: id, scheduledFor, channel: "PUSH", idempotencyKey: reminderIdempotencyKey(session.user.id, id, scheduledFor, "PUSH") } });
+      }
+    }
     await tx.auditLog.create({ data: { userId: session.user.id, action: "TASK_UPDATED", entityType: "Task", entityId: id, input: JSON.stringify(parsed.data) } });
     return updated;
   });
