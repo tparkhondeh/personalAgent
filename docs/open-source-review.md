@@ -9,6 +9,7 @@
 | Zod | Schema Validation | MIT | استفاده مستقیم در APIها |
 | RRule | کارهای تکرارشونده | BSD-3-Clause | استفاده مستقیم |
 | web-push | Web Push/VAPID | MIT | استفاده مستقیم |
+| Vazirmatn 33.0.3 | فونت فارسی محلی | SIL OFL-1.1 | استفاده مستقیم و بارگذاری از Bundle پروژه |
 | FullCalendar | الگوی تقویم | MIT برای Standard | فعلاً استفاده نشده؛ UI سبک اختصاصی سریع‌تر بود |
 | Vikunja | Task Management | AGPL-3.0 | فقط مطالعه معماری؛ کدی کپی نشده |
 | Cal.com | Scheduling | AGPL-3.0/Commercial | فقط مطالعه UX؛ کدی کپی نشده |

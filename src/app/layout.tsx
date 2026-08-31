@@ -1,11 +1,6 @@
 import type { Metadata } from "next";
-import { Geist } from "next/font/google";
+import "vazirmatn/Vazirmatn-Variable-font-face.css";
 import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "همراه | دستیار شخصی هوشمند",
@@ -20,7 +15,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="fa"
       dir="rtl"
-      className={`${geistSans.variable} h-full antialiased`}
+      className="h-full antialiased"
     >
       <body className="min-h-full">{children}</body>
     </html>
