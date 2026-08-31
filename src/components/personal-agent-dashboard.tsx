@@ -5,6 +5,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { authClient } from "@/lib/auth-client";
 import { enablePushNotifications } from "@/lib/push-client";
 import { defaultPreferences, PreferencesPanel, type UserPreferences } from "@/components/preferences-panel";
+import { NotificationCenter, type AppNotification } from "@/components/notification-center";
 
 type Category = "personal" | "work" | "meeting";
 type Priority = "urgent" | "important" | "normal";
@@ -75,6 +76,8 @@ export function PersonalAgentDashboard() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [notificationStatus, setNotificationStatus] = useState("فعال‌سازی اعلان‌ها");
+  const [notificationCenter, setNotificationCenter] = useState(false);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const { data: session } = authClient.useSession();
@@ -103,6 +106,19 @@ export function PersonalAgentDashboard() {
     } catch (error) { setMessage(error instanceof Error ? error.message : "دریافت برنامه انجام نشد"); }
     finally { setLoading(false); }
   }, [session?.user]);
+
+  const loadNotifications = useCallback(async () => {
+    if (!session?.user) return;
+    const response = await fetch("/api/notifications");
+    if (!response.ok) return;
+    const result = await response.json();
+    setNotifications(result.data as AppNotification[]);
+  }, [session?.user]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => void loadNotifications(), 0);
+    return () => window.clearTimeout(timer);
+  }, [loadNotifications]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void loadRemote(), 0);
@@ -158,6 +174,13 @@ export function PersonalAgentDashboard() {
     catch (error) { setNotificationStatus(error instanceof Error ? error.message : "فعال‌سازی اعلان ناموفق بود"); }
   }
 
+  async function markNotificationsRead(id?: string) {
+    const response = await fetch("/api/notifications", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(id ? { id } : { all: true }) });
+    if (!response.ok) { setMessage("به‌روزرسانی اعلان انجام نشد."); return; }
+    const readAt = new Date().toISOString();
+    setNotifications((all) => all.map((notification) => !id || notification.id === id ? { ...notification, readAt } : notification));
+  }
+
   function openComposer(item: Item | null = null) { setEditing(item); setComposer(true); }
   function closeComposer() { setEditing(null); setComposer(false); }
 
@@ -191,6 +214,7 @@ export function PersonalAgentDashboard() {
   }
 
   const greetingName = session?.user.name?.split(" ")[0] || "دوست من";
+  const unreadNotifications = notifications.filter((notification) => !notification.readAt).length;
   return <main className="app-shell">
     <aside className="sidebar">
       <div className="brand"><span className="brand-mark">ه</span><div><strong>همراه</strong><small>دستیار شخصی تو</small></div></div>
@@ -199,7 +223,7 @@ export function PersonalAgentDashboard() {
       <div className="profile"><div className="avatar">{session?.user.name?.slice(0, 1) || "ه"}</div><div><strong>{session?.user.name || "نسخه آزمایشی"}</strong><small>{signedIn ? "حساب متصل است" : "برای ذخیره دائمی وارد شو"}</small></div>{signedIn ? <button aria-label="خروج" title="خروج" onClick={() => authClient.signOut()}>خروج</button> : <Link className="login-link" href="/login">ورود</Link>}</div>
     </aside>
     <section className="workspace">
-      <header className="topbar"><div><p className="eyebrow">{tehranDate.format(new Date())}</p><h1>{view === "settings" ? "تنظیمات من" : view === "assistant" ? "گفتگو با همراه" : view === "calendar" ? "تقویم من" : view === "tasks" ? "همه کارها و جلسات" : `سلام، ${greetingName}`}</h1></div><div className="top-actions"><button className="settings-button" onClick={() => setView("settings")}>تنظیمات</button><button className="icon-button" aria-label="اعلان‌ها" title={notificationStatus} onClick={enableNotifications}>اعلان<span /></button><button className="primary-button" onClick={() => openComposer()}>برنامه جدید</button></div></header>
+      <header className="topbar"><div><p className="eyebrow">{tehranDate.format(new Date())}</p><h1>{view === "settings" ? "تنظیمات من" : view === "assistant" ? "گفتگو با همراه" : view === "calendar" ? "تقویم من" : view === "tasks" ? "همه کارها و جلسات" : `سلام، ${greetingName}`}</h1></div><div className="top-actions"><button className="settings-button" onClick={() => setView("settings")}>تنظیمات</button><button className="icon-button" aria-label="اعلان‌ها" title="مرکز اعلان‌ها" onClick={() => { const next = !notificationCenter; setNotificationCenter(next); if (next) void loadNotifications(); }}>اعلان{unreadNotifications > 0 && <span>{unreadNotifications}</span>}</button><button className="primary-button" onClick={() => openComposer()}>برنامه جدید</button></div></header>
       {message && <p className="page-message">{message}</p>}
       {view === "settings" ? <PreferencesPanel initial={preferences} signedIn={signedIn} onSaved={setPreferences} /> : view === "assistant" ? <Assistant onAdd={() => openComposer()} onChanged={loadRemote} /> : view === "calendar" ? <Calendar items={items} /> : <>
         <section className="summary-grid"><article className="focus-card"><div><p>تمرکز امروز</p><strong>{open} کار باقی مانده</strong></div><div className="progress-ring" style={{ "--progress": `${progress * 3.6}deg` } as React.CSSProperties}><span>{progress}٪</span></div></article><article className="summary-card peach"><div><small>جلسه بعدی</small><strong>{nextMeeting?.title || "جلسه‌ای ثبت نشده"}</strong><p>{nextMeeting ? `${itemDate(nextMeeting)}، ساعت ${itemTime(nextMeeting)}` : "برنامه‌ات آزاد است"}</p></div></article><article className="summary-card lavender"><div><small>پیشنهاد همراه</small><strong>{open ? "از مهم‌ترین کار شروع کن" : "برنامه‌ات مرتب است"}</strong><p>{open ? `${open} کار باز داری` : "زمانی برای استراحت بگذار"}</p></div></article></section>
@@ -210,6 +234,7 @@ export function PersonalAgentDashboard() {
     </section>
     <nav className="mobile-nav"><Nav active={view === "today"} label="امروز" onClick={() => { setView("today"); setFilter("all"); }} /><Nav active={view === "tasks"} label="کارها" onClick={() => setView("tasks")} /><button className="mobile-add" aria-label="برنامه جدید" onClick={() => openComposer()}>جدید</button><Nav active={view === "calendar"} label="تقویم" onClick={() => setView("calendar")} /><Nav active={view === "assistant"} label="همراه" onClick={() => setView("assistant")} /></nav>
     {composer && <Composer initial={editing} defaultReminderMinutes={preferences?.defaultReminderMins ?? defaultPreferences.defaultReminderMins} onClose={closeComposer} onSubmit={save} />}
+    {notificationCenter && <NotificationCenter notifications={notifications} signedIn={signedIn} pushStatus={notificationStatus} onClose={() => setNotificationCenter(false)} onEnablePush={() => void enableNotifications()} onRead={(id) => void markNotificationsRead(id)} />}
   </main>;
 }
 

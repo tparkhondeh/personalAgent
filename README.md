@@ -12,7 +12,7 @@
 - SQLite/LibSQL و Prisma با جداسازی داده هر کاربر
 - Audit Log برای عملیات داده
 - گفتگوی ساختاریافته با LLM و تأیید پیش از اجرا
-- یادآوری Idempotent، اعلان داخل برنامه و Web Push
+- یادآوری Idempotent، مرکز اعلان داخل برنامه و زیرساخت Web Push
 - PWA قابل نصب روی موبایل و دسکتاپ
 - تست Unit، Type Check، Lint، Build و CI
 

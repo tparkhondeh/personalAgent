@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { meetingInputSchema, meetingUpdateSchema, taskInputSchema, userPreferenceInputSchema } from "./validation";
+import { meetingInputSchema, meetingUpdateSchema, notificationReadSchema, taskInputSchema, userPreferenceInputSchema } from "./validation";
 
 describe("input validation", () => {
   it("rejects an empty task title", () => {
@@ -34,5 +34,11 @@ describe("input validation", () => {
   it("rejects a profile without a working day", () => {
     const result = userPreferenceInputSchema.safeParse({ workdayStartsAt: "09:00", workdayEndsAt: "18:00", workingDays: [], defaultReminderMins: 15, quietHoursStartsAt: "22:00", quietHoursEndsAt: "08:00", planningProfile: "BALANCED" });
     expect(result.success).toBe(false);
+  });
+
+  it("allows reading one notification or all, but not both", () => {
+    expect(notificationReadSchema.safeParse({ id: "notice-1" }).success).toBe(true);
+    expect(notificationReadSchema.safeParse({ all: true }).success).toBe(true);
+    expect(notificationReadSchema.safeParse({ id: "notice-1", all: true }).success).toBe(false);
   });
 });

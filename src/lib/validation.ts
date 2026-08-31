@@ -52,3 +52,8 @@ export const userPreferenceInputSchema = z.object({
   quietHoursEndsAt: clockTimeSchema,
   planningProfile: z.enum(["BALANCED", "FOCUS", "FLEXIBLE"]),
 }).refine((value) => value.workdayStartsAt !== value.workdayEndsAt, { message: "شروع و پایان ساعت کاری نمی‌تواند یکسان باشد", path: ["workdayEndsAt"] });
+
+export const notificationReadSchema = z.object({
+  id: z.string().trim().min(1).optional(),
+  all: z.boolean().optional(),
+}).refine((value) => Boolean(value.id) !== Boolean(value.all), { message: "یک اعلان یا همه اعلان‌ها را انتخاب کن" });
