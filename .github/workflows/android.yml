@@ -68,6 +68,8 @@ jobs:
       - name: Install Android SDK components
         run: |
           SDKMANAGER="${ANDROID_SDK_ROOT:-$ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
+          echo "${ANDROID_SDK_ROOT:-$ANDROID_HOME}/platform-tools" >> "$GITHUB_PATH"
           "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;35.0.0"
 
       - name: Prepare test database
@@ -108,7 +110,7 @@ jobs:
           exit 1
 
       - name: Run instrumented tests and launch smoke test
-        uses: ReactiveCircus/android-emulator-runner@e93c997dcab69054e999e3924af3d21c4a736e13 # v2.9.0
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
           api-level: 36
           target: google_apis
