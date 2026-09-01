@@ -1,0 +1,138 @@
+name: Android emulator QA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**/*.md"
+  pull_request:
+    paths-ignore:
+      - "**/*.md"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-emulator-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: true
+  DATABASE_URL: file:./data/android-ci.db
+  BETTER_AUTH_URL: http://10.0.2.2:3001
+  BETTER_AUTH_SECRET: android-ci-only-secret-000000000000000000000000
+  CAPACITOR_SERVER_URL: http://10.0.2.2:3001
+
+jobs:
+  emulator:
+    name: Build and test on Android 16
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: 11.19.0
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Set up Java
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Enable emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Android SDK components
+        run: sdkmanager "platform-tools" "platforms;android-36" "build-tools;35.0.0"
+
+      - name: Prepare test database
+        run: |
+          mkdir -p data artifacts/android
+          pnpm db:generate
+          pnpm db:init
+
+      - name: Build web application
+        run: pnpm build
+
+      - name: Synchronize Android project
+        run: |
+          node scripts/generate-android-assets.mjs
+          pnpm android:sync
+          chmod +x android/gradlew scripts/android-emulator-smoke.sh
+
+      - name: Run Android static checks and build APK
+        run: ./android/gradlew -p android --no-daemon :app:lintDebug :app:testDebugUnitTest :app:assembleDebug
+
+      - name: Verify APK test configuration
+        run: |
+          unzip -p android/app/build/outputs/apk/debug/app-debug.apk assets/capacitor.config.json > artifacts/android/capacitor.config.json
+          grep -F '"url": "http://10.0.2.2:3001"' artifacts/android/capacitor.config.json
+          sha256sum android/app/build/outputs/apk/debug/app-debug.apk | tee artifacts/android/apk-sha256.txt
+
+      - name: Start local application for emulator
+        run: |
+          nohup pnpm exec next start -H 0.0.0.0 -p 3001 > artifacts/android/next-server.log 2>&1 &
+          echo $! > artifacts/android/next-server.pid
+          for attempt in {1..30}; do
+            if curl --fail --silent http://localhost:3001/api/health > artifacts/android/health.json; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat artifacts/android/next-server.log
+          exit 1
+
+      - name: Run instrumented tests and launch smoke test
+        uses: ReactiveCircus/android-emulator-runner@e93c997dcab69054e999e3924af3d21c4a736e13 # v2.9.0
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: bash scripts/android-emulator-smoke.sh
+
+      - name: Upload debug APK
+        if: success()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hamrah-debug-apk-${{ github.run_number }}
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload Android test evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hamrah-android-evidence-${{ github.run_number }}
+          path: |
+            artifacts/android/
+            android/app/build/reports/
+            android/app/build/outputs/androidTest-results/
+          if-no-files-found: warn
+          retention-days: 14
