@@ -4,22 +4,23 @@ import sharp from "sharp";
 
 const projectRoot = process.cwd();
 const resourceRoot = path.join(projectRoot, "android", "app", "src", "main", "res");
+const publicRoot = path.join(projectRoot, "public");
 
-function appIconSvg(background = "#F6F3EF", transparent = false) {
+function appIconSvg(background = "#F7F7FF", transparent = false) {
   return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-    <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#B3C3AB"/><stop offset="1" stop-color="#657966"/></linearGradient></defs>
+    <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#AEB9EF"/><stop offset="1" stop-color="#8BC4B4"/></linearGradient></defs>
     ${transparent ? "" : `<rect width="512" height="512" rx="150" fill="${background}"/>`}
     <rect x="76" y="76" width="360" height="360" rx="120" fill="url(#g)"/>
-    <path d="M180 180v70c0 47 31 82 76 82 39 0 72-26 78-66m-154-16h154m-78-70v210" fill="none" stroke="#fff" stroke-width="38" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M180 180v70c0 47 31 82 76 82 39 0 72-26 78-66m-154-16h154m-78-70v210" fill="none" stroke="#303448" stroke-width="38" stroke-linecap="round" stroke-linejoin="round"/>
   </svg>`);
 }
 
 function roundAppIconSvg() {
   return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-    <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#B3C3AB"/><stop offset="1" stop-color="#657966"/></linearGradient></defs>
-    <circle cx="256" cy="256" r="252" fill="#F6F3EF"/>
+    <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#AEB9EF"/><stop offset="1" stop-color="#8BC4B4"/></linearGradient></defs>
+    <circle cx="256" cy="256" r="252" fill="#F7F7FF"/>
     <circle cx="256" cy="256" r="180" fill="url(#g)"/>
-    <path d="M180 180v70c0 47 31 82 76 82 39 0 72-26 78-66m-154-16h154m-78-70v210" fill="none" stroke="#fff" stroke-width="38" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M180 180v70c0 47 31 82 76 82 39 0 72-26 78-66m-154-16h154m-78-70v210" fill="none" stroke="#303448" stroke-width="38" stroke-linecap="round" stroke-linejoin="round"/>
   </svg>`);
 }
 
@@ -38,6 +39,11 @@ for (const [density, iconSize, foregroundSize] of densities) {
   await sharp(roundAppIconSvg()).resize(iconSize, iconSize).png().toFile(path.join(directory, "ic_launcher_round.png"));
   await sharp(appIconSvg("#00000000", true)).resize(foregroundSize, foregroundSize).png().toFile(path.join(directory, "ic_launcher_foreground.png"));
 }
+
+await writeFile(path.join(publicRoot, "icon.svg"), appIconSvg());
+await sharp(appIconSvg()).resize(192, 192).png().toFile(path.join(publicRoot, "icon-192.png"));
+await sharp(appIconSvg()).resize(512, 512).png().toFile(path.join(publicRoot, "icon-512.png"));
+await sharp(appIconSvg()).resize(180, 180).png().toFile(path.join(publicRoot, "apple-touch-icon.png"));
 
 const sampleRate = 44_100;
 const durationSeconds = 2.4;

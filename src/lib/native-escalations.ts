@@ -71,7 +71,7 @@ export async function syncNativeEscalationAlarms(alarms: NativeEscalationAlarm[]
     channelId,
     sound: "urgent_alarm.wav",
     smallIcon: "ic_stat_hamrah",
-    iconColor: "#657966",
+    iconColor: "#5C70B4",
     group: "hamrah-urgent-tasks",
     autoCancel: true,
     schedule: {

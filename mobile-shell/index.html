@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#f4f1ed" />
+    <meta name="theme-color" content="#f7f7ff" />
     <title>همراه آفلاین</title>
     <style>
       @font-face {
@@ -16,21 +16,21 @@
       :root {
         color-scheme: light dark;
         font-family: Vazirmatn, Tahoma, sans-serif;
-        --bg: #f4f1ed;
-        --surface: #fffdfa;
-        --surface-soft: #f8f5f1;
-        --text: #27312b;
-        --muted: #657168;
-        --border: #dbe2db;
-        --primary: #607563;
-        --primary-soft: #deeadf;
-        --urgent: #a6535a;
-        --urgent-soft: #f5dfe1;
-        --important: #8a642f;
-        --important-soft: #f4e8d3;
-        --normal: #526b82;
-        --normal-soft: #e0eaf2;
-        --shadow: 0 18px 55px rgba(48, 63, 52, 0.1);
+        --bg: #f7f7ff;
+        --surface: #ffffff;
+        --surface-soft: #f8f8ff;
+        --text: #303448;
+        --muted: #687086;
+        --border: #e1e4f1;
+        --primary: #5c70b4;
+        --primary-soft: #ecefff;
+        --urgent: #a75567;
+        --urgent-soft: #ffe7ed;
+        --important: #816826;
+        --important-soft: #fff3cd;
+        --normal: #54718c;
+        --normal-soft: #e9f5ff;
+        --shadow: 0 20px 58px rgba(79, 85, 127, 0.12);
       }
 
       * { box-sizing: border-box; }
@@ -83,16 +83,16 @@
 
       @media (prefers-color-scheme: dark) {
         :root {
-          --bg: #141a16;
-          --surface: #1d2520;
-          --surface-soft: #232d27;
-          --text: #edf2ed;
-          --muted: #aebbb2;
-          --border: #38433b;
-          --primary: #a9c0ad;
-          --primary-soft: #2c3b30;
-          --urgent: #f2b3b8;
-          --urgent-soft: #4a2b30;
+          --bg: #13151f;
+          --surface: #1c1e2a;
+          --surface-soft: #242735;
+          --text: #eff0f8;
+          --muted: #b2b6c9;
+          --border: #393d50;
+          --primary: #9cabe6;
+          --primary-soft: #2c324d;
+          --urgent: #efafbf;
+          --urgent-soft: #40272f;
           --important: #e7c99a;
           --important-soft: #483a27;
           --normal: #b5d1e7;
@@ -247,7 +247,7 @@
               channelId,
               sound: "urgent_alarm.wav",
               smallIcon: "ic_stat_hamrah",
-              iconColor: "#657966",
+              iconColor: "#5C70B4",
               autoCancel: true,
               schedule: { at, allowWhileIdle: true },
               extra: { owner: "hamrah-offline-preview", kind },

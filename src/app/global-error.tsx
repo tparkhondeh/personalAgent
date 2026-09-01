@@ -1,8 +1,8 @@
 "use client";
 
-const pageStyle = { minHeight: "100vh", display: "grid", placeItems: "center", padding: "24px", background: "#f6f7f2", color: "#26312c", fontFamily: "Vazirmatn, Tahoma, Arial, sans-serif", direction: "rtl" as const };
-const cardStyle = { width: "min(100%, 520px)", padding: "32px", border: "1px solid #dfe5dc", borderRadius: "24px", background: "#fff", boxShadow: "0 18px 50px rgba(47, 62, 51, 0.1)", textAlign: "right" as const };
-const buttonStyle = { minHeight: "46px", padding: "10px 18px", border: 0, borderRadius: "14px", background: "#748d76", color: "#fff", font: "inherit", cursor: "pointer" };
+const pageStyle = { minHeight: "100vh", display: "grid", placeItems: "center", padding: "24px", background: "radial-gradient(circle at 18% 18%, #eee9ff, transparent 34%), radial-gradient(circle at 82% 82%, #e4f7ee, transparent 34%), #f7f7ff", color: "#303448", fontFamily: "Vazirmatn, Tahoma, Arial, sans-serif", direction: "rtl" as const };
+const cardStyle = { width: "min(100%, 520px)", padding: "32px", border: "1px solid #e1e4f1", borderRadius: "24px", background: "rgba(255, 255, 255, 0.92)", boxShadow: "0 24px 65px rgba(79, 85, 127, 0.14)", textAlign: "right" as const };
+const buttonStyle = { minHeight: "46px", padding: "10px 18px", border: 0, borderRadius: "14px", background: "#5c70b4", color: "#fff", font: "inherit", fontWeight: 680, cursor: "pointer" };
 
 export default function GlobalError({ retry }: { retry: () => void }) {
   return (

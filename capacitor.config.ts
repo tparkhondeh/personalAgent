@@ -22,16 +22,16 @@ const config: CapacitorConfig = {
   appId: "ir.wealthos.personalagent",
   appName: "همراه",
   webDir: "mobile-shell",
-  backgroundColor: "#F6F3EF",
+  backgroundColor: "#F7F7FF",
   loggingBehavior: developmentServerUrl ? "debug" : "production",
   android: {
-    backgroundColor: "#F6F3EF",
+    backgroundColor: "#F7F7FF",
     allowMixedContent: false,
   },
   plugins: {
     LocalNotifications: {
       smallIcon: "ic_stat_hamrah",
-      iconColor: "#657966",
+      iconColor: "#5C70B4",
     },
   },
   ...(developmentServerUrl ? {
