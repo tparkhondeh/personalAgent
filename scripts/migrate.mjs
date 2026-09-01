@@ -1,6 +1,14 @@
-import "dotenv/config";
 import { createClient } from "@libsql/client";
 import { readFile } from "node:fs/promises";
+import { loadEnvFile } from "node:process";
+
+if (!process.env.DATABASE_URL) {
+  try {
+    loadEnvFile();
+  } catch (error) {
+    if (!(error && typeof error === "object" && "code" in error && error.code === "ENOENT")) throw error;
+  }
+}
 
 const url = process.env.DATABASE_URL;
 if (!url) throw new Error("DATABASE_URL is required");

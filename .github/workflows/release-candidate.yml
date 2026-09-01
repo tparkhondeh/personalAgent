@@ -132,6 +132,7 @@ jobs:
           cp -R public artifacts/server/public
           mkdir -p artifacts/server/prisma artifacts/server/scripts
           cp prisma/schema.prisma artifacts/server/prisma/schema.prisma
+          cp -R prisma/migrations artifacts/server/prisma/migrations
           cp scripts/migrate.mjs artifacts/server/scripts/migrate.mjs
           printf '%s\n' "$GITHUB_SHA" > artifacts/server/BUILD_COMMIT.txt
           tar -czf "artifacts/release/hamrah-server-rc-${GITHUB_RUN_NUMBER}.tar.gz" -C artifacts/server .
