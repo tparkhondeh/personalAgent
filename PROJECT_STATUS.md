@@ -9,9 +9,9 @@
 - پیشرفت نسخه وب/PWA: **۱۰۰٪**
 - پیشرفت کل محدوده پیش از Production شامل Android و هشدار پیشرفته: **۱۰۰٪**
 - پیشرفت کل تا انتشار عمومی: **۹۶٪**
-- مرحله فعلی: رابط، PWA، پوسته آفلاین، آیکون، Splash و اعلان Android با پالت روشن پاستیلی یکپارچه و به‌صورت محلی تأیید شده‌اند
-- آخرین مرحله کامل: کاندید انتشار چهارم روی Staging نصب شد و ثبت‌نام، CRUD، دستیار، Reminder و هشدار Android به‌صورت واقعی موفق بودند؛ سپس رنگ‌های پنهان بومی نیز برای کاندید نهایی هماهنگ شدند
-- قدم بعدی: ساخت و نصب کاندید نهایی شامل آیکون و Splash تازه؛ پس از آن فقط انتقال Production و امضای خصوصی Android با تأیید مالک باقی می‌ماند
+- مرحله فعلی: نسخه نهایی پیش از Production با رابط، PWA، آیکون، Splash و اعلان Android پاستیلی ساخته و روی Staging تأیید شده است
+- آخرین مرحله کامل: کاندید انتشار پنجم روی Staging نصب شد؛ ۳۲ تست، مرورگر واقعی، API، Migration، Scheduler و Android 16 همگی موفق بودند
+- قدم بعدی: فقط آزادسازی فضای سرور، انتقال Production/دامنه و امضای خصوصی Android پس از تأیید مالک باقی مانده است
 - انتقال دامنه: عمداً متوقف است؛ دامنه فعلاً صفحه خالی `Index of /` از LiteSpeed را نشان می‌دهد و هنوز به برنامه وصل نیست
 
 محیط لوکال و دیتابیس موجود بدون حذف داده‌ها آماده شده‌اند. به‌دلیل اشغال‌بودن پورت ۳۰۰۰ توسط پروژه‌ای دیگر، نسخه فعلی Personal Agent روی `http://localhost:3001` اجرا می‌شود.
@@ -19,7 +19,7 @@
 ```mermaid
 flowchart LR
     A[وب و PWA<br/>100٪] --> B[طراحی و تایپوگرافی<br/>100٪]
-    B --> C[هشدار چندمرحله‌ای<br/>98٪]
+    B --> C[هشدار چندمرحله‌ای<br/>100٪]
     C --> D[کد Android<br/>100٪]
     D --> E[Build و تحلیل APK<br/>100٪]
     E --> H[تست ابری Android 16<br/>100٪]
@@ -73,10 +73,10 @@ flowchart LR
 - Android Build: Gradle ۸٫۱۴٫۵ و AppCompat ۱٫۸٫۰ با موفقیت APK آزمایشی ۴٫۱۷ مگابایتی ساختند
 - Android Lint: بدون خطا و هشدار؛ تست واحد Android موفق
 - APK: امضای Debug نسخه v2 معتبر، شناسه `ir.wealthos.personalagent`، حداقل API 24 و هدف API 36 تأیید شد
-- APK SHA-256: `b7c9de0a8f6fc2bf8826e0aff0cf5231216bfbbf087ed2304b1c46a12c7143bc`
-- GitHub Actions وب: Type Check، Lint، ۳۰ تست و Build در محیط تمیز Linux موفق شد
-- GitHub Actions Android: ساخت APK، Lint، تست واحد، ۶ تست Instrumented بدون شکست، نمایش و حذف اعلان دارای صدای هشدار، اجرای Alarm دقیق، جلوگیری از اجرای Alarm لغوشده، نصب، Cold Launch و اتصال به API/دیتابیس روی Android 16 موفق شد ([اجرای موفق شماره ۵](https://github.com/tparkhondeh/personalAgent/actions/runs/33488117509))
-- APK ابری: SHA-256 برابر `6becc46ca95c3dcee007f07047f546cc9b9f7c4e5c435cddfecb7fac1d49c0f6`؛ فایل APK و شواهد تست تا ۱۴ روز در همان اجرای GitHub نگهداری می‌شوند
+- APK محلی Debug: SHA-256 برابر `90d76bedae2faa5dc387ac27d908446791d70a4d9aa7b275dc2ee90ae4f49f1d`
+- GitHub Actions وب و RC5: Type Check، Lint، ۳۲ تست، Build، Audit، Migration و Scheduler در محیط تمیز Linux موفق شدند ([اجرای کاندید نهایی](https://github.com/tparkhondeh/personalAgent/actions/runs/33521435867))
+- GitHub Actions Android: ساخت APK، Lint، تست واحد، ۶ تست Instrumented بدون شکست، نمایش و حذف اعلان دارای صدای هشدار، اجرای Alarm دقیق، جلوگیری از اجرای Alarm لغوشده، نصب، Cold Launch و اتصال به API/دیتابیس روی Android 16 موفق شد ([اجرای موفق شماره ۱۸](https://github.com/tparkhondeh/personalAgent/actions/runs/33521413925))
+- APK نهایی آزمایشی RC5: حجم ۴٬۳۷۱٬۸۰۱ بایت و SHA-256 برابر `4e3011cfe1e12d0d388dc8671fea572a8605e096f70a974289d0f78491db73e1`؛ شناسه `ir.wealthos.personalagent`، حداقل API 24، هدف API 36 و مقصد امن دامنه تأیید شدند
 - نسخه قابل‌نصب بدون کابل: Workflow مستقل `Temporary phone preview` یک محیط HTTPS موقت، دیتابیس جدا، Secretهای تصادفی و APK متصل به همان محیط ساخت؛ Production تغییر نکرد ([اجرای شماره ۱](https://github.com/tparkhondeh/personalAgent/actions/runs/33493716896))
 - APK پیش‌نمایش گوشی: حجم ۴٬۳۷۰٬۵۲۵ بایت و SHA-256 برابر `ecbb0d2847d3ae81a4d0b3a46e05be16de0eeac6d5705952100e9ee0298f347f`؛ دانلود عمومی، تطابق Hash، سلامت API، اتصال دیتابیس و هدرهای امنیتی در همان اجرا تأیید شد
 - آزمایش رابط پیش‌نمایش: داشبورد فارسی و RTL روی دسکتاپ و نمای موبایل ۳۹۰×۸۴۴ به‌صورت واقعی باز شد؛ چیدمان Responsive بود و Console مرورگر خطا یا هشدار نداشت
@@ -88,12 +88,15 @@ flowchart LR
 - کاندید انتشار سوم: [اجرای موفق شماره ۳](https://github.com/tparkhondeh/personalAgent/actions/runs/33512177595) از Commit `9885ac6656738da306cfb5d0984234000ec64389` ساخته شد؛ ۳۰ تست، Type Check، Lint، Build، Audit، Migration بسته‌شده و هر دو Scheduler موفق بودند
 - بسته سرور RC3: SHA-256 برابر `590accb327bae1aeade8eaec821b5ad37d1bf80e212d9c265278272934bbb748`، بدون `.env` و شامل سه Migration و اسکریپت Scheduler است
 - APK متصل RC3: SHA-256 برابر `256eac4f609c19809a6478a7b33639220aa379f57aeb8e67da9511038fa60819`، شناسه `ir.wealthos.personalagent` و مقصد `https://personalagent.wealthos.ir` تأیید شد؛ این APK هنوز Debug-signed است
-- محیط آزمایشی سرور: RC3 در `/home/wealthos_dev/.staging/personal-agent/releases/9885ac6` روی پورت داخلی ۳۰۱۰ فعال است؛ ثبت‌نام، نشست، تنظیمات، Task، Meeting، Agent محلی، اعلان، Reminder و Escalation به‌صورت واقعی موفق بودند و داده آزمایشی پاک شد
-- Android Release: خروجی واقعی `assembleRelease` بدون خطا ساخته شد؛ فایل unsigned دارای SHA-256 برابر `135590929c76e1c2cebd012e0ac1bafb8c23685643cfc90a154e71cf02752c3f` است و فقط امضای خصوصی انتشار باقی مانده است
+- محیط آزمایشی RC3: نسخه تاریخی در `/home/wealthos_dev/.staging/personal-agent/releases/9885ac6` نگه‌داری می‌شود و دیگر Release فعال نیست
+- Android Release: خروجی واقعی `assembleRelease` بدون خطا ساخته شد؛ فایل نهایی unsigned دارای SHA-256 برابر `28abeacc64336f4f73054dc0ee5805af0840b925139dc4bf79e4a158c2ee62f4` است و فقط امضای خصوصی انتشار باقی مانده است
 - Production: پردازش قبلی Commit `b50c3b6` روی پورت داخلی ۳۰۱۱، دیتابیس و Backup آن سالم و بدون تغییر باقی مانده‌اند
 - کاندید انتشار چهارم: [اجرای موفق شماره ۴](https://github.com/tparkhondeh/personalAgent/actions/runs/33519135966) از Commit `4cd53d42938eedef7d6161e05da45e1117a6fbfe` ساخته شد؛ ۳۰ تست، Type Check، Lint، Build، Audit، Migration، Scheduler، بسته سرور و APK متصل موفق بودند
-- محیط آزمایشی RC4: بسته دارای SHA-256 برابر `1a99b4117f7f9a60950de68e82e42c5feeffee9c0663b2a7d14335a41f690d68` روی `/home/wealthos_dev/.staging/personal-agent/releases/4cd53d4` نصب شد؛ Backup سالم پیش از نصب ساخته شد و ثبت‌نام، تنظیمات، کار، جلسه، Agent محلی، Reminder، Escalation و پاک‌سازی داده آزمایشی موفق بودند
+- محیط آزمایشی RC4: این نسخه سالم به‌عنوان مسیر بازگشت در `/home/wealthos_dev/.staging/personal-agent/releases/4cd53d4` نگه‌داری می‌شود
 - Android یکپارچه محلی: Lint، تست واحد، `assembleDebug` و `assembleRelease` موفق شدند؛ APK متصل محلی رنگ Splash و اعلان تازه و مقصد امن دامنه را تأیید کرد. خروجی Release همچنان عمداً unsigned است
+- کاندید نهایی RC5: [اجرای موفق شماره ۵](https://github.com/tparkhondeh/personalAgent/actions/runs/33521435867) از Commit `49cceedd8462e9a65172e6ed375a78d8edf7d226` ساخته شد. بسته سرور با SHA-256 برابر `9fbde5e63b08245b1ead7907043d638364e946c27907b1bf4b7d1f40e8bb3939` بدون فایل محیطی و با سه Migration و هر دو Scheduler تأیید شد
+- محیط آزمایشی نهایی: RC5 روی `/home/wealthos_dev/.staging/personal-agent/releases/49cceed` فعال است؛ Backup سالم `pre-rc5-20260901T145047Z.db` ساخته شد و ثبت‌نام، تنظیمات، Task، Meeting، Agent محلی، Reminder، Escalation، اعلان و Alarm با پاک‌سازی داده آزمایشی موفق بودند
+- Production: Symlink قبلی `/home/wealthos_dev/apps/personal-agent/releases/b50c3b6` و پردازش PM2 روی پورت ۳۰۱۱ سالم و بدون تغییر باقی مانده‌اند
 
 ## وابستگی‌های اختیاری و معوق
 
@@ -103,3 +106,4 @@ flowchart LR
 - JDK، Android SDK و Gradle به‌صورت محلی نصب شده‌اند و در Git قرار ندارند.
 - اعلان و Alarm روی گوشی واقعی تأیید شده‌اند؛ بررسی طولانی‌مدت در حالت Doze و ذخیره باتری سازندگان مختلف، کنترل سازگاری تکمیلی پیش از انتشار عمومی است.
 - پیش‌نمایش متصل به سرور همچنان موقت است، اما [APK آفلاین شماره ۲](https://github.com/tparkhondeh/personalAgent/releases/download/phone-preview-offline-2/hamrah-offline-preview-2.apk) لینک پایدار دارد، منقضی نمی‌شود و داده‌هایش فقط روی همان گوشی ذخیره می‌شوند.
+- فضای دیسک اصلی سرور حدود ۱۰۰٪ مصرف شده و تقریباً ۱٫۴ گیگابایت آزاد دارد؛ پیش از Cutover عمومی باید مدیر سرور با حفظ Backupها فضای امن آزاد کند.

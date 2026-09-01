@@ -9,7 +9,7 @@
 - Secretها و دیتابیس Permission برابر `600` دارند.
 - یادآوری هر دقیقه و بکاپ SQLite هر شب ساعت ۰۲:۱۷ اجرا می‌شوند.
 - بکاپ‌ها پس از ۳۰ روز حذف می‌شوند.
-- کاندید انتشار سوم از Commit `9885ac6656738da306cfb5d0984234000ec64389` روی محیط آزمایشی پورت ۳۰۱۰ فعال و با عملیات واقعی تأیید شده است.
+- کاندید انتشار پنجم از Commit `49cceedd8462e9a65172e6ed375a78d8edf7d226` روی محیط آزمایشی پورت ۳۰۱۰ فعال و با عملیات واقعی تأیید شده است.
 - Production همچنان روی Commit `b50c3b6b75290f2f66938fc93d7783c3b8297844` و پورت ۳۰۱۱ باقی مانده و در جریان آماده‌سازی تغییری نکرده است.
 - دامنه اکنون پاسخ HTTPS سالم دارد، اما فقط صفحه `Index of /` سرویس LiteSpeed را نشان می‌دهد و هنوز به برنامه متصل نیست.
 
@@ -23,7 +23,10 @@
 
 ## مانع باقی‌مانده
 
-حساب SSH با نام `wealthos_dev` مالک cPanel نیست، `sudo` ندارد و UAPI نیز برای آن فایل کاربر cPanel پیدا نمی‌کند. بنابراین مدیر سرور یا پشتیبانی هاست باید Reverse Proxy دامنه `personalagent.wealthos.ir` را به مقصد زیر تنظیم کند:
+دو مانع عملی پیش از Cutover باقی مانده است:
+
+1. حساب SSH با نام `wealthos_dev` مالک cPanel نیست، `sudo` ندارد و UAPI نیز برای آن فایل کاربر cPanel پیدا نمی‌کند. بنابراین مدیر سرور یا پشتیبانی هاست باید Reverse Proxy دامنه `personalagent.wealthos.ir` را به مقصد زیر تنظیم کند.
+2. دیسک اصلی سرور حدود ۱۰۰٪ مصرف شده و تقریباً ۱٫۴ گیگابایت آزاد دارد. مدیر سرور باید بدون حذف Backupهای لازم یا داده سایر پروژه‌ها فضای کافی آزاد کند.
 
 `http://127.0.0.1:3011`
 
@@ -37,11 +40,11 @@
 
 ## خروجی تأییدشده آماده انتقال
 
-- GitHub Actions: <https://github.com/tparkhondeh/personalAgent/actions/runs/33512177595>
-- Server RC3: <https://github.com/tparkhondeh/personalAgent/releases/download/production-rc-3/hamrah-server-rc-3.tar.gz>
-- Android RC3: <https://github.com/tparkhondeh/personalAgent/releases/download/production-rc-3/hamrah-android-rc-3.apk>
-- SHA-256 سرور: `590accb327bae1aeade8eaec821b5ad37d1bf80e212d9c265278272934bbb748`
-- SHA-256 Android: `256eac4f609c19809a6478a7b33639220aa379f57aeb8e67da9511038fa60819`
+- GitHub Actions: <https://github.com/tparkhondeh/personalAgent/actions/runs/33521435867>
+- Server RC5: <https://github.com/tparkhondeh/personalAgent/releases/download/production-rc-5/hamrah-server-rc-5.tar.gz>
+- Android RC5: <https://github.com/tparkhondeh/personalAgent/releases/download/production-rc-5/hamrah-android-rc-5.apk>
+- SHA-256 سرور: `9fbde5e63b08245b1ead7907043d638364e946c27907b1bf4b7d1f40e8bb3939`
+- SHA-256 Android: `4e3011cfe1e12d0d388dc8671fea572a8605e096f70a974289d0f78491db73e1`
 
 ## LLM
 

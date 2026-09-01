@@ -48,11 +48,11 @@ pnpm audit --prod --audit-level high
 
 نسخه آزمایشی Android ساخته شده و با `pnpm android:build:debug` دوباره تولید می‌شود. خروجی محلی در `android/app/build/outputs/apk/debug/app-debug.apk` قرار می‌گیرد. پس از اتصال و تأیید USB debugging روی یک گوشی، دستور `pnpm android:install:device` ساخت، اتصال امن محلی، نصب و بازکردن برنامه را خودکار انجام می‌دهد. نسخه عمومیِ امضاشده تا تأیید آدرس امن Production ساخته نمی‌شود.
 
-علاوه بر روش USB، Workflow مستقل `Android emulator QA` برنامه را بدون گوشی روی Android 16 ابری Build، نصب و اجرا می‌کند و نمایش اعلان، اجرای Alarm دقیق و لغو Alarm را نیز می‌آزماید. آخرین [اجرای موفق و فایل APK آزمایشی](https://github.com/tparkhondeh/personalAgent/actions/runs/33488117509) در GitHub Actions ثبت شده است.
+علاوه بر روش USB، Workflow مستقل `Android emulator QA` برنامه را بدون گوشی روی Android 16 ابری Build، نصب و اجرا می‌کند و نمایش اعلان، اجرای Alarm دقیق و لغو Alarm را نیز می‌آزماید. آخرین [اجرای موفق Android 16](https://github.com/tparkhondeh/personalAgent/actions/runs/33521413925) برای Commit نهایی پالت پاستیلی در GitHub Actions ثبت شده است.
 
 برای نصب آزمایشی بدون کابل، Workflow دستی `Temporary phone preview` یک محیط کاملاً جدا با HTTPS و دیتابیس موقت می‌سازد، APK را به همان آدرس متصل می‌کند و لینک دانلود را در Summary اجرا قرار می‌دهد. [اجرای پیش‌نمایش شماره ۱](https://github.com/tparkhondeh/personalAgent/actions/runs/33493716896) بدون تغییر Production ساخته و کنترل شده است. لینک آن حدود دو ساعت فعال است؛ داده‌های این محیط موقت‌اند و نباید برای اطلاعات مهم استفاده شود.
 
-کاندید نهایی پیش از Production در [اجرای شماره ۳](https://github.com/tparkhondeh/personalAgent/actions/runs/33512177595) ساخته شده است. این اجرا بسته مستقل سرور، Migration، Reminder، Escalation، وب و APK متصل به `https://personalagent.wealthos.ir` را در محیط تمیز آزمایش می‌کند. APK این مرحله Debug-signed است؛ امضای خصوصی و انتشار عمومی فقط بعد از تأیید نهایی مالک انجام می‌شود.
+کاندید نهایی پیش از Production در [اجرای شماره ۵](https://github.com/tparkhondeh/personalAgent/actions/runs/33521435867) ساخته و روی Staging تأیید شده است. این اجرا بسته مستقل سرور، Migration، Reminder، Escalation، وب و APK متصل به `https://personalagent.wealthos.ir` را در محیط تمیز آزمایش می‌کند. [APK آزمایشی RC5](https://github.com/tparkhondeh/personalAgent/releases/download/production-rc-5/hamrah-android-rc-5.apk) Debug-signed است؛ امضای خصوصی و انتشار عمومی فقط بعد از تأیید نهایی مالک انجام می‌شود.
 
 ## متغیرهای محیطی
 
