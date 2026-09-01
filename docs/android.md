@@ -42,11 +42,11 @@ JDK 21، Android SDK و Gradle به‌صورت قابل‌حذف در پوشه �
 
 ## آزمایش ابری بدون گوشی
 
-Workflow فایل `.github/workflows/android.yml` در هر تغییر فنی روی شاخه اصلی، محیط تمیز Linux و شبیه‌ساز Android 16 را آماده می‌کند. این فرایند وابستگی‌ها را از Lockfile نصب می‌کند، دیتابیس آزمایشی می‌سازد، وب و APK را Build می‌کند، Android Lint و تست واحد را اجرا می‌کند و سپس ۴ تست Instrumented، نصب APK و Cold Launch برنامه را روی Emulator بررسی می‌کند.
+Workflow فایل `.github/workflows/android.yml` در هر تغییر فنی روی شاخه اصلی، محیط تمیز Linux و شبیه‌ساز Android 16 را آماده می‌کند. این فرایند وابستگی‌ها را از Lockfile نصب می‌کند، دیتابیس آزمایشی می‌سازد، وب و APK را Build می‌کند، Android Lint و تست واحد را اجرا می‌کند و سپس ۶ تست Instrumented، نصب APK و Cold Launch برنامه را روی Emulator بررسی می‌کند. تست‌های رفتاری جدید، نمایش و حذف اعلان دارای صدا، رسیدن Alarm دقیق و اجرا نشدن Alarm لغوشده را نیز اثبات می‌کنند.
 
-[اجرای موفق شماره ۴ در GitHub Actions](https://github.com/tparkhondeh/personalAgent/actions/runs/33485253164) بدون گوشی و بدون تغییر Production کامل شد. دو خروجی `hamrah-debug-apk-4` و `hamrah-android-evidence-4` تا ۱۴ روز در همان صفحه قابل دریافت‌اند. SHA-256 فایل APK ابری:
+[اجرای موفق شماره ۵ در GitHub Actions](https://github.com/tparkhondeh/personalAgent/actions/runs/33488117509) بدون گوشی و بدون تغییر Production کامل شد. دو خروجی `hamrah-debug-apk-5` و `hamrah-android-evidence-5` تا ۱۴ روز در همان صفحه قابل دریافت‌اند. SHA-256 فایل APK ابری:
 
-`6fdb5c191ecd9067a1e78a9e93b2fc882c347695c281b1f2a2525dfa62195b82`
+`6becc46ca95c3dcee007f07047f546cc9b9f7c4e5c435cddfecb7fac1d49c0f6`
 
 ## نصب آزمایشی روی گوشی با USB
 
@@ -60,7 +60,7 @@ pnpm android:install:device
 
 ## وضعیت آزمایش روی دستگاه
 
-محدودیت Virtualization رایانه محلی با انتقال تست به GitHub Actions برطرف شد. شبیه‌ساز ابری Android 16 بوت شد، هر ۴ تست بدون شکست پایان یافت، APK نصب شد و `MainActivity` با وضعیت `ok` باز شد. تست گوشی طبق درخواست مالک فعلاً معوق است و فقط برای تأیید نهایی Alarm و اعلان در شرایط واقعی باتری و محدودیت‌های متفاوت سازندگان گوشی لازم خواهد بود.
+محدودیت Virtualization رایانه محلی با انتقال تست به GitHub Actions برطرف شد. شبیه‌ساز ابری Android 16 بوت شد، هر ۶ تست بدون شکست پایان یافت، اعلان و Alarm واقعاً آزمایش شدند، APK نصب شد و `MainActivity` با وضعیت `ok` باز شد. تست گوشی طبق درخواست مالک فعلاً معوق است و فقط برای تأیید نهایی رفتار پس‌زمینه در شرایط واقعی باتری و محدودیت‌های متفاوت سازندگان گوشی لازم خواهد بود.
 
 ## نسخه انتشار
 

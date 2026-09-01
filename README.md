@@ -48,7 +48,7 @@ pnpm audit --prod --audit-level high
 
 نسخه آزمایشی Android ساخته شده و با `pnpm android:build:debug` دوباره تولید می‌شود. خروجی محلی در `android/app/build/outputs/apk/debug/app-debug.apk` قرار می‌گیرد. پس از اتصال و تأیید USB debugging روی یک گوشی، دستور `pnpm android:install:device` ساخت، اتصال امن محلی، نصب و بازکردن برنامه را خودکار انجام می‌دهد. نسخه عمومیِ امضاشده تا تأیید آدرس امن Production ساخته نمی‌شود.
 
-علاوه بر روش USB، Workflow مستقل `Android emulator QA` برنامه را بدون گوشی روی Android 16 ابری Build، نصب و اجرا می‌کند. آخرین [اجرای موفق و فایل APK آزمایشی](https://github.com/tparkhondeh/personalAgent/actions/runs/33485253164) در GitHub Actions ثبت شده است.
+علاوه بر روش USB، Workflow مستقل `Android emulator QA` برنامه را بدون گوشی روی Android 16 ابری Build، نصب و اجرا می‌کند و نمایش اعلان، اجرای Alarm دقیق و لغو Alarm را نیز می‌آزماید. آخرین [اجرای موفق و فایل APK آزمایشی](https://github.com/tparkhondeh/personalAgent/actions/runs/33488117509) در GitHub Actions ثبت شده است.
 
 ## متغیرهای محیطی
 
