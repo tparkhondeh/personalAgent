@@ -93,19 +93,28 @@ export function PreferencesPanel({ initial, signedIn, onSaved, onNativePermissio
       emergencyPhone: String(data.get("emergencyPhone") || "").trim() || null,
     };
     setPending(true); setStatus("");
-    const response = await fetch("/api/preferences", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-    const result = await response.json().catch(() => null);
-    setPending(false);
-    if (!response.ok) { setStatus(result?.error || "ذخیره تنظیمات انجام نشد."); return; }
-    onSaved(result.data as UserPreferences);
-    setStatus("تنظیمات ذخیره شد و از این پس در برنامه‌ریزی استفاده می‌شود.");
+    try {
+      const response = await fetch("/api/preferences", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.data) { setStatus(result?.error || "ذخیره تنظیمات انجام نشد."); return; }
+      onSaved(result.data as UserPreferences);
+      setStatus("تنظیمات ذخیره شد و از این پس در برنامه‌ریزی استفاده می‌شود.");
+    } catch {
+      setStatus("ارتباط با برنامه برقرار نشد؛ دوباره تلاش کن.");
+    } finally {
+      setPending(false);
+    }
   }
 
   async function enableAndroidAlarm() {
     setNativeStatus("در حال بررسی مجوزهای اندروید...");
-    const result = await enableNativeEscalationAlarms();
-    setNativeStatus(result.message);
-    if (result.enabled) onNativePermissionChanged?.();
+    try {
+      const result = await enableNativeEscalationAlarms();
+      setNativeStatus(result.message);
+      if (result.enabled) onNativePermissionChanged?.();
+    } catch {
+      setNativeStatus("بررسی مجوز Alarm انجام نشد؛ دوباره تلاش کن.");
+    }
   }
 
   if (!signedIn) return <section className="preferences-card preferences-signin"><p className="eyebrow">شناخت شخصی</p><h2>برنامه را با سبک زندگی خودت هماهنگ کن</h2><p>برای ذخیره ساعت کاری، روزهای آزاد و زمان یادآوری ابتدا وارد حساب شو.</p><Link className="submit-button" href="/login">ورود یا ساخت حساب</Link></section>;

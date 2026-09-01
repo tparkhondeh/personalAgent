@@ -45,7 +45,7 @@ pnpm audit --prod --audit-level high
 
 ## اپلیکیشن Android
 
-نسخه آزمایشی Android ساخته شده و با `pnpm android:build:debug` دوباره تولید می‌شود. خروجی محلی در `android/app/build/outputs/apk/debug/app-debug.apk` قرار می‌گیرد. نسخه عمومیِ امضاشده تا تأیید آدرس امن Production ساخته نمی‌شود.
+نسخه آزمایشی Android ساخته شده و با `pnpm android:build:debug` دوباره تولید می‌شود. خروجی محلی در `android/app/build/outputs/apk/debug/app-debug.apk` قرار می‌گیرد. پس از اتصال و تأیید USB debugging روی یک گوشی، دستور `pnpm android:install:device` ساخت، اتصال امن محلی، نصب و بازکردن برنامه را خودکار انجام می‌دهد. نسخه عمومیِ امضاشده تا تأیید آدرس امن Production ساخته نمی‌شود.
 
 ## متغیرهای محیطی
 

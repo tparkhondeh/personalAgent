@@ -2,10 +2,13 @@ import { db } from "@/lib/db";
 import { jsonError, requireApiSession } from "@/lib/api";
 import { meetingUpdateSchema } from "@/lib/validation";
 import { reminderIdempotencyKey } from "@/lib/reminders";
+import { guardUserRateLimit } from "@/lib/rate-limit";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireApiSession(request.headers);
   if (!session) return jsonError("ابتدا وارد حساب شوید", 401);
+  const limited = guardUserRateLimit(session.user.id, "mutations", { limit: 120, windowMs: 60_000 });
+  if (limited) return limited;
   const { id } = await params;
   const existing = await db.meeting.findFirst({ where: { id, userId: session.user.id } });
   if (!existing) return jsonError("جلسه پیدا نشد", 404);
@@ -44,6 +47,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireApiSession(request.headers);
   if (!session) return jsonError("ابتدا وارد حساب شوید", 401);
+  const limited = guardUserRateLimit(session.user.id, "mutations", { limit: 120, windowMs: 60_000 });
+  if (limited) return limited;
   const { id } = await params;
   const existing = await db.meeting.findFirst({ where: { id, userId: session.user.id } });
   if (!existing) return jsonError("جلسه پیدا نشد", 404);

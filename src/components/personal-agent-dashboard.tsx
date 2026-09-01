@@ -203,19 +203,27 @@ export function PersonalAgentDashboard() {
     const nextDone = !item.done;
     setItems((all) => all.map((candidate) => candidate.id === item.id ? { ...candidate, done: nextDone } : candidate));
     if (!signedIn) return;
-    const response = await fetch(`/api/tasks/${item.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ status: nextDone ? "DONE" : "TODO" }) });
-    if (!response.ok) {
+    try {
+      const response = await fetch(`/api/tasks/${item.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ status: nextDone ? "DONE" : "TODO" }) });
+      if (!response.ok) throw new Error("STATUS_UPDATE_FAILED");
+      setEscalationRevision((value) => value + 1);
+    } catch {
       setItems((all) => all.map((candidate) => candidate.id === item.id ? { ...candidate, done: !nextDone } : candidate));
       setMessage("تغییر وضعیت ذخیره نشد؛ دوباره تلاش کن.");
-    } else setEscalationRevision((value) => value + 1);
+    }
   }
 
   async function remove(item: Item) {
     if (!signedIn) { setItems((all) => all.filter((candidate) => candidate.id !== item.id)); setPendingDelete(""); return; }
     const endpoint = item.source === "meeting" ? `/api/meetings/${item.id}` : `/api/tasks/${item.id}`;
-    const response = await fetch(endpoint, { method: "DELETE" });
-    if (response.ok) { setItems((all) => all.filter((candidate) => candidate.id !== item.id)); setPendingDelete(""); }
-    else setMessage("حذف انجام نشد؛ دوباره تلاش کن.");
+    try {
+      const response = await fetch(endpoint, { method: "DELETE" });
+      if (!response.ok) throw new Error("DELETE_FAILED");
+      setItems((all) => all.filter((candidate) => candidate.id !== item.id));
+      setPendingDelete("");
+    } catch {
+      setMessage("حذف انجام نشد؛ دوباره تلاش کن.");
+    }
   }
 
   async function enableNotifications() {
@@ -224,10 +232,14 @@ export function PersonalAgentDashboard() {
   }
 
   async function markNotificationsRead(id?: string) {
-    const response = await fetch("/api/notifications", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(id ? { id } : { all: true }) });
-    if (!response.ok) { setMessage("به‌روزرسانی اعلان انجام نشد."); return; }
-    const readAt = new Date().toISOString();
-    setNotifications((all) => all.map((notification) => !id || notification.id === id ? { ...notification, readAt } : notification));
+    try {
+      const response = await fetch("/api/notifications", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(id ? { id } : { all: true }) });
+      if (!response.ok) throw new Error("NOTIFICATION_UPDATE_FAILED");
+      const readAt = new Date().toISOString();
+      setNotifications((all) => all.map((notification) => !id || notification.id === id ? { ...notification, readAt } : notification));
+    } catch {
+      setMessage("به‌روزرسانی اعلان انجام نشد.");
+    }
   }
 
   function openComposer(item: Item | null = null, date?: string) { setEditing(item); setComposerDate(date); setComposer(true); }
@@ -240,26 +252,32 @@ export function PersonalAgentDashboard() {
     const title = String(data.get("title") || "").trim();
     const category = data.get("category") as Category;
     const priority = category === "meeting" ? "important" : data.get("priority") as Priority;
-    const date = String(data.get("date") || localDateInput());
+    const date = String(data.get("date") || "");
     const time = String(data.get("time") || "09:00");
-    const startsAt = tehranIso(date, time);
+    if (category === "meeting" && !date) { setMessage("تاریخ جلسه الزامی است."); return; }
+    const startsAt = date ? tehranIso(date, time) : undefined;
     if (!title) return;
     setMessage("");
     if (!signedIn) {
       const duration = Number(data.get("duration") || 60);
-      const nextItem: Item = { id: editing?.id || crypto.randomUUID(), title, category, priority, source: category === "meeting" ? "meeting" : "task", startsAt: category === "meeting" ? startsAt : undefined, endsAt: category === "meeting" ? new Date(new Date(startsAt).getTime() + duration * 60_000).toISOString() : undefined, dueAt: category === "meeting" ? undefined : startsAt, done: editing?.done || false };
+      const nextItem: Item = { id: editing?.id || crypto.randomUUID(), title, category, priority, source: category === "meeting" ? "meeting" : "task", startsAt: category === "meeting" ? startsAt : undefined, endsAt: category === "meeting" && startsAt ? new Date(new Date(startsAt).getTime() + duration * 60_000).toISOString() : undefined, dueAt: category === "meeting" ? undefined : startsAt, done: editing?.done || false };
       setItems((all) => editing ? all.map((item) => item.id === editing.id && item.source === editing.source ? nextItem : item) : [nextItem, ...all]);
       form.reset(); closeComposer(); return;
     }
     const isMeeting = category === "meeting";
     const duration = Number(data.get("duration") || 60);
+    if (isMeeting && !startsAt) { setMessage("تاریخ جلسه الزامی است."); return; }
     const endpoint = isMeeting ? editing ? `/api/meetings/${editing.id}` : "/api/meetings" : editing ? `/api/tasks/${editing.id}` : "/api/tasks";
     const body = isMeeting
-      ? { title, startsAt, endsAt: new Date(new Date(startsAt).getTime() + duration * 60_000).toISOString(), timezone: "Asia/Tehran", ...(editing ? {} : { attendees: [] }) }
-      : { title, category: category === "work" ? "WORK" : "PERSONAL", priority: priority.toUpperCase(), dueAt: startsAt, reminderMinutes: Number(data.get("reminderMinutes") || 15) };
-    const response = await fetch(endpoint, { method: editing ? "PATCH" : "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-    if (!response.ok) { const result = await response.json().catch(() => null); setMessage(result?.error || "ثبت برنامه انجام نشد."); return; }
-    form.reset(); closeComposer(); await loadRemote();
+      ? { title, startsAt: startsAt!, endsAt: new Date(new Date(startsAt!).getTime() + duration * 60_000).toISOString(), timezone: "Asia/Tehran", ...(editing ? {} : { attendees: [] }) }
+      : { title, category: category === "work" ? "WORK" : "PERSONAL", priority: priority.toUpperCase(), dueAt: startsAt ?? null, reminderMinutes: Number(data.get("reminderMinutes") || 15) };
+    try {
+      const response = await fetch(endpoint, { method: editing ? "PATCH" : "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+      if (!response.ok) { const result = await response.json().catch(() => null); setMessage(result?.error || "ثبت برنامه انجام نشد."); return; }
+      form.reset(); closeComposer(); await loadRemote();
+    } catch {
+      setMessage("ارتباط با برنامه برقرار نشد؛ دوباره تلاش کن.");
+    }
   }
 
   const greetingName = session?.user.name?.split(" ")[0] || "دوست من";
@@ -291,7 +309,13 @@ function Composer({ initial, initialDate, defaultReminderMinutes, onClose, onSub
   const [category, setCategory] = useState<Category>(initial?.category || "personal");
   const moment = initial ? itemMoment(initial) : undefined;
   const duration = initial?.source === "meeting" && initial.startsAt && initial.endsAt ? String(Math.round((new Date(initial.endsAt).getTime() - new Date(initial.startsAt).getTime()) / 60_000)) : "60";
-  return <div className="modal-backdrop" onMouseDown={onClose}><form className="composer" onSubmit={onSubmit} onMouseDown={(event) => event.stopPropagation()}><div className="composer-heading"><div><small>{initial ? "به‌روزرسانی برنامه" : "یک قدم تازه"}</small><h2>{initial ? category === "meeting" ? "ویرایش جلسه" : "ویرایش کار" : category === "meeting" ? "جلسه جدید" : "کار جدید"}</h2></div><button type="button" onClick={onClose}>بستن</button></div><label>عنوان<input name="title" autoFocus required defaultValue={initial?.title} placeholder={category === "meeting" ? "مثلاً جلسه با تیم فروش" : "مثلاً تماس با تیم فروش"} /></label><div className="field-grid"><label>دسته‌بندی<select name="category" value={category} onChange={(event) => setCategory(event.target.value as Category)}>{initial?.source === "meeting" ? <option value="meeting">جلسه</option> : <><option value="personal">شخصی</option><option value="work">شرکتی</option>{!initial && <option value="meeting">جلسه</option>}</>}</select></label><label>اولویت<select name="priority" disabled={category === "meeting"} defaultValue={initial?.priority || "normal"}><option value="normal">عادی</option><option value="important">مهم</option><option value="urgent">فوری</option></select></label></div><div className="field-grid"><label>تاریخ<input name="date" type="date" defaultValue={moment ? dateKey(moment) : initialDate || localDateInput()} required /></label><label>ساعت<input name="time" type="time" defaultValue={localTimeInput(moment)} required /></label></div><div className="field-grid">{category === "meeting" ? <label>مدت جلسه<select name="duration" defaultValue={duration}><option value="30">۳۰ دقیقه</option><option value="60">۱ ساعت</option><option value="90">۱.۵ ساعت</option><option value="120">۲ ساعت</option></select></label> : <label>یادآوری<select name="reminderMinutes" defaultValue={String(defaultReminderMinutes)}><option value="0">همان لحظه</option><option value="15">۱۵ دقیقه قبل</option><option value="30">۳۰ دقیقه قبل</option><option value="60">۱ ساعت قبل</option><option value="1440">یک روز قبل</option></select></label>}<span /></div><button className="submit-button">{initial ? "ذخیره تغییرات" : "ثبت در برنامه"}</button></form></div>;
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+  const titleId = "composer-title";
+  return <div className="modal-backdrop" onMouseDown={onClose}><form className="composer" role="dialog" aria-modal="true" aria-labelledby={titleId} onSubmit={onSubmit} onMouseDown={(event) => event.stopPropagation()}><div className="composer-heading"><div><small>{initial ? "به‌روزرسانی برنامه" : "یک قدم تازه"}</small><h2 id={titleId}>{initial ? category === "meeting" ? "ویرایش جلسه" : "ویرایش کار" : category === "meeting" ? "جلسه جدید" : "کار جدید"}</h2></div><button type="button" onClick={onClose}>بستن</button></div><label>عنوان<input name="title" autoFocus required defaultValue={initial?.title} placeholder={category === "meeting" ? "مثلاً جلسه با تیم فروش" : "مثلاً تماس با تیم فروش"} /></label><div className="field-grid"><label>دسته‌بندی<select name="category" value={category} onChange={(event) => setCategory(event.target.value as Category)}>{initial?.source === "meeting" ? <option value="meeting">جلسه</option> : <><option value="personal">شخصی</option><option value="work">شرکتی</option>{!initial && <option value="meeting">جلسه</option>}</>}</select></label><label>اولویت<select name="priority" disabled={category === "meeting"} defaultValue={initial?.priority || "normal"}><option value="normal">عادی</option><option value="important">مهم</option><option value="urgent">فوری</option></select></label></div><div className="field-grid"><label>{category === "meeting" ? "تاریخ" : "تاریخ (اختیاری)"}<input name="date" type="date" defaultValue={moment ? dateKey(moment) : initialDate || (initial ? "" : localDateInput())} required={category === "meeting"} /></label><label>ساعت<input name="time" type="time" defaultValue={localTimeInput(moment)} required={category === "meeting"} /></label></div><div className="field-grid">{category === "meeting" ? <label>مدت جلسه<select name="duration" defaultValue={duration}><option value="30">۳۰ دقیقه</option><option value="60">۱ ساعت</option><option value="90">۱.۵ ساعت</option><option value="120">۲ ساعت</option></select></label> : <label>یادآوری<select name="reminderMinutes" defaultValue={String(defaultReminderMinutes)}><option value="0">همان لحظه</option><option value="15">۱۵ دقیقه قبل</option><option value="30">۳۰ دقیقه قبل</option><option value="60">۱ ساعت قبل</option><option value="1440">یک روز قبل</option></select></label>}<span /></div><button className="submit-button">{initial ? "ذخیره تغییرات" : "ثبت در برنامه"}</button></form></div>;
 }
 
 function Nav({ active, label, badge, onClick }: { active: boolean; label: string; badge?: number; onClick: () => void }) { return <button className={`nav-button ${active ? "active" : ""}`} onClick={onClick}>{label}{badge !== undefined && <small>{badge}</small>}</button>; }
@@ -302,17 +326,30 @@ function Assistant({ onAdd, onChanged }: { onAdd: () => void; onChanged: () => P
   const [input, setInput] = useState(""); const [reply, setReply] = useState(""); const [proposal, setProposal] = useState<AgentProposal | null>(null); const [pending, setPending] = useState(false); const [status, setStatus] = useState(""); const [conversationId, setConversationId] = useState<string>();
   async function send(event: FormEvent) {
     event.preventDefault(); if (!input.trim()) return; setPending(true); setStatus(""); setReply(""); setProposal(null);
-    const response = await fetch("/api/agent", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ message: input, timezone: "Asia/Tehran", conversationId }) });
-    const body = await response.json(); setPending(false);
-    if (!response.ok) { setStatus(body.error || "پاسخی دریافت نشد"); return; }
-    setReply(body.data.reply); setProposal(body.data.proposal); setConversationId(body.data.conversationId); setInput("");
+    try {
+      const response = await fetch("/api/agent", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ message: input, timezone: "Asia/Tehran", conversationId }) });
+      const body = await response.json().catch(() => null);
+      if (!response.ok || !body?.data) { setStatus(body?.error || "پاسخی دریافت نشد"); return; }
+      setReply(body.data.reply); setProposal(body.data.proposal); setConversationId(body.data.conversationId); setInput("");
+    } catch {
+      setStatus("ارتباط با دستیار برقرار نشد؛ دوباره تلاش کن.");
+    } finally {
+      setPending(false);
+    }
   }
   async function approve() {
     if (!proposal?.title) return; setPending(true);
     const isMeeting = proposal.kind === "CREATE_MEETING"; const endpoint = isMeeting ? "/api/meetings" : "/api/tasks";
     const body = isMeeting ? { title: proposal.title, startsAt: proposal.startsAt, endsAt: proposal.endsAt, timezone: "Asia/Tehran", attendees: [] } : { title: proposal.title, category: proposal.category || "PERSONAL", priority: proposal.priority || "NORMAL", dueAt: proposal.dueAt };
-    const response = await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }); setPending(false);
-    if (response.ok) { setStatus("انجام شد و در برنامه‌ات ثبت شد."); setProposal(null); await onChanged(); } else setStatus("ثبت پیشنهاد انجام نشد؛ زمان‌ها یا اطلاعات را دوباره بررسی کن.");
+    try {
+      const response = await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+      if (!response.ok) { setStatus("ثبت پیشنهاد انجام نشد؛ زمان‌ها یا اطلاعات را دوباره بررسی کن."); return; }
+      setStatus("انجام شد و در برنامه‌ات ثبت شد."); setProposal(null); await onChanged();
+    } catch {
+      setStatus("ارتباط با برنامه برقرار نشد؛ دوباره تلاش کن.");
+    } finally {
+      setPending(false);
+    }
   }
   const actionableProposal = proposal?.kind === "CREATE_TASK" || proposal?.kind === "CREATE_MEETING";
   return <section className="assistant-panel"><div className="assistant-orb">ه</div><div><p className="eyebrow">همراه آماده است</p><h2>هر چیزی را ساده بگو</h2><p>مثلاً «فردا ساعت ۱۰ جلسه با تیم فروش بذار» یا «کارهای مهم این هفته‌ام را مرتب کن».</p></div>{!session && <p className="agent-notice">برای استفاده از دستیار ابتدا <Link href="/login">وارد حساب شو</Link>.</p>}<div className="suggestions"><button onClick={onAdd}>یک کار برای امروز بساز</button><button onClick={() => setInput("برنامه امروز من را خلاصه کن")}>برنامه امروز را خلاصه کن</button><button onClick={() => setInput("برای زمان آزاد امروز پیشنهاد بده")}>برای زمان آزاد پیشنهاد بده</button></div>{reply && <div className="agent-response"><strong>همراه</strong><p>{reply}</p>{proposal && proposal.kind !== "NONE" && <div className="proposal"><span>{actionableProposal ? "پیشنهاد برای تأیید" : "پیشنهاد برنامه‌ریزی"}</span><strong>{proposal.title || proposal.reasoning}</strong>{actionableProposal && <button onClick={() => void approve()} disabled={pending}>تأیید و اجرا</button>}</div>}</div>}{status && <p className="agent-status">{status}</p>}<form className="chat-box" onSubmit={send}><input aria-label="پیام" placeholder="با همراه صحبت کن..." value={input} onChange={(event) => setInput(event.target.value)} disabled={!session || pending} /><button aria-label="ارسال" disabled={!session || pending}>{pending ? "در حال بررسی" : "ارسال"}</button></form><small className="coming-soon">بدون کلید سرویس، حالت محلی فعال است و هیچ عملیاتی بدون تأیید تو اجرا نمی‌شود.</small></section>;

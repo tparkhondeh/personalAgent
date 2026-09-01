@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { escalationAcknowledgeSchema, meetingInputSchema, meetingUpdateSchema, notificationReadSchema, taskInputSchema, userPreferenceInputSchema } from "./validation";
+import { escalationAcknowledgeSchema, meetingInputSchema, meetingUpdateSchema, notificationReadSchema, taskInputSchema, taskUpdateSchema, userPreferenceInputSchema } from "./validation";
 
 describe("input validation", () => {
   it("rejects an empty task title", () => {
@@ -8,6 +8,12 @@ describe("input validation", () => {
 
   it("accepts a valid work task", () => {
     expect(taskInputSchema.safeParse({ title: "ارسال گزارش", category: "WORK", priority: "IMPORTANT" }).success).toBe(true);
+  });
+
+  it("allows removing a task deadline during editing", () => {
+    const result = taskUpdateSchema.safeParse({ dueAt: null });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.dueAt).toBeNull();
   });
 
   it("rejects meetings ending before they start", () => {

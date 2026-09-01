@@ -5,6 +5,7 @@ import { jsonError, requireApiSession } from "@/lib/api";
 import { db } from "@/lib/db";
 import { formatAgentContext } from "@/lib/agent-context";
 import { createLocalAgentResponse } from "@/lib/local-agent";
+import { guardUserRateLimit } from "@/lib/rate-limit";
 
 const requestSchema = z.object({ message: z.string().trim().min(1).max(4000), timezone: z.string().max(100).default("Asia/Tehran"), conversationId: z.string().trim().min(1).optional() });
 const responseSchema = z.object({
@@ -25,6 +26,8 @@ const responseSchema = z.object({
 export async function POST(request: Request) {
   const session = await requireApiSession(request.headers);
   if (!session) return jsonError("ابتدا وارد حساب شوید", 401);
+  const limited = guardUserRateLimit(session.user.id, "agent", { limit: 20, windowMs: 60_000 });
+  if (limited) return limited;
   const parsed = requestSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return jsonError("پیام معتبر نیست", 422, parsed.error.flatten());
   const conversation = parsed.data.conversationId ? await db.conversation.findFirst({ where: { id: parsed.data.conversationId, userId: session.user.id }, include: { messages: { orderBy: { createdAt: "desc" }, take: 12 } } }) : null;

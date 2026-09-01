@@ -4,6 +4,10 @@ export function reminderIdempotencyKey(userId: string, entityId: string, schedul
   return `${userId}:${entityId}:${scheduledFor.toISOString()}:${channel}`;
 }
 
+export function shouldScheduleTaskReminder(task: { status: string; dueAt: Date | null }) {
+  return (task.status === "TODO" || task.status === "IN_PROGRESS") && Boolean(task.dueAt);
+}
+
 export function nextRecurrence(rule: string, after: Date) {
   const parsed = RRule.fromString(rule);
   return parsed.after(after, false);

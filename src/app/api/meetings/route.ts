@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { jsonError, requireApiSession } from "@/lib/api";
 import { meetingInputSchema } from "@/lib/validation";
 import { reminderIdempotencyKey } from "@/lib/reminders";
+import { guardUserRateLimit } from "@/lib/rate-limit";
 
 export async function GET(request: Request) {
   const session = await requireApiSession(request.headers);
@@ -13,6 +14,8 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const session = await requireApiSession(request.headers);
   if (!session) return jsonError("ابتدا وارد حساب شوید", 401);
+  const limited = guardUserRateLimit(session.user.id, "mutations", { limit: 120, windowMs: 60_000 });
+  if (limited) return limited;
   const parsed = meetingInputSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return jsonError("اطلاعات جلسه معتبر نیست", 422, parsed.error.flatten());
   const preference = await db.userPreference.findUnique({ where: { userId: session.user.id }, select: { defaultReminderMins: true } });

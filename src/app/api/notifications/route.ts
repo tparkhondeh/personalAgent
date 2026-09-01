@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { jsonError, requireApiSession } from "@/lib/api";
 import { notificationReadSchema } from "@/lib/validation";
+import { guardUserRateLimit } from "@/lib/rate-limit";
 
 export async function GET(request: Request) {
   const session = await requireApiSession(request.headers);
@@ -12,6 +13,8 @@ export async function GET(request: Request) {
 export async function PATCH(request: Request) {
   const session = await requireApiSession(request.headers);
   if (!session) return jsonError("ابتدا وارد حساب شوید", 401);
+  const limited = guardUserRateLimit(session.user.id, "mutations", { limit: 120, windowMs: 60_000 });
+  if (limited) return limited;
   const parsed = notificationReadSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return jsonError("درخواست اعلان معتبر نیست", 422, parsed.error.flatten());
   const where = parsed.data.all ? { userId: session.user.id, readAt: null } : { id: parsed.data.id, userId: session.user.id };

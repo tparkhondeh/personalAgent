@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { jsonError, requireApiSession } from "@/lib/api";
 import { userPreferenceInputSchema } from "@/lib/validation";
+import { guardUserRateLimit } from "@/lib/rate-limit";
 
 function serializePreference(preference: { timezone: string; locale: string; workdayStartsAt: string; workdayEndsAt: string; workingDays: string; defaultReminderMins: number; quietHoursStartsAt: string; quietHoursEndsAt: string; planningProfile: string | null; urgentEscalationEnabled: boolean; urgentRepeatMinutes: number; urgentMaxRepeats: number; androidAlarmEnabled: boolean; highPriorityEnabled: boolean; smsEscalationEnabled: boolean; callEscalationEnabled: boolean; emergencyContactName: string | null; emergencyPhone: string | null }) {
   return { ...preference, workingDays: preference.workingDays.split(",").filter(Boolean), planningProfile: preference.planningProfile || "BALANCED" };
@@ -16,6 +17,8 @@ export async function GET(request: Request) {
 export async function PUT(request: Request) {
   const session = await requireApiSession(request.headers);
   if (!session) return jsonError("ابتدا وارد حساب شوید", 401);
+  const limited = guardUserRateLimit(session.user.id, "mutations", { limit: 120, windowMs: 60_000 });
+  if (limited) return limited;
   const parsed = userPreferenceInputSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return jsonError("تنظیمات واردشده معتبر نیست", 422, parsed.error.flatten());
   const { workingDays, ...values } = parsed.data;

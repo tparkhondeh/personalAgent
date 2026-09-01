@@ -1,3 +1,7 @@
+param(
+    [string]$ServerUrl = 'http://10.0.2.2:3001'
+)
+
 $ErrorActionPreference = 'Stop'
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
@@ -40,7 +44,8 @@ try {
         exit $LASTEXITCODE
     }
 
-    & pnpm.cmd android:sync:emulator
+    $env:CAPACITOR_SERVER_URL = $ServerUrl
+    & pnpm.cmd android:sync
     if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
     }
