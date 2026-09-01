@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       staging_url:
-        description: Temporary HTTPS TryCloudflare URL for the isolated phone staging environment
+        description: Temporary HTTPS tunnel URL for the isolated phone staging environment
         required: true
         type: string
 
@@ -39,8 +39,10 @@ jobs:
         run: |
           node - <<'NODE'
           const url = new URL(process.env.CAPACITOR_SERVER_URL);
-          if (url.protocol !== "https:" || !url.hostname.endsWith(".trycloudflare.com")) {
-            throw new Error("Phone staging builds require an HTTPS TryCloudflare URL.");
+          const allowedTemporaryHosts = [".trycloudflare.com", ".lhr.life"];
+          const isAllowedHost = allowedTemporaryHosts.some((suffix) => url.hostname.endsWith(suffix));
+          if (url.protocol !== "https:" || !isAllowedHost) {
+            throw new Error("Phone staging builds require an approved temporary HTTPS tunnel URL.");
           }
           NODE
 
