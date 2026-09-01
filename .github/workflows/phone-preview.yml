@@ -1,0 +1,235 @@
+name: Temporary phone preview
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: temporary-phone-preview
+  cancel-in-progress: true
+
+env:
+  CI: true
+  NEXT_TELEMETRY_DISABLED: 1
+  DATABASE_URL: file:${{ github.workspace }}/data/phone-preview.db
+  AI_PROVIDER: openai
+  OPENAI_API_KEY: ""
+  OPENAI_MODEL: gpt-5-mini
+  NEXT_PUBLIC_VAPID_PUBLIC_KEY: ""
+  VAPID_PRIVATE_KEY: ""
+  VAPID_SUBJECT: mailto:preview@personalagent.invalid
+
+jobs:
+  preview:
+    name: Build and host installable phone preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: 11.19.0
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Set up Java
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Android SDK components
+        run: |
+          SDKMANAGER="${ANDROID_SDK_ROOT:-$ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;35.0.0"
+
+      - name: Install verified tunnel client
+        run: |
+          curl --fail --location --retry 3 \
+            --output artifacts-cloudflared \
+            https://github.com/cloudflare/cloudflared/releases/download/2026.8.3/cloudflared-linux-amd64
+          echo "f29324fe934d1e100617484c78deef803c4dc2cd351d645bbde42e96b4fccc5e  artifacts-cloudflared" | sha256sum --check --strict
+          chmod 700 artifacts-cloudflared
+
+      - name: Prepare isolated database and runtime secrets
+        run: |
+          mkdir -p data artifacts/phone-preview public/downloads
+          pnpm db:generate
+          pnpm db:init
+          auth_secret=$(openssl rand -hex 32)
+          cron_secret=$(openssl rand -hex 32)
+          echo "::add-mask::$auth_secret"
+          echo "::add-mask::$cron_secret"
+          echo "BETTER_AUTH_SECRET=$auth_secret" >> "$GITHUB_ENV"
+          echo "CRON_SECRET=$cron_secret" >> "$GITHUB_ENV"
+
+      - name: Create temporary HTTPS preview address
+        run: |
+          node - <<'NODE' > artifacts/phone-preview/placeholder.log 2>&1 &
+          const http = require("node:http");
+          http.createServer((request, response) => {
+            response.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
+            response.end(JSON.stringify({ status: "preparing" }));
+          }).listen(3012, "127.0.0.1");
+          NODE
+          echo "$!" > artifacts/phone-preview/placeholder.pid
+
+          nohup ./artifacts-cloudflared tunnel \
+            --no-autoupdate \
+            --url http://127.0.0.1:3012 \
+            --loglevel info \
+            > artifacts/phone-preview/cloudflared.log 2>&1 &
+          echo "$!" > artifacts/phone-preview/cloudflared.pid
+
+          preview_url=""
+          for attempt in {1..60}; do
+            preview_url=$(grep -Eo 'https://[a-z0-9-]+\.trycloudflare\.com' artifacts/phone-preview/cloudflared.log | grep -v 'api\.trycloudflare\.com' | head -1 || true)
+            if [ -n "$preview_url" ]; then
+              break
+            fi
+            if ! kill -0 "$(cat artifacts/phone-preview/cloudflared.pid)" 2>/dev/null; then
+              cat artifacts/phone-preview/cloudflared.log
+              exit 1
+            fi
+            sleep 2
+          done
+          test -n "$preview_url"
+
+          for attempt in {1..30}; do
+            if curl --fail --silent "$preview_url/api/health" | grep -q '"status":"preparing"'; then
+              break
+            fi
+            sleep 2
+          done
+          curl --fail --silent "$preview_url/api/health" | grep -q '"status":"preparing"'
+
+          printf '%s\n' "$preview_url" > artifacts/phone-preview/preview-url.txt
+          echo "PREVIEW_URL=$preview_url" >> "$GITHUB_ENV"
+          echo "BETTER_AUTH_URL=$preview_url" >> "$GITHUB_ENV"
+          echo "CAPACITOR_SERVER_URL=$preview_url" >> "$GITHUB_ENV"
+
+      - name: Run web quality checks
+        run: |
+          pnpm typecheck
+          pnpm lint
+          pnpm test
+          pnpm build
+
+      - name: Build phone APK
+        run: |
+          node scripts/generate-android-assets.mjs
+          pnpm android:sync
+          chmod +x android/gradlew
+          ./android/gradlew -p android --no-daemon :app:lintDebug :app:testDebugUnitTest :app:assembleDebug
+          unzip -p android/app/build/outputs/apk/debug/app-debug.apk assets/capacitor.config.json > artifacts/phone-preview/capacitor.config.json
+          grep -F "\"url\": \"${PREVIEW_URL}\"" artifacts/phone-preview/capacitor.config.json
+          cp android/app/build/outputs/apk/debug/app-debug.apk public/downloads/hamrah-phone-preview.apk
+          sha256sum public/downloads/hamrah-phone-preview.apk | tee public/downloads/hamrah-phone-preview.sha256.txt
+
+      - name: Start isolated preview application
+        run: |
+          kill "$(cat artifacts/phone-preview/placeholder.pid)" 2>/dev/null || true
+          mkdir -p .next/standalone/.next .next/standalone/public
+          cp -R .next/static .next/standalone/.next/static
+          cp -R public/. .next/standalone/public/
+          HOSTNAME=127.0.0.1 PORT=3012 nohup node .next/standalone/server.js > artifacts/phone-preview/server.log 2>&1 &
+          echo "$!" > artifacts/phone-preview/server.pid
+
+          for attempt in {1..40}; do
+            if curl --fail --silent http://127.0.0.1:3012/api/health > artifacts/phone-preview/local-health.json; then
+              grep -F '"status":"ok"' artifacts/phone-preview/local-health.json
+              grep -F '"database":"connected"' artifacts/phone-preview/local-health.json
+              break
+            fi
+            sleep 2
+          done
+          grep -F '"status":"ok"' artifacts/phone-preview/local-health.json
+          grep -F '"database":"connected"' artifacts/phone-preview/local-health.json
+
+      - name: Verify public preview and install file
+        run: |
+          for attempt in {1..40}; do
+            if curl --fail --silent "$PREVIEW_URL/api/health" > artifacts/phone-preview/public-health.json; then
+              if grep -q '"status":"ok"' artifacts/phone-preview/public-health.json && grep -q '"database":"connected"' artifacts/phone-preview/public-health.json; then
+                break
+              fi
+            fi
+            sleep 2
+          done
+          grep -F '"status":"ok"' artifacts/phone-preview/public-health.json
+          grep -F '"database":"connected"' artifacts/phone-preview/public-health.json
+
+          curl --fail --silent --show-error --head "$PREVIEW_URL/" > artifacts/phone-preview/security-headers.txt
+          grep -i '^x-content-type-options: nosniff' artifacts/phone-preview/security-headers.txt
+          grep -i '^x-frame-options: DENY' artifacts/phone-preview/security-headers.txt
+          grep -i '^strict-transport-security:' artifacts/phone-preview/security-headers.txt
+
+          curl --fail --silent --show-error \
+            --output artifacts/phone-preview/downloaded-preview.apk \
+            "$PREVIEW_URL/downloads/hamrah-phone-preview.apk"
+          expected_hash=$(awk '{print $1}' public/downloads/hamrah-phone-preview.sha256.txt)
+          downloaded_hash=$(sha256sum artifacts/phone-preview/downloaded-preview.apk | awk '{print $1}')
+          test "$expected_hash" = "$downloaded_hash"
+
+          signup_status=$(curl --silent --show-error \
+            --output artifacts/phone-preview/signup-smoke.json \
+            --write-out '%{http_code}' \
+            --header 'content-type: application/json' \
+            --data '{"name":"Phone Preview QA","email":"phone-preview@example.invalid","password":"preview-only-password-2026"}' \
+            "$PREVIEW_URL/api/auth/sign-up/email")
+          test "$signup_status" = "200"
+
+      - name: Publish installable APK artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hamrah-phone-preview-${{ github.run_number }}
+          path: |
+            public/downloads/hamrah-phone-preview.apk
+            public/downloads/hamrah-phone-preview.sha256.txt
+            artifacts/phone-preview/preview-url.txt
+            artifacts/phone-preview/capacitor.config.json
+            artifacts/phone-preview/local-health.json
+            artifacts/phone-preview/public-health.json
+            artifacts/phone-preview/security-headers.txt
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish preview links
+        run: |
+          apk_url="$PREVIEW_URL/downloads/hamrah-phone-preview.apk"
+          {
+            echo "## Temporary Android phone preview"
+            echo
+            echo "- App: $PREVIEW_URL"
+            echo "- APK: $apk_url"
+            echo "- SHA-256: $(awk '{print $1}' public/downloads/hamrah-phone-preview.sha256.txt)"
+            echo "- Availability: approximately two hours from this run"
+          } >> "$GITHUB_STEP_SUMMARY"
+          printf 'PREVIEW_READY=%s\nAPK_URL=%s\n' "$PREVIEW_URL" "$apk_url"
+
+      - name: Keep temporary preview online for phone testing
+        run: |
+          for minute in {1..120}; do
+            kill -0 "$(cat artifacts/phone-preview/server.pid)"
+            kill -0 "$(cat artifacts/phone-preview/cloudflared.pid)"
+            curl --fail --silent "$PREVIEW_URL/api/health" | grep -q '"status":"ok"'
+            sleep 60
+          done
