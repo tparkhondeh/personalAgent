@@ -1,0 +1,200 @@
+name: Production release candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_url:
+        description: Approved HTTPS origin embedded in the Android release candidate
+        required: true
+        default: https://personalagent.wealthos.ir
+        type: string
+      vapid_public_key:
+        description: Public VAPID key embedded in the web client (not a secret)
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: production-release-candidate
+  cancel-in-progress: true
+
+env:
+  CI: true
+  NEXT_TELEMETRY_DISABLED: 1
+  DATABASE_URL: file:${{ github.workspace }}/data/release-candidate.db
+  BETTER_AUTH_URL: ${{ inputs.app_url }}
+  BETTER_AUTH_SECRET: release-candidate-build-only-secret-000000000000000000
+  CRON_SECRET: release-candidate-build-only-cron-secret-000000000000
+  AI_PROVIDER: openai
+  OPENAI_API_KEY: ""
+  OPENAI_MODEL: gpt-5-mini
+  NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${{ inputs.vapid_public_key }}
+  VAPID_PRIVATE_KEY: ""
+  VAPID_SUBJECT: mailto:release-candidate@personalagent.invalid
+  CAPACITOR_SERVER_URL: ${{ inputs.app_url }}
+
+jobs:
+  package:
+    name: Verify and publish server and Android RC
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      - name: Validate approved public configuration
+        run: |
+          node - <<'NODE'
+          const url = new URL(process.env.CAPACITOR_SERVER_URL);
+          if (
+            url.protocol !== "https:" ||
+            url.hostname !== "personalagent.wealthos.ir" ||
+            url.pathname !== "/" ||
+            url.search ||
+            url.hash
+          ) {
+            throw new Error("Release candidates must target https://personalagent.wealthos.ir");
+          }
+
+          const vapid = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "";
+          if (!/^[A-Za-z0-9_-]{80,100}$/.test(vapid)) {
+            throw new Error("A valid public VAPID key is required for a release candidate");
+          }
+          NODE
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: 11.19.0
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Set up Java
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Android SDK components
+        run: |
+          SDKMANAGER="${ANDROID_SDK_ROOT:-$ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;35.0.0"
+
+      - name: Prepare isolated database
+        run: |
+          mkdir -p data artifacts/server/.next artifacts/release
+          pnpm db:generate
+          pnpm db:init
+
+      - name: Run complete web quality checks
+        run: |
+          pnpm typecheck
+          pnpm lint
+          pnpm test
+          pnpm build
+          pnpm audit --prod --audit-level high
+
+      - name: Build and verify connected Android candidate
+        run: |
+          node scripts/generate-android-assets.mjs
+          pnpm android:sync
+          chmod +x android/gradlew
+          ./android/gradlew -p android --no-daemon :app:lintDebug :app:testDebugUnitTest :app:assembleDebug
+
+          apk_path="android/app/build/outputs/apk/debug/app-debug.apk"
+          unzip -p "$apk_path" assets/capacitor.config.json > artifacts/release/capacitor.config.json
+          grep -F '"url": "https://personalagent.wealthos.ir"' artifacts/release/capacitor.config.json
+          "${ANDROID_SDK_ROOT:-$ANDROID_HOME}/build-tools/35.0.0/aapt" dump badging "$apk_path" \
+            | tee artifacts/release/android-badging.txt
+          grep -F "package: name='ir.wealthos.personalagent'" artifacts/release/android-badging.txt
+          grep -F "application-label:'همراه'" artifacts/release/android-badging.txt
+          cp "$apk_path" "artifacts/release/hamrah-android-rc-${GITHUB_RUN_NUMBER}.apk"
+
+      - name: Package standalone Linux server
+        run: |
+          cp -R .next/standalone/. artifacts/server/
+          cp -R .next/static artifacts/server/.next/static
+          cp -R public artifacts/server/public
+          mkdir -p artifacts/server/prisma artifacts/server/scripts
+          cp prisma/schema.prisma artifacts/server/prisma/schema.prisma
+          cp scripts/migrate.mjs artifacts/server/scripts/migrate.mjs
+          printf '%s\n' "$GITHUB_SHA" > artifacts/server/BUILD_COMMIT.txt
+          tar -czf "artifacts/release/hamrah-server-rc-${GITHUB_RUN_NUMBER}.tar.gz" -C artifacts/server .
+
+      - name: Smoke test packaged server
+        run: |
+          smoke_dir="$(mktemp -d)"
+          tar -xzf "artifacts/release/hamrah-server-rc-${GITHUB_RUN_NUMBER}.tar.gz" -C "$smoke_dir"
+          export DATABASE_URL="file:${GITHUB_WORKSPACE}/data/release-candidate.db"
+          HOSTNAME=127.0.0.1 PORT=3013 node "$smoke_dir/server.js" > artifacts/release/server-smoke.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true; rm -rf "$smoke_dir"' EXIT
+
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:3013/api/health > artifacts/release/server-health.json; then
+              grep -F '"status":"ok"' artifacts/release/server-health.json
+              grep -F '"database":"connected"' artifacts/release/server-health.json
+              exit 0
+            fi
+            sleep 2
+          done
+
+          cat artifacts/release/server-smoke.log
+          exit 1
+
+      - name: Record checksums
+        run: |
+          sha256sum \
+            "artifacts/release/hamrah-server-rc-${GITHUB_RUN_NUMBER}.tar.gz" \
+            "artifacts/release/hamrah-android-rc-${GITHUB_RUN_NUMBER}.apk" \
+            | tee artifacts/release/SHA256SUMS.txt
+
+      - name: Upload verified release candidate
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hamrah-production-rc-${{ github.run_number }}
+          path: artifacts/release/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish stable pre-release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="production-rc-${GITHUB_RUN_NUMBER}"
+          server_asset="artifacts/release/hamrah-server-rc-${GITHUB_RUN_NUMBER}.tar.gz"
+          android_asset="artifacts/release/hamrah-android-rc-${GITHUB_RUN_NUMBER}.apk"
+          checksums="artifacts/release/SHA256SUMS.txt"
+
+          gh release create "$tag" "$server_asset" "$android_asset" "$checksums" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "همراه؛ کاندید انتشار ${GITHUB_RUN_NUMBER}" \
+            --notes "بسته آزمایش‌شده پیش از Production. APK با امضای Debug است و انتشار عمومی نهایی محسوب نمی‌شود." \
+            --prerelease
+
+          base_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${tag}"
+          {
+            echo "## Verified production release candidate"
+            echo
+            echo "- Commit: $GITHUB_SHA"
+            echo "- Origin: $CAPACITOR_SERVER_URL"
+            echo "- Server: $base_url/hamrah-server-rc-${GITHUB_RUN_NUMBER}.tar.gz"
+            echo "- Android: $base_url/hamrah-android-rc-${GITHUB_RUN_NUMBER}.apk"
+            echo "- Checksums: $base_url/SHA256SUMS.txt"
+          } >> "$GITHUB_STEP_SUMMARY"
