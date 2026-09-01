@@ -134,6 +134,8 @@ jobs:
           cp prisma/schema.prisma artifacts/server/prisma/schema.prisma
           cp -R prisma/migrations artifacts/server/prisma/migrations
           cp scripts/migrate.mjs artifacts/server/scripts/migrate.mjs
+          cp scripts/run-schedulers.sh artifacts/server/scripts/run-schedulers.sh
+          chmod 755 artifacts/server/scripts/run-schedulers.sh
           printf '%s\n' "$GITHUB_SHA" > artifacts/server/BUILD_COMMIT.txt
           tar -czf "artifacts/release/hamrah-server-rc-${GITHUB_RUN_NUMBER}.tar.gz" -C artifacts/server .
 
@@ -141,7 +143,8 @@ jobs:
         run: |
           smoke_dir="$(mktemp -d)"
           tar -xzf "artifacts/release/hamrah-server-rc-${GITHUB_RUN_NUMBER}.tar.gz" -C "$smoke_dir"
-          export DATABASE_URL="file:${GITHUB_WORKSPACE}/data/release-candidate.db"
+          export DATABASE_URL="file:${smoke_dir}/smoke.db"
+          node "$smoke_dir/scripts/migrate.mjs"
           HOSTNAME=127.0.0.1 PORT=3013 node "$smoke_dir/server.js" > artifacts/release/server-smoke.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null || true; rm -rf "$smoke_dir"' EXIT
@@ -150,6 +153,8 @@ jobs:
             if curl --fail --silent http://127.0.0.1:3013/api/health > artifacts/release/server-health.json; then
               grep -F '"status":"ok"' artifacts/release/server-health.json
               grep -F '"database":"connected"' artifacts/release/server-health.json
+              APP_ORIGIN=http://127.0.0.1:3013 bash "$smoke_dir/scripts/run-schedulers.sh" \
+                > artifacts/release/scheduler-smoke.json
               exit 0
             fi
             sleep 2
