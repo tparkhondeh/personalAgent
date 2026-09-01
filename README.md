@@ -52,9 +52,11 @@ pnpm audit --prod --audit-level high
 
 برای نصب آزمایشی بدون کابل، Workflow دستی `Temporary phone preview` یک محیط کاملاً جدا با HTTPS و دیتابیس موقت می‌سازد، APK را به همان آدرس متصل می‌کند و لینک دانلود را در Summary اجرا قرار می‌دهد. [اجرای پیش‌نمایش شماره ۱](https://github.com/tparkhondeh/personalAgent/actions/runs/33493716896) بدون تغییر Production ساخته و کنترل شده است. لینک آن حدود دو ساعت فعال است؛ داده‌های این محیط موقت‌اند و نباید برای اطلاعات مهم استفاده شود.
 
+کاندید نهایی پیش از Production در [اجرای شماره ۳](https://github.com/tparkhondeh/personalAgent/actions/runs/33512177595) ساخته شده است. این اجرا بسته مستقل سرور، Migration، Reminder، Escalation، وب و APK متصل به `https://personalagent.wealthos.ir` را در محیط تمیز آزمایش می‌کند. APK این مرحله Debug-signed است؛ امضای خصوصی و انتشار عمومی فقط بعد از تأیید نهایی مالک انجام می‌شود.
+
 ## متغیرهای محیطی
 
-نمونه کامل در `.env.example` است. Production حداقل به `DATABASE_URL`، تنظیمات Better Auth، کلید LLM، کلیدهای VAPID و `CRON_SECRET` نیاز دارد.
+نمونه کامل در `.env.example` است. Production حداقل به `DATABASE_URL`، تنظیمات Better Auth، کلیدهای VAPID و `CRON_SECRET` نیاز دارد. کلید LLM اختیاری است و نبود آن برنامه را به حالت محلی امن می‌برد.
 
 در محیط توسعه، خالی‌بودن کلید LLM مانع کار برنامه نیست؛ دستیار به‌صورت خودکار از حالت محلی امن استفاده می‌کند. همچنین بدون کلید VAPID می‌توان اعلان محلی همین دستگاه را آزمایش کرد.
 
