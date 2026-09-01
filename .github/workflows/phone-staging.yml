@@ -1,0 +1,133 @@
+name: Phone staging package
+
+on:
+  workflow_dispatch:
+    inputs:
+      staging_url:
+        description: Temporary HTTPS TryCloudflare URL for the isolated phone staging environment
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phone-staging-package
+  cancel-in-progress: true
+
+env:
+  CI: true
+  NEXT_TELEMETRY_DISABLED: 1
+  DATABASE_URL: file:./data/phone-staging-build.db
+  BETTER_AUTH_URL: ${{ inputs.staging_url }}
+  BETTER_AUTH_SECRET: phone-staging-build-only-secret-000000000000000000
+  CAPACITOR_SERVER_URL: ${{ inputs.staging_url }}
+
+jobs:
+  package:
+    name: Build isolated server and phone APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      - name: Validate isolated staging URL
+        run: |
+          node - <<'NODE'
+          const url = new URL(process.env.CAPACITOR_SERVER_URL);
+          if (url.protocol !== "https:" || !url.hostname.endsWith(".trycloudflare.com")) {
+            throw new Error("Phone staging builds require an HTTPS TryCloudflare URL.");
+          }
+          NODE
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: 11.19.0
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Set up Java
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Android SDK components
+        run: |
+          SDKMANAGER="${ANDROID_SDK_ROOT:-$ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;35.0.0"
+
+      - name: Prepare isolated build database
+        run: |
+          mkdir -p data artifacts/package public/downloads
+          pnpm db:generate
+          pnpm db:init
+
+      - name: Build phone APK
+        run: |
+          node scripts/generate-android-assets.mjs
+          pnpm android:sync
+          chmod +x android/gradlew
+          ./android/gradlew -p android --no-daemon :app:lintDebug :app:testDebugUnitTest :app:assembleDebug
+          unzip -p android/app/build/outputs/apk/debug/app-debug.apk assets/capacitor.config.json > artifacts/package/capacitor.config.json
+          grep -F "\"url\": \"${CAPACITOR_SERVER_URL}\"" artifacts/package/capacitor.config.json
+          cp android/app/build/outputs/apk/debug/app-debug.apk public/downloads/hamrah-phone-staging.apk
+          sha256sum public/downloads/hamrah-phone-staging.apk | tee public/downloads/hamrah-phone-staging.sha256.txt
+
+      - name: Build isolated staging server
+        run: pnpm build
+
+      - name: Package standalone server and APK
+        run: |
+          mkdir -p artifacts/server/.next
+          cp -R .next/standalone/. artifacts/server/
+          cp -R .next/static artifacts/server/.next/static
+          cp -R public artifacts/server/public
+          cp data/phone-staging-build.db artifacts/server/empty-staging.db
+          printf '%s\n' "${GITHUB_SHA}" > artifacts/server/BUILD_COMMIT.txt
+          tar -czf artifacts/package/hamrah-phone-staging-server.tar.gz -C artifacts/server .
+          cp public/downloads/hamrah-phone-staging.apk artifacts/package/hamrah-phone-staging.apk
+          cp public/downloads/hamrah-phone-staging.sha256.txt artifacts/package/hamrah-phone-staging.sha256.txt
+
+      - name: Smoke test standalone package
+        env:
+          HOSTNAME: 127.0.0.1
+          PORT: 3012
+          DATABASE_URL: file:./artifacts/server/empty-staging.db
+        run: |
+          node artifacts/server/server.js > artifacts/package/server-smoke.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:3012/api/health > artifacts/package/server-health.json; then
+              grep -F '"status":"ok"' artifacts/package/server-health.json
+              grep -F '"database":"connected"' artifacts/package/server-health.json
+              exit 0
+            fi
+            sleep 2
+          done
+          cat artifacts/package/server-smoke.log
+          exit 1
+
+      - name: Upload phone staging package
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hamrah-phone-staging-${{ github.run_number }}
+          path: artifacts/package/
+          if-no-files-found: error
+          retention-days: 7
