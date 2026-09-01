@@ -133,11 +133,15 @@ jobs:
           pnpm test
           pnpm build
 
-      - name: Configure conflict-free preview identity
+      - name: Run Android quality checks
         run: |
           node scripts/generate-android-assets.mjs
           pnpm android:sync
+          chmod +x android/gradlew
+          ./android/gradlew -p android --no-daemon :app:lintDebug :app:testDebugUnitTest
 
+      - name: Configure conflict-free preview identity
+        run: |
           preview_package="ir.wealthos.personalagent.preview${GITHUB_RUN_NUMBER}"
           preview_name="همراه آزمایشی ${GITHUB_RUN_NUMBER}"
           export PREVIEW_PACKAGE_ID="$preview_package"
@@ -173,8 +177,7 @@ jobs:
 
       - name: Build phone APK
         run: |
-          chmod +x android/gradlew
-          ./android/gradlew -p android --no-daemon :app:lintDebug :app:testDebugUnitTest :app:assembleDebug
+          ./android/gradlew -p android --no-daemon :app:assembleDebug
           unzip -p android/app/build/outputs/apk/debug/app-debug.apk assets/capacitor.config.json > artifacts/phone-preview/capacitor.config.json
           grep -F "\"url\": \"${PREVIEW_URL}\"" artifacts/phone-preview/capacitor.config.json
           "${ANDROID_SDK_ROOT:-$ANDROID_HOME}/build-tools/35.0.0/aapt" dump badging android/app/build/outputs/apk/debug/app-debug.apk \
