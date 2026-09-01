@@ -25,6 +25,10 @@ adb shell settings put global window_animation_scale 0
 adb shell settings put global transition_animation_scale 0
 adb shell settings put global animator_duration_scale 0
 
+adb install -r "$apk_path"
+adb shell pm grant "$package_name" android.permission.POST_NOTIFICATIONS || true
+adb shell appops set "$package_name" SCHEDULE_EXACT_ALARM allow || true
+
 ./android/gradlew -p android --no-daemon :app:connectedDebugAndroidTest
 
 adb install -r "$apk_path"

@@ -7,11 +7,21 @@ import static org.junit.Assert.assertTrue;
 
 import android.Manifest;
 import android.app.AlarmManager;
+import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.media.AudioAttributes;
+import android.net.Uri;
+import android.os.Build;
+import androidx.core.app.NotificationCompat;
+import androidx.core.content.ContextCompat;
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -22,6 +32,9 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.json.JSONObject;
 import org.junit.Test;
@@ -71,6 +84,119 @@ public class ApplicationContextTest {
     }
 
     @Test
+    public void urgentNotificationChannelCanDisplayAndCancelNotification() throws Exception {
+        Context appContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        NotificationManager manager = appContext.getSystemService(NotificationManager.class);
+        String channelId = "urgent-overdue-instrumented-test";
+        int notificationId = 930_001;
+        Uri sound = Uri.parse(
+            "android.resource://" + appContext.getPackageName() + "/" + R.raw.urgent_alarm
+        );
+        NotificationChannel channel = new NotificationChannel(
+            channelId,
+            "تست هشدار فوری همراه",
+            NotificationManager.IMPORTANCE_HIGH
+        );
+        channel.enableVibration(true);
+        channel.setSound(
+            sound,
+            new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).build()
+        );
+
+        manager.createNotificationChannel(channel);
+        try {
+            NotificationChannel created = manager.getNotificationChannel(channelId);
+            assertNotNull(created);
+            assertEquals(NotificationManager.IMPORTANCE_HIGH, created.getImportance());
+            assertTrue(created.shouldVibrate());
+            assertNotNull(created.getSound());
+
+            manager.notify(
+                notificationId,
+                new NotificationCompat.Builder(appContext, channelId)
+                    .setSmallIcon(R.drawable.ic_stat_hamrah)
+                    .setContentTitle("کار فوری عقب‌افتاده")
+                    .setContentText("این یک هشدار آزمایشی محلی است.")
+                    .setPriority(NotificationCompat.PRIORITY_MAX)
+                    .setAutoCancel(true)
+                    .build()
+            );
+
+            assertTrue(waitForNotificationState(manager, notificationId, true));
+            manager.cancel(notificationId);
+            assertTrue(waitForNotificationState(manager, notificationId, false));
+        } finally {
+            manager.cancel(notificationId);
+            manager.deleteNotificationChannel(channelId);
+        }
+    }
+
+    @Test
+    public void exactAlarmFiresAndCanceledAlarmDoesNotFire() throws Exception {
+        Context appContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        AlarmManager alarmManager = appContext.getSystemService(AlarmManager.class);
+        assertNotNull(alarmManager);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            assertTrue(alarmManager.canScheduleExactAlarms());
+        }
+
+        String action = appContext.getPackageName() + ".INSTRUMENTED_ALARM";
+        CountDownLatch firstAlarm = new CountDownLatch(1);
+        AtomicInteger deliveries = new AtomicInteger();
+        BroadcastReceiver receiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                deliveries.incrementAndGet();
+                firstAlarm.countDown();
+            }
+        };
+        ContextCompat.registerReceiver(
+            appContext,
+            receiver,
+            new IntentFilter(action),
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        );
+
+        PendingIntent firingAlarm = PendingIntent.getBroadcast(
+            appContext,
+            930_002,
+            new Intent(action).setPackage(appContext.getPackageName()),
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+        PendingIntent canceledAlarm = PendingIntent.getBroadcast(
+            appContext,
+            930_003,
+            new Intent(action).setPackage(appContext.getPackageName()),
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+
+        try {
+            alarmManager.setExactAndAllowWhileIdle(
+                AlarmManager.RTC_WAKEUP,
+                System.currentTimeMillis() + 1_500,
+                firingAlarm
+            );
+            assertTrue("Exact Android alarm did not fire", firstAlarm.await(10, TimeUnit.SECONDS));
+            assertEquals(1, deliveries.get());
+
+            alarmManager.setExactAndAllowWhileIdle(
+                AlarmManager.RTC_WAKEUP,
+                System.currentTimeMillis() + 1_500,
+                canceledAlarm
+            );
+            alarmManager.cancel(canceledAlarm);
+            Thread.sleep(2_500);
+            assertEquals("Canceled Android alarm was delivered", 1, deliveries.get());
+        } finally {
+            alarmManager.cancel(firingAlarm);
+            alarmManager.cancel(canceledAlarm);
+            firingAlarm.cancel();
+            canceledAlarm.cancel();
+            appContext.unregisterReceiver(receiver);
+        }
+    }
+
+    @Test
     public void configuredDevelopmentServerIsReachableFromAndroid() throws Exception {
         Context appContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
         JSONObject config;
@@ -95,5 +221,21 @@ public class ApplicationContextTest {
         } finally {
             connection.disconnect();
         }
+    }
+
+    private boolean waitForNotificationState(
+        NotificationManager manager,
+        int notificationId,
+        boolean expectedActive
+    ) throws InterruptedException {
+        long deadline = System.currentTimeMillis() + 3_000;
+        do {
+            boolean active = Arrays.stream(manager.getActiveNotifications()).anyMatch(notification ->
+                notification.getId() == notificationId
+            );
+            if (active == expectedActive) return true;
+            Thread.sleep(100);
+        } while (System.currentTimeMillis() < deadline);
+        return false;
     }
 }
