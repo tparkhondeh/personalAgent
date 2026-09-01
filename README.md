@@ -52,6 +52,8 @@ pnpm audit --prod --audit-level high
 
 برای نصب آزمایشی بدون کابل، Workflow دستی `Temporary phone preview` یک محیط کاملاً جدا با HTTPS و دیتابیس موقت می‌سازد، APK را به همان آدرس متصل می‌کند و لینک دانلود را در Summary اجرا قرار می‌دهد. [اجرای پیش‌نمایش شماره ۱](https://github.com/tparkhondeh/personalAgent/actions/runs/33493716896) بدون تغییر Production ساخته و کنترل شده است. لینک آن حدود دو ساعت فعال است؛ داده‌های این محیط موقت‌اند و نباید برای اطلاعات مهم استفاده شود.
 
+برای آزمایش پایدار بدون دامنه، [همراه آفلاین ۳](https://github.com/tparkhondeh/personalAgent/releases/download/phone-preview-offline-3/hamrah-offline-preview-3.apk) با شناسه مستقل `ir.wealthos.personalagent.offlinepreview3` منتشر شده است. این شناسه اجازه می‌دهد APK کنار نسخه‌های قبلی نصب شود و خطای تداخل Package ایجاد نکند؛ داده‌های آن فقط روی همان گوشی ذخیره می‌شوند.
+
 کاندید نهایی پیش از Production در [اجرای شماره ۵](https://github.com/tparkhondeh/personalAgent/actions/runs/33521435867) ساخته و روی Staging تأیید شده است. این اجرا بسته مستقل سرور، Migration، Reminder، Escalation، وب و APK متصل به `https://personalagent.wealthos.ir` را در محیط تمیز آزمایش می‌کند. [APK آزمایشی RC5](https://github.com/tparkhondeh/personalAgent/releases/download/production-rc-5/hamrah-android-rc-5.apk) Debug-signed است؛ امضای خصوصی و انتشار عمومی فقط بعد از تأیید نهایی مالک انجام می‌شود.
 
 ## متغیرهای محیطی
