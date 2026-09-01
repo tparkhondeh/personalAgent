@@ -110,8 +110,8 @@ jobs:
         env:
           HOSTNAME: 127.0.0.1
           PORT: 3012
-          DATABASE_URL: file:./artifacts/server/empty-staging.db
         run: |
+          export DATABASE_URL="file:${GITHUB_WORKSPACE}/artifacts/server/empty-staging.db"
           node artifacts/server/server.js > artifacts/package/server-smoke.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null || true' EXIT
@@ -123,6 +123,7 @@ jobs:
             fi
             sleep 2
           done
+          cat artifacts/package/server-health.json 2>/dev/null || true
           cat artifacts/package/server-smoke.log
           exit 1
 
