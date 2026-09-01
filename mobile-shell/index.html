@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#f6f3ef" />
-    <title>همراه</title>
+    <meta name="theme-color" content="#f4f1ed" />
+    <title>همراه آفلاین</title>
     <style>
       @font-face {
         font-family: Vazirmatn;
@@ -12,28 +12,375 @@
         font-weight: 100 900;
         font-display: swap;
       }
-      :root { color-scheme: light dark; font-family: Vazirmatn, Tahoma, sans-serif; }
+
+      :root {
+        color-scheme: light dark;
+        font-family: Vazirmatn, Tahoma, sans-serif;
+        --bg: #f4f1ed;
+        --surface: #fffdfa;
+        --surface-soft: #f8f5f1;
+        --text: #27312b;
+        --muted: #657168;
+        --border: #dbe2db;
+        --primary: #607563;
+        --primary-soft: #deeadf;
+        --urgent: #a6535a;
+        --urgent-soft: #f5dfe1;
+        --important: #8a642f;
+        --important-soft: #f4e8d3;
+        --normal: #526b82;
+        --normal-soft: #e0eaf2;
+        --shadow: 0 18px 55px rgba(48, 63, 52, 0.1);
+      }
+
       * { box-sizing: border-box; }
-      body { min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; margin: 0; padding: 24px; background: #f6f3ef; color: #27312b; }
-      main { width: min(100%, 430px); padding: 32px 26px; border: 1px solid #dce3dc; border-radius: 26px; background: #fffdfa; box-shadow: 0 22px 60px rgba(48, 63, 52, .1); text-align: center; }
-      .mark { width: 58px; height: 58px; display: grid; place-items: center; margin: 0 auto 18px; border-radius: 19px; background: #dcebdc; color: #526957; font-size: 25px; font-weight: 800; }
-      h1 { margin: 0 0 10px; font-size: 28px; line-height: 1.55; }
-      p { margin: 0; color: #647169; font-size: 15px; line-height: 2; }
-      small { display: block; margin-top: 22px; color: #7b877f; font-size: 12px; line-height: 1.9; }
+      body { min-height: 100vh; min-height: 100dvh; margin: 0; background: var(--bg); color: var(--text); }
+      button, input, select { font: inherit; }
+      button { cursor: pointer; }
+      .shell { width: min(100%, 720px); margin: 0 auto; padding: max(20px, env(safe-area-inset-top)) 18px max(30px, env(safe-area-inset-bottom)); }
+      .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
+      .brand { display: flex; align-items: center; gap: 12px; }
+      .mark { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 16px; background: var(--primary-soft); color: var(--primary); font-size: 21px; font-weight: 800; }
+      h1 { margin: 0; font-size: clamp(25px, 7vw, 31px); line-height: 1.45; }
+      .subtitle { margin: 2px 0 0; color: var(--muted); font-size: 13px; line-height: 1.8; }
+      .offline { flex: 0 0 auto; padding: 7px 10px; border: 1px solid var(--border); border-radius: 999px; color: var(--muted); background: var(--surface); font-size: 12px; }
+      .card { margin-bottom: 16px; padding: 20px; border: 1px solid var(--border); border-radius: 22px; background: var(--surface); box-shadow: var(--shadow); }
+      h2 { margin: 0 0 15px; font-size: 19px; line-height: 1.6; }
+      .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+      .field { display: grid; gap: 7px; }
+      .field.full { grid-column: 1 / -1; }
+      label { color: var(--muted); font-size: 13px; }
+      input, select { width: 100%; min-height: 48px; padding: 0 13px; border: 1px solid var(--border); border-radius: 14px; outline: 0; background: var(--surface-soft); color: var(--text); font-size: 15px; }
+      input:focus, select:focus, button:focus-visible { border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent); }
+      .primary, .secondary { min-height: 48px; border-radius: 14px; padding: 0 16px; font-weight: 700; }
+      .primary { grid-column: 1 / -1; border: 1px solid var(--primary); background: var(--primary); color: #fff; }
+      .secondary { border: 1px solid var(--border); background: var(--surface-soft); color: var(--text); }
+      .alarm-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+      .status { min-height: 24px; margin: 12px 0 0; color: var(--muted); font-size: 13px; line-height: 1.9; }
+      .list-header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+      .count { color: var(--muted); font-size: 13px; }
+      .task-list { display: grid; gap: 10px; }
+      .empty { padding: 24px 12px; border: 1px dashed var(--border); border-radius: 16px; color: var(--muted); text-align: center; font-size: 14px; line-height: 2; }
+      .task { display: grid; grid-template-columns: auto 1fr auto; align-items: start; gap: 11px; padding: 14px; border: 1px solid var(--border); border-radius: 17px; background: var(--surface-soft); }
+      .task.done { opacity: 0.64; }
+      .task.done .task-title { text-decoration: line-through; }
+      .check { width: 26px; height: 26px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--primary); font-weight: 800; }
+      .task-title { display: block; margin: 0 0 7px; font-size: 15px; line-height: 1.8; }
+      .meta { display: flex; flex-wrap: wrap; gap: 6px; color: var(--muted); font-size: 12px; }
+      .tag { padding: 4px 8px; border-radius: 999px; }
+      .tag.urgent { color: var(--urgent); background: var(--urgent-soft); }
+      .tag.important { color: var(--important); background: var(--important-soft); }
+      .tag.normal { color: var(--normal); background: var(--normal-soft); }
+      .delete { min-width: 42px; min-height: 38px; border: 0; border-radius: 11px; color: var(--urgent); background: var(--urgent-soft); font-size: 12px; }
+      .note { margin: 0; color: var(--muted); font-size: 12px; line-height: 2; }
+
+      @media (max-width: 520px) {
+        .shell { padding-inline: 14px; }
+        .card { padding: 17px; border-radius: 19px; }
+        .grid, .alarm-actions { grid-template-columns: 1fr; }
+        .field.full, .primary { grid-column: auto; }
+      }
+
       @media (prefers-color-scheme: dark) {
-        body { background: #151b17; color: #edf2ed; }
-        main { border-color: #364139; background: #1d2520; }
-        .mark { background: #2c3b30; color: #cfe0d0; }
-        p, small { color: #aebbb2; }
+        :root {
+          --bg: #141a16;
+          --surface: #1d2520;
+          --surface-soft: #232d27;
+          --text: #edf2ed;
+          --muted: #aebbb2;
+          --border: #38433b;
+          --primary: #a9c0ad;
+          --primary-soft: #2c3b30;
+          --urgent: #f2b3b8;
+          --urgent-soft: #4a2b30;
+          --important: #e7c99a;
+          --important-soft: #483a27;
+          --normal: #b5d1e7;
+          --normal-soft: #2a3b49;
+          --shadow: none;
+        }
+        .primary { color: #172019; }
       }
     </style>
   </head>
   <body>
-    <main>
-      <div class="mark" aria-hidden="true">ه</div>
-      <h1>همراه آماده اتصال است</h1>
-      <p>پوسته امن اندروید نصب شده است. برای نسخه آزمایشی، برنامه به سرور لوکال توسعه متصل می‌شود.</p>
-      <small>نسخه انتشار فقط با آدرس امن HTTPS و پس از تأیید نهایی Production ساخته خواهد شد.</small>
+    <main class="shell">
+      <header class="topbar">
+        <div class="brand">
+          <div class="mark" aria-hidden="true">ه</div>
+          <div>
+            <h1>همراه آفلاین</h1>
+            <p class="subtitle">نسخه پایدار آزمایش روی گوشی</p>
+          </div>
+        </div>
+        <span class="offline">بدون اینترنت</span>
+      </header>
+
+      <section class="card" aria-labelledby="new-task-title">
+        <h2 id="new-task-title">برنامه جدید</h2>
+        <form id="task-form" class="grid">
+          <div class="field full">
+            <label for="task-title">عنوان کار یا جلسه</label>
+            <input id="task-title" name="title" maxlength="120" required autocomplete="off" placeholder="مثلاً تماس با حسابداری" />
+          </div>
+          <div class="field">
+            <label for="task-category">دسته‌بندی</label>
+            <select id="task-category" name="category">
+              <option value="personal">شخصی</option>
+              <option value="company">شرکتی</option>
+              <option value="meeting">جلسه</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="task-priority">اولویت</label>
+            <select id="task-priority" name="priority">
+              <option value="normal">عادی</option>
+              <option value="important">مهم</option>
+              <option value="urgent">فوری</option>
+            </select>
+          </div>
+          <div class="field full">
+            <label for="task-deadline">زمان یادآوری اختیاری</label>
+            <input id="task-deadline" name="deadline" type="datetime-local" />
+          </div>
+          <button class="primary" type="submit">ذخیره برنامه</button>
+        </form>
+      </section>
+
+      <section class="card" aria-labelledby="alarm-title">
+        <h2 id="alarm-title">آزمایش اعلان و زنگ هشدار</h2>
+        <div class="alarm-actions">
+          <button id="enable-notifications" class="secondary" type="button">فعال‌سازی اعلان‌ها</button>
+          <button id="test-alarm" class="secondary" type="button">زنگ آزمایشی ۳۰ ثانیه‌ای</button>
+        </div>
+        <p id="alarm-status" class="status" role="status">برای آزمایش زنگ هشدار ابتدا اعلان‌ها را فعال کنید.</p>
+      </section>
+
+      <section class="card" aria-labelledby="task-list-title">
+        <div class="list-header">
+          <h2 id="task-list-title">برنامه‌های من</h2>
+          <span id="task-count" class="count">۰ مورد</span>
+        </div>
+        <div id="task-list" class="task-list"></div>
+      </section>
+
+      <p class="note">داده‌های این نسخه فقط روی همین گوشی ذخیره می‌شوند. اتصال حساب، دستیار هوشمند و همگام‌سازی پس از تأیید نهایی نسخه اصلی فعال خواهد شد.</p>
     </main>
+
+    <script>
+      (() => {
+        "use strict";
+
+        const storageKey = "hamrah-offline-preview-v1";
+        const channelId = "urgent-overdue";
+        const categoryLabels = { personal: "شخصی", company: "شرکتی", meeting: "جلسه" };
+        const priorityLabels = { normal: "عادی", important: "مهم", urgent: "فوری" };
+        const taskForm = document.querySelector("#task-form");
+        const taskList = document.querySelector("#task-list");
+        const taskCount = document.querySelector("#task-count");
+        const alarmStatus = document.querySelector("#alarm-status");
+        const localNotifications = window.Capacitor?.Plugins?.LocalNotifications;
+        const dateFormatter = new Intl.DateTimeFormat("fa-IR", { dateStyle: "medium", timeStyle: "short" });
+        let tasks = loadTasks();
+
+        function loadTasks() {
+          try {
+            const stored = JSON.parse(localStorage.getItem(storageKey) || "[]");
+            return Array.isArray(stored) ? stored : [];
+          } catch {
+            return [];
+          }
+        }
+
+        function saveTasks() {
+          localStorage.setItem(storageKey, JSON.stringify(tasks));
+        }
+
+        function notificationId() {
+          return Math.floor(Date.now() % 2000000000);
+        }
+
+        async function ensureNotificationAccess(openExactSettings = false) {
+          if (!localNotifications) {
+            alarmStatus.textContent = "قابلیت اعلان بومی در این محیط در دسترس نیست.";
+            return false;
+          }
+
+          let permission = await localNotifications.checkPermissions();
+          if (permission.display !== "granted") permission = await localNotifications.requestPermissions();
+          if (permission.display !== "granted") {
+            alarmStatus.textContent = "اجازه اعلان داده نشد. از تنظیمات گوشی می‌توانید آن را فعال کنید.";
+            return false;
+          }
+
+          await localNotifications.createChannel({
+            id: channelId,
+            name: "کارهای فوری عقب‌افتاده",
+            description: "هشدار کارهای فوری همراه",
+            sound: "urgent_alarm.wav",
+            importance: 5,
+            visibility: 1,
+            lights: true,
+            lightColor: "#C56E74",
+            vibration: true,
+          });
+
+          if (openExactSettings && localNotifications.checkExactNotificationSetting) {
+            const exact = await localNotifications.checkExactNotificationSetting();
+            if (exact.exact_alarm !== "granted" && localNotifications.changeExactNotificationSetting) {
+              await localNotifications.changeExactNotificationSetting();
+            }
+          }
+
+          alarmStatus.textContent = "اعلان‌ها فعال هستند.";
+          return true;
+        }
+
+        async function scheduleNotification({ id, title, at, kind = "task" }) {
+          if (!(await ensureNotificationAccess(false))) return false;
+          await localNotifications.schedule({
+            notifications: [{
+              id,
+              title: kind === "test" ? "آزمایش هشدار همراه" : "یادآوری برنامه",
+              body: title,
+              largeBody: title,
+              channelId,
+              sound: "urgent_alarm.wav",
+              smallIcon: "ic_stat_hamrah",
+              iconColor: "#657966",
+              autoCancel: true,
+              schedule: { at, allowWhileIdle: true },
+              extra: { owner: "hamrah-offline-preview", kind },
+            }],
+          });
+          return true;
+        }
+
+        async function cancelNotification(id) {
+          if (!localNotifications || !id) return;
+          try {
+            await localNotifications.cancel({ notifications: [{ id }] });
+          } catch {
+            // A notification that has already fired no longer needs cancellation.
+          }
+        }
+
+        function renderTasks() {
+          taskList.replaceChildren();
+          taskCount.textContent = `${tasks.length.toLocaleString("fa-IR")} مورد`;
+
+          if (!tasks.length) {
+            const empty = document.createElement("div");
+            empty.className = "empty";
+            empty.textContent = "هنوز برنامه‌ای ثبت نشده است.";
+            taskList.append(empty);
+            return;
+          }
+
+          for (const task of tasks) {
+            const article = document.createElement("article");
+            article.className = `task${task.done ? " done" : ""}`;
+
+            const toggle = document.createElement("button");
+            toggle.className = "check";
+            toggle.type = "button";
+            toggle.setAttribute("aria-label", task.done ? "بازگرداندن برنامه" : "انجام شد");
+            toggle.textContent = task.done ? "✓" : "";
+            toggle.addEventListener("click", async () => {
+              task.done = !task.done;
+              if (task.done) await cancelNotification(task.notificationId);
+              saveTasks();
+              renderTasks();
+            });
+
+            const content = document.createElement("div");
+            const title = document.createElement("strong");
+            title.className = "task-title";
+            title.textContent = task.title;
+            const meta = document.createElement("div");
+            meta.className = "meta";
+
+            const category = document.createElement("span");
+            category.className = "tag";
+            category.textContent = categoryLabels[task.category] || "شخصی";
+            const priority = document.createElement("span");
+            priority.className = `tag ${task.priority}`;
+            priority.textContent = priorityLabels[task.priority] || "عادی";
+            meta.append(category, priority);
+
+            if (task.deadline) {
+              const deadline = document.createElement("span");
+              deadline.className = "tag";
+              deadline.textContent = dateFormatter.format(new Date(task.deadline));
+              meta.append(deadline);
+            }
+            content.append(title, meta);
+
+            const remove = document.createElement("button");
+            remove.className = "delete";
+            remove.type = "button";
+            remove.textContent = "حذف";
+            remove.addEventListener("click", async () => {
+              await cancelNotification(task.notificationId);
+              tasks = tasks.filter((item) => item.id !== task.id);
+              saveTasks();
+              renderTasks();
+            });
+
+            article.append(toggle, content, remove);
+            taskList.append(article);
+          }
+        }
+
+        taskForm.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          const data = new FormData(taskForm);
+          const title = String(data.get("title") || "").trim();
+          if (!title) return;
+
+          const deadlineValue = String(data.get("deadline") || "");
+          const task = {
+            id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+            title,
+            category: String(data.get("category") || "personal"),
+            priority: String(data.get("priority") || "normal"),
+            deadline: deadlineValue ? new Date(deadlineValue).toISOString() : null,
+            notificationId: deadlineValue ? notificationId() : null,
+            done: false,
+          };
+
+          tasks.unshift(task);
+          saveTasks();
+          renderTasks();
+          taskForm.reset();
+
+          if (task.deadline) {
+            const at = new Date(Math.max(Date.now() + 1500, new Date(task.deadline).getTime()));
+            const scheduled = await scheduleNotification({ id: task.notificationId, title: task.title, at });
+            alarmStatus.textContent = scheduled ? "برنامه ذخیره و یادآوری آن تنظیم شد." : "برنامه ذخیره شد؛ برای یادآوری، اجازه اعلان لازم است.";
+          }
+        });
+
+        document.querySelector("#enable-notifications").addEventListener("click", async () => {
+          try {
+            await ensureNotificationAccess(true);
+          } catch {
+            alarmStatus.textContent = "فعال‌سازی اعلان کامل نشد. دوباره تلاش کنید.";
+          }
+        });
+
+        document.querySelector("#test-alarm").addEventListener("click", async () => {
+          try {
+            const at = new Date(Date.now() + 30000);
+            const scheduled = await scheduleNotification({ id: notificationId(), title: "این هشدار برای کنترل عملکرد زنگ است.", at, kind: "test" });
+            alarmStatus.textContent = scheduled ? "هشدار تنظیم شد و حدود ۳۰ ثانیه دیگر نمایش داده می‌شود." : "ابتدا اجازه اعلان را فعال کنید.";
+          } catch {
+            alarmStatus.textContent = "تنظیم هشدار آزمایشی ناموفق بود.";
+          }
+        });
+
+        renderTasks();
+      })();
+    </script>
   </body>
 </html>
