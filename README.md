@@ -15,6 +15,7 @@
 - یادآوری Idempotent، مرکز اعلان، اعلان محلی و زیرساخت Web Push
 - PWA قابل نصب روی موبایل و دسکتاپ با پوسته آفلاین پایه
 - پروژه بومی Android با Capacitor، آیکون و Splash اختصاصی
+- ساخت APK و آزمایش خودکار Android 16 در GitHub Actions بدون نیاز به گوشی
 - هشدار چندمرحله‌ای کار فوری: اعلان، Alarm اندروید، اولویت بالا و Mock امن پیامک/تماس
 - Backup سازگار SQLite، کنترل Rollback و هدرهای امنیتی
 - تست Unit، Type Check، Lint، Build و CI
@@ -46,6 +47,8 @@ pnpm audit --prod --audit-level high
 ## اپلیکیشن Android
 
 نسخه آزمایشی Android ساخته شده و با `pnpm android:build:debug` دوباره تولید می‌شود. خروجی محلی در `android/app/build/outputs/apk/debug/app-debug.apk` قرار می‌گیرد. پس از اتصال و تأیید USB debugging روی یک گوشی، دستور `pnpm android:install:device` ساخت، اتصال امن محلی، نصب و بازکردن برنامه را خودکار انجام می‌دهد. نسخه عمومیِ امضاشده تا تأیید آدرس امن Production ساخته نمی‌شود.
+
+علاوه بر روش USB، Workflow مستقل `Android emulator QA` برنامه را بدون گوشی روی Android 16 ابری Build، نصب و اجرا می‌کند. آخرین [اجرای موفق و فایل APK آزمایشی](https://github.com/tparkhondeh/personalAgent/actions/runs/33485253164) در GitHub Actions ثبت شده است.
 
 ## متغیرهای محیطی
 
