@@ -63,6 +63,10 @@ Workflow دستی `.github/workflows/phone-preview.yml` همه اجزای لاز
 
 برای شبکه‌هایی که آدرس موقت Cloudflare را مسدود می‌کنند، Workflow مستقل `Stable offline phone preview` یک APK بدون `server.url` می‌سازد. این نسخه مدیریت محلی کارها و جلسات، اولویت، ذخیره روی گوشی و Alarm آزمایشی را داخل خود اپ اجرا می‌کند و از GitHub Pre-release با لینک پایدار دریافت می‌شود. این APK به Production، تونل، کلید API یا سرویس پولی وابسته نیست.
 
+[دانلود مستقیم «همراه آفلاین ۲»](https://github.com/tparkhondeh/personalAgent/releases/download/phone-preview-offline-2/hamrah-offline-preview-2.apk) از اجرای موفق [شماره ۲](https://github.com/tparkhondeh/personalAgent/actions/runs/33501513180) منتشر شده است. فایل ۴٬۳۷۵٬۳۳۷ بایت، شناسه نصب `ir.wealthos.personalagent.offlinepreview2` و SHA-256 زیر دارد؛ دانلود عمومی و نبود آدرس سرور داخل APK پس از انتشار نیز جداگانه تأیید شده است:
+
+`7d2293f7dacd3264c26c1974afd5d244cee96d93569e9d5666a100c3b63ebc43`
+
 رابط همین پیش‌نمایش در مرورگر واقعی روی دسکتاپ و نمای موبایل ۳۹۰×۸۴۴ بررسی شد؛ RTL و چیدمان Responsive درست بود و Console خطا یا هشدار نداشت.
 
 ## نصب آزمایشی روی گوشی با USB
