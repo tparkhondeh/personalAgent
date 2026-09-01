@@ -133,14 +133,53 @@ jobs:
           pnpm test
           pnpm build
 
-      - name: Build phone APK
+      - name: Configure conflict-free preview identity
         run: |
           node scripts/generate-android-assets.mjs
           pnpm android:sync
+
+          preview_package="ir.wealthos.personalagent.preview${GITHUB_RUN_NUMBER}"
+          preview_name="همراه آزمایشی ${GITHUB_RUN_NUMBER}"
+          export PREVIEW_PACKAGE_ID="$preview_package"
+          export PREVIEW_APP_NAME="$preview_name"
+          echo "PREVIEW_PACKAGE_ID=$preview_package" >> "$GITHUB_ENV"
+          echo "PREVIEW_APP_NAME=$preview_name" >> "$GITHUB_ENV"
+
+          node - <<'NODE'
+          const fs = require("node:fs");
+
+          const packageId = process.env.PREVIEW_PACKAGE_ID;
+          const appName = process.env.PREVIEW_APP_NAME;
+          if (!packageId || !appName) {
+            throw new Error("Preview identity environment is missing");
+          }
+
+          const gradlePath = "android/app/build.gradle";
+          const gradle = fs.readFileSync(gradlePath, "utf8").replace(
+            /applicationId\s+"[^"]+"/,
+            `applicationId "${packageId}"`,
+          );
+          fs.writeFileSync(gradlePath, gradle);
+
+          const stringsPath = "android/app/src/main/res/values/strings.xml";
+          const strings = fs
+            .readFileSync(stringsPath, "utf8")
+            .replace(/<string name="app_name">[^<]*<\/string>/, `<string name="app_name">${appName}</string>`)
+            .replace(/<string name="title_activity_main">[^<]*<\/string>/, `<string name="title_activity_main">${appName}</string>`)
+            .replace(/<string name="package_name">[^<]*<\/string>/, `<string name="package_name">${packageId}</string>`)
+            .replace(/<string name="custom_url_scheme">[^<]*<\/string>/, `<string name="custom_url_scheme">${packageId}</string>`);
+          fs.writeFileSync(stringsPath, strings);
+          NODE
+
+      - name: Build phone APK
+        run: |
           chmod +x android/gradlew
           ./android/gradlew -p android --no-daemon :app:lintDebug :app:testDebugUnitTest :app:assembleDebug
           unzip -p android/app/build/outputs/apk/debug/app-debug.apk assets/capacitor.config.json > artifacts/phone-preview/capacitor.config.json
           grep -F "\"url\": \"${PREVIEW_URL}\"" artifacts/phone-preview/capacitor.config.json
+          "${ANDROID_SDK_ROOT:-$ANDROID_HOME}/build-tools/35.0.0/aapt" dump badging android/app/build/outputs/apk/debug/app-debug.apk \
+            | grep -F "package: name='${PREVIEW_PACKAGE_ID}'" \
+            | tee artifacts/phone-preview/application-id.txt
           cp android/app/build/outputs/apk/debug/app-debug.apk public/downloads/hamrah-phone-preview.apk
           sha256sum public/downloads/hamrah-phone-preview.apk | tee public/downloads/hamrah-phone-preview.sha256.txt
 
@@ -205,6 +244,7 @@ jobs:
             public/downloads/hamrah-phone-preview.apk
             public/downloads/hamrah-phone-preview.sha256.txt
             artifacts/phone-preview/preview-url.txt
+            artifacts/phone-preview/application-id.txt
             artifacts/phone-preview/capacitor.config.json
             artifacts/phone-preview/local-health.json
             artifacts/phone-preview/public-health.json
@@ -220,6 +260,8 @@ jobs:
             echo
             echo "- App: $PREVIEW_URL"
             echo "- APK: $apk_url"
+            echo "- App name: $PREVIEW_APP_NAME"
+            echo "- Package ID: $PREVIEW_PACKAGE_ID"
             echo "- SHA-256: $(awk '{print $1}' public/downloads/hamrah-phone-preview.sha256.txt)"
             echo "- Availability: approximately two hours from this run"
           } >> "$GITHUB_STEP_SUMMARY"
