@@ -21,6 +21,12 @@ if (-not (Test-Path -LiteralPath (Join-Path $sdkRoot 'platforms\android-36'))) {
     throw "Android SDK 36 was not found under $sdkRoot"
 }
 
+if (-not $ServerUrl) {
+    Write-Host "Building Android in offline shell mode (mobile-shell)."
+} else {
+    Write-Host "Building Android in connected mode. APK will load UI from: $ServerUrl"
+}
+
 $env:JAVA_HOME = $javaHome
 $env:ANDROID_HOME = $sdkRoot
 $env:ANDROID_SDK_ROOT = $sdkRoot
