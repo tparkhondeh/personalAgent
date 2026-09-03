@@ -2,7 +2,7 @@
 
 ## وضعیت فعلی
 
-- نسخه Production از Commit `b50c3b6b75290f2f66938fc93d7783c3b8297844` در مسیر مستقل `/home/wealthos_dev/apps/personal-agent` اجرا شده است.
+- نسخه Production از Commit `49cceed` در مسیر مستقل `/home/wealthos_dev/apps/personal-agent` (با symlink روی `current`) اجرا شده است.
 - برنامه با PM2 و نام `personal-agent-prod` روی `127.0.0.1:3011` فعال است.
 - پورت ۳۰۱۱ از اینترنت قابل دسترسی نیست و فقط Reverse Proxy سرور باید به آن وصل شود.
 - دیتابیس Production مستقل، خالی و دارای `PRAGMA integrity_check = ok` است.
@@ -10,7 +10,7 @@
 - یادآوری هر دقیقه و بکاپ SQLite هر شب ساعت ۰۲:۱۷ اجرا می‌شوند.
 - بکاپ‌ها پس از ۳۰ روز حذف می‌شوند.
 - کاندید انتشار پنجم از Commit `49cceedd8462e9a65172e6ed375a78d8edf7d226` روی محیط آزمایشی پورت ۳۰۱۰ فعال و با عملیات واقعی تأیید شده است.
-- Production همچنان روی Commit `b50c3b6b75290f2f66938fc93d7783c3b8297844` و پورت ۳۰۱۱ باقی مانده و در جریان آماده‌سازی تغییری نکرده است.
+- Production اکنون روی Commit `49cceed` و پورت داخلی ۳۰۱۱ فعال شده و در جریان آماده‌سازی دامنه/Proxy باقی مانده است.
 - دامنه اکنون پاسخ HTTPS سالم دارد، اما فقط صفحه `Index of /` سرویس LiteSpeed را نشان می‌دهد و هنوز به برنامه متصل نیست.
 
 ## Snapshot قبل از Cutover
