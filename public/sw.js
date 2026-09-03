@@ -1,20 +1,54 @@
+const CACHE_NAME = "hamrah-shell-v4";
+const CORE_ASSETS = ["/", "/manifest.webmanifest", "/icon.svg", "/icon-192.png", "/icon-512.png"];
+
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open("hamrah-shell-v3").then((cache) => cache.addAll(["/", "/manifest.webmanifest", "/icon.svg", "/icon-192.png", "/icon-512.png"])));
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(CORE_ASSETS)),
+  );
   self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => key.startsWith("hamrah-shell-") && key !== "hamrah-shell-v3").map((key) => caches.delete(key)))));
+  event.waitUntil(
+    caches.keys().then((keys) => Promise.all(
+      keys
+        .filter((key) => key.startsWith("hamrah-shell-") && key !== CACHE_NAME)
+        .map((key) => caches.delete(key)),
+    )),
+  );
   self.clients.claim();
 });
 
 self.addEventListener("fetch", (event) => {
   const request = event.request;
-  if (request.method !== "GET" || new URL(request.url).origin !== self.location.origin || new URL(request.url).pathname.startsWith("/api/")) return;
-  event.respondWith(fetch(request).then((response) => {
-    if (response.ok) caches.open("hamrah-shell-v3").then((cache) => cache.put(request, response.clone()));
-    return response;
-  }).catch(async () => (await caches.match(request)) || (request.mode === "navigate" ? caches.match("/") : Response.error())));
+  if (request.method !== "GET") return;
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin || url.pathname.startsWith("/api/")) return;
+
+  if (request.mode === "navigate") {
+    event.respondWith((async () => {
+      try {
+        const response = await fetch(request);
+        const cache = await caches.open(CACHE_NAME);
+        if (response.ok) void cache.put(request, response.clone());
+        return response;
+      } catch {
+        return (await caches.match(request)) || (await caches.match("/")) || Response.error();
+      }
+    })());
+    return;
+  }
+
+  event.respondWith((async () => {
+    try {
+      const response = await fetch(request);
+      const cache = await caches.open(CACHE_NAME);
+      void cache.put(request, response.clone());
+      return response;
+    } catch {
+      return (await caches.match(request)) || Response.error();
+    }
+  })());
 });
 
 self.addEventListener("push", (event) => {

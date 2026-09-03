@@ -99,7 +99,9 @@ export function PersonalAgentDashboard() {
 
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
-    void navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => undefined);
+    void navigator.serviceWorker.register("/sw.js", { scope: "/" })
+      .then((registration) => registration.update())
+      .catch(() => undefined);
   }, []);
 
   useEffect(() => { if (hydrated && !signedIn) localStorage.setItem("hamrah.items.v2", JSON.stringify(items)); }, [items, hydrated, signedIn]);
