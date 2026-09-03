@@ -1,6 +1,6 @@
 # مختصات پروژه Personal Agent
 
-آخرین به‌روزرسانی: ۲۰۲۶-۰۹-۰۱
+آخرین به‌روزرسانی: ۲۰۲۶-۰۹-۰۳
 
 این فایل نقشه ثابت پیشرفت پروژه است و بعد از هر مرحله مهم به‌روزرسانی می‌شود. درصدها تخمینی‌اند و بر اساس قابلیت‌های واقعاً پیاده‌سازی و آزمایش‌شده محاسبه می‌شوند.
 
@@ -8,11 +8,11 @@
 
 - پیشرفت نسخه وب/PWA: **۱۰۰٪**
 - پیشرفت کل محدوده پیش از Production شامل Android و هشدار پیشرفته: **۱۰۰٪**
-- پیشرفت کل تا انتشار عمومی: **۹۶٪**
-- مرحله فعلی: نسخه نهایی پیش از Production با رابط، PWA، آیکون، Splash و اعلان Android پاستیلی ساخته و روی Staging تأیید شده است
+- پیشرفت کل تا انتشار عمومی: **۹۷٪**
+- مرحله فعلی: کاندید نهایی (`49cceed`) روی Production داخلی اجرا شده و منتظر تنظیم Reverse Proxy دامنه است
 - آخرین مرحله کامل: کاندید انتشار پنجم روی Staging نصب شد؛ ۳۲ تست، مرورگر واقعی، API، Migration، Scheduler و Android 16 همگی موفق بودند
-- قدم بعدی: فقط آزادسازی فضای سرور، انتقال Production/دامنه و امضای خصوصی Android پس از تأیید مالک باقی مانده است
-- انتقال دامنه: عمداً متوقف است؛ دامنه فعلاً صفحه خالی `Index of /` از LiteSpeed را نشان می‌دهد و هنوز به برنامه وصل نیست
+- قدم بعدی: اتصال Reverse Proxy دامنه به `127.0.0.1:3011` و صدور نسخه امضاشده Android پس از تایید نهایی باقی مانده است
+- انتقال دامنه: در سرور برنامه روی پورت داخلی آماده است؛ دامنه هنوز به دلیل تنظیمات Proxy قدیمی به `Index of /` اشاره می‌کند
 
 محیط لوکال و دیتابیس موجود بدون حذف داده‌ها آماده شده‌اند. به‌دلیل اشغال‌بودن پورت ۳۰۰۰ توسط پروژه‌ای دیگر، نسخه فعلی Personal Agent روی `http://localhost:3001` اجرا می‌شود.
 
@@ -51,7 +51,7 @@ flowchart LR
 | اپلیکیشن Android | ۱۰۰٪ پیش از Production | پروژه Capacitor، RTL، آیکون، Splash استاندارد، پوسته امن، APK سالم، تست Android 16 ابری، نصب بدون کابل و Alarm روی گوشی واقعی موفق است |
 | هشدار فوری چندمرحله‌ای | ۱۰۰٪ در محدوده فعلی | اعلان، تکرار Alarm، اولویت بالا، Audit، لغو و Mock تماس/پیامک کامل است؛ اعلان و Alarm سی‌ثانیه‌ای روی گوشی واقعی نیز موفق بود |
 | امنیت، Backup و Rollback | ۱۰۰٪ | Rate Limit، هدرهای امنیتی، Audit وابستگی، Snapshot سالم، Migration قابل تکرار و بازگشت نسخه کامل است |
-| سرور و دامنه | ۹۵٪ | کاندید نهایی روی Staging سالم است؛ فقط نصب روی مسیر Production و Reverse Proxy دامنه پس از تأیید مالک باقی مانده است |
+| سرور و دامنه | ۹۷٪ | کاندید نهایی روی Production داخلی اجرا شده؛ فقط اتصال Reverse Proxy دامنه و تنظیمات HTTPS نهایی باقی مانده است |
 
 ## قانون به‌روزرسانی این نقشه
 
@@ -91,13 +91,13 @@ flowchart LR
 - APK متصل RC3: SHA-256 برابر `256eac4f609c19809a6478a7b33639220aa379f57aeb8e67da9511038fa60819`، شناسه `ir.wealthos.personalagent` و مقصد `https://personalagent.wealthos.ir` تأیید شد؛ این APK هنوز Debug-signed است
 - محیط آزمایشی RC3: نسخه تاریخی در `/home/wealthos_dev/.staging/personal-agent/releases/9885ac6` نگه‌داری می‌شود و دیگر Release فعال نیست
 - Android Release: خروجی واقعی `assembleRelease` بدون خطا ساخته شد؛ فایل نهایی unsigned دارای SHA-256 برابر `28abeacc64336f4f73054dc0ee5805af0840b925139dc4bf79e4a158c2ee62f4` است و فقط امضای خصوصی انتشار باقی مانده است
-- Production: پردازش قبلی Commit `b50c3b6` روی پورت داخلی ۳۰۱۱، دیتابیس و Backup آن سالم و بدون تغییر باقی مانده‌اند
+- Production: Release `49cceed` روی پورت داخلی ۳۰۱۱ جایگزین شد، دیتابیس و Backup آن سالم و سالم نگه داشته شده‌اند
 - کاندید انتشار چهارم: [اجرای موفق شماره ۴](https://github.com/tparkhondeh/personalAgent/actions/runs/33519135966) از Commit `4cd53d42938eedef7d6161e05da45e1117a6fbfe` ساخته شد؛ ۳۰ تست، Type Check، Lint، Build، Audit، Migration، Scheduler، بسته سرور و APK متصل موفق بودند
 - محیط آزمایشی RC4: این نسخه سالم به‌عنوان مسیر بازگشت در `/home/wealthos_dev/.staging/personal-agent/releases/4cd53d4` نگه‌داری می‌شود
 - Android یکپارچه محلی: Lint، تست واحد، `assembleDebug` و `assembleRelease` موفق شدند؛ APK متصل محلی رنگ Splash و اعلان تازه و مقصد امن دامنه را تأیید کرد. خروجی Release همچنان عمداً unsigned است
 - کاندید نهایی RC5: [اجرای موفق شماره ۵](https://github.com/tparkhondeh/personalAgent/actions/runs/33521435867) از Commit `49cceedd8462e9a65172e6ed375a78d8edf7d226` ساخته شد. بسته سرور با SHA-256 برابر `9fbde5e63b08245b1ead7907043d638364e946c27907b1bf4b7d1f40e8bb3939` بدون فایل محیطی و با سه Migration و هر دو Scheduler تأیید شد
 - محیط آزمایشی نهایی: RC5 روی `/home/wealthos_dev/.staging/personal-agent/releases/49cceed` فعال است؛ Backup سالم `pre-rc5-20260901T145047Z.db` ساخته شد و ثبت‌نام، تنظیمات، Task، Meeting، Agent محلی، Reminder، Escalation، اعلان و Alarm با پاک‌سازی داده آزمایشی موفق بودند
-- Production: Symlink قبلی `/home/wealthos_dev/apps/personal-agent/releases/b50c3b6` و پردازش PM2 روی پورت ۳۰۱۱ سالم و بدون تغییر باقی مانده‌اند
+- Production: Symlink فعلی به `/home/wealthos_dev/apps/personal-agent/releases/49cceed` تغییر کرده و PM2 روی پورت ۳۰۱۱ ری‌استارت شده است
 
 ## وابستگی‌های اختیاری و معوق
 
