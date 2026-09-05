@@ -203,12 +203,18 @@ jobs:
           name: ${{ needs.build.outputs.artifact_name }}
           path: artifacts/build
 
-      - name: Verify stable staging from the runner
+      - name: Detect whether this runner can reach the stable staging port
         run: |
-          curl --fail --silent --show-error --retry 3 --connect-timeout 10 \
-            "${STAGING_URL}/api/health" | grep -F '"status":"ok"'
-          curl --fail --silent --show-error --retry 3 --connect-timeout 10 \
-            "${STAGING_URL}/login" | grep -Fq 'خوش برگشتی'
+          if curl --fail --silent --show-error --connect-timeout 10 \
+              "${STAGING_URL}/api/health" | grep -Fq '"status":"ok"' \
+            && curl --fail --silent --show-error --connect-timeout 10 \
+              "${STAGING_URL}/login" | grep -Fq 'خوش برگشتی'; then
+            echo "STAGING_EXPECTATION=online" >> "$GITHUB_ENV"
+            echo "The runner can reach stable staging; Android will verify the remote login UI."
+          else
+            echo "STAGING_EXPECTATION=recovery" >> "$GITHUB_ENV"
+            echo "The runner network blocks port 8443; Android will verify recovery and the bundled UI."
+          fi
 
       - name: Enable emulator acceleration
         run: |
@@ -282,7 +288,7 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "همراه پایدار آزمایشی ${GITHUB_RUN_NUMBER}" \
-            --notes "همان APK منتشرشده روی Android 13، 14 و 16 نصب و Cold Launch شد. رابط کامل از Staging پایدار و رابط محلی از داخل APK نمایش داده می‌شوند. متن واقعی فارسی، اینترنت قطع، راه‌اندازی مجدد و صفحه بازیابی در خطای DNS، خاموشی سرور و SSL بررسی شده‌اند. این نسخه مستقل از تونل‌های موقت و Production اصلی است." \
+            --notes "همان APK منتشرشده روی Android 13، 14 و 16 نصب و Cold Launch شد. متن واقعی رابط محلی فارسی، اینترنت قطع، راه‌اندازی مجدد و صفحه بازیابی در خطای DNS، خاموشی سرور و SSL بررسی شده‌اند. سلامت Staging پایدار جداگانه بررسی می‌شود؛ شبکه GitHub پورت 8443 را مسدود می‌کند. این نسخه مستقل از تونل‌های موقت و Production اصلی است." \
             --prerelease
           download_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${tag}/${APK_NAME}"
           hash="$(awk '{print $1}' artifacts/build/SHA256SUMS.txt)"

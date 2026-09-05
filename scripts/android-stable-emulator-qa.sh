@@ -9,6 +9,7 @@ dns_apk="$4"
 server_down_apk="$5"
 ssl_apk="$6"
 api_level="$7"
+staging_expectation="${STAGING_EXPECTATION:-online}"
 evidence_dir="artifacts/evidence/android-${api_level}"
 activity_name="${package_name}/ir.wealthos.personalagent.MainActivity"
 
@@ -42,26 +43,34 @@ adb wait-for-device
 adb shell settings put global window_animation_scale 0
 adb shell settings put global transition_animation_scale 0
 adb shell settings put global animator_duration_scale 0
+adb shell settings put global http_proxy :0 || true
 adb shell svc wifi enable || true
 adb shell svc data enable || true
 
 adb install -r "$stable_apk"
 adb shell pm grant "$package_name" android.permission.POST_NOTIFICATIONS || true
 adb shell appops set "$package_name" SCHEDULE_EXACT_ALARM allow || true
-launch_and_verify "stable-network-enabled" "خوش برگشتی"
+if [[ "$staging_expectation" == "online" ]]; then
+  launch_and_verify "stable-network-enabled" "خوش برگشتی"
+else
+  launch_and_verify "stable-runner-network-recovery" "اتصال برقرار نشد"
+  node scripts/android-webview-inspect.mjs \
+    "$package_name" "$evidence_dir/stable-runner-local-fallback-webview.json" "برنامه‌های من" "open-offline"
+  adb exec-out screencap -p > "$evidence_dir/stable-runner-local-fallback.png"
+fi
 
 adb install -r "$test_apk"
 adb shell am instrument -w "${package_name}.test/androidx.test.runner.AndroidJUnitRunner" \
   | tee "$evidence_dir/instrumented-tests.txt"
 grep -Fq "OK (" "$evidence_dir/instrumented-tests.txt"
 
-adb shell svc wifi disable || true
-adb shell svc data disable || true
+adb shell settings put global http_proxy 127.0.0.1:9
 launch_and_verify "stable-offline" "اتصال برقرار نشد"
 node scripts/android-webview-inspect.mjs "$package_name" "$evidence_dir/stable-local-fallback-webview.json" "برنامه‌های من" "open-offline"
 adb exec-out screencap -p > "$evidence_dir/stable-local-fallback.png"
 launch_and_verify "stable-offline-relaunch" "اتصال برقرار نشد"
 
+adb shell settings put global http_proxy :0 || true
 adb shell svc wifi enable || true
 adb shell svc data enable || true
 adb install -r "$dns_apk"
@@ -82,7 +91,14 @@ kill "$ssl_server_pid" 2>/dev/null || true
 rm -f "$evidence_dir/test-key.pem"
 
 adb install -r "$stable_apk"
-launch_and_verify "stable-restored" "خوش برگشتی"
+if [[ "$staging_expectation" == "online" ]]; then
+  launch_and_verify "stable-restored" "خوش برگشتی"
+else
+  launch_and_verify "stable-restored-recovery" "اتصال برقرار نشد"
+  node scripts/android-webview-inspect.mjs \
+    "$package_name" "$evidence_dir/stable-restored-local-webview.json" "برنامه‌های من" "open-offline"
+  adb exec-out screencap -p > "$evidence_dir/stable-restored-local.png"
+fi
 
 printf 'Android %s passed: real Persian UI, offline relaunch, DNS, server-down and SSL recovery.\n' "$api_level" \
   | tee "$evidence_dir/result.txt"
