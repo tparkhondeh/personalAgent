@@ -8,7 +8,7 @@ Agent از طریق AI SDK به ارائه‌دهنده LLM وصل می‌شود
 
 اپ Android با Capacitor رابط فعلی را در Build آزمایشی اجرا می‌کند و Alarmهای محلی را با پلاگین رسمی Local Notifications زمان‌بندی می‌کند. Build انتشار فقط به Origin امن HTTPS متصل خواهد شد.
 
-Escalation برای کار فوری عقب‌افتاده یک ماشین حالت Idempotent است: `PENDING` → `PROCESSING` → `SENT` یا `READY_FOR_DEVICE` → `SCHEDULED`. تغییر موعد یا پایان کار، رکوردهای فعال را `CANCELLED` می‌کند. تماس و پیامک تا زمان انتخاب سرویس‌دهنده فقط `SIMULATED` می‌شوند.
+Escalation برای کار فوری عقب‌افتاده یک ماشین حالت Idempotent است: `PENDING` → `PROCESSING` → `SENT` یا `READY_FOR_DEVICE` → `SCHEDULED`. تغییر موعد یا پایان کار، رکوردهای فعال را `CANCELLED` می‌کند. پیامک همچنان `SIMULATED` است؛ تماس واقعی فقط با حالت `live` سرور، کلید کاوه‌نگار، شماره Allowlist‌شده و انتخاب صریح کاربر ارسال می‌شود و در غیر این صورت `SIMULATED` باقی می‌ماند.
 
 ## مرزهای سیستم
 

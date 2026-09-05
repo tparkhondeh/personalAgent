@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { buildEscalationPlan, defaultEscalationPolicy, escalationIdempotencyKey, type EscalationPolicy } from "@/lib/escalations";
 import { sendWebPush } from "@/lib/push";
 import { isInsideQuietHours, moveOutsideQuietHours } from "@/lib/reminders";
+import { sendUrgentVoiceCall } from "@/lib/outbound-calls";
 
 const activeStatuses = ["PENDING", "PROCESSING", "READY_FOR_DEVICE", "SCHEDULED"];
 
@@ -61,7 +62,7 @@ async function seedPlans(userId: string, now: Date, policy: EscalationPolicy, qu
   }
 }
 
-async function processDueAttempts(userId: string, now: Date, quietHours: QuietHours) {
+async function processDueAttempts(userId: string, now: Date, quietHours: QuietHours, emergencyPhone?: string | null) {
   const due = await db.escalationAttempt.findMany({
     where: { userId, status: "PENDING", scheduledFor: { lte: now } },
     include: { task: { select: { title: true } }, user: { include: { pushSubscriptions: true } } },
@@ -72,10 +73,21 @@ async function processDueAttempts(userId: string, now: Date, quietHours: QuietHo
     const claimed = await db.escalationAttempt.updateMany({ where: { id: attempt.id, status: "PENDING" }, data: { status: "PROCESSING" } });
     if (!claimed.count) continue;
     try {
-      if (attempt.level === "SMS_MOCK" || attempt.level === "CALL_MOCK") {
+      if (attempt.level === "SMS_MOCK") {
         await db.$transaction([
           db.escalationAttempt.update({ where: { id: attempt.id }, data: { status: "SIMULATED", sentAt: now, metadata: JSON.stringify({ transmitted: false, reason: "External provider requires explicit approval" }) } }),
           db.auditLog.create({ data: { userId, action: `${attempt.level}_SIMULATED`, entityType: "EscalationAttempt", entityId: attempt.id, source: "SYSTEM", result: JSON.stringify({ transmitted: false }) } }),
+        ]);
+        continue;
+      }
+
+      if (attempt.level === "CALL" || attempt.level === "CALL_MOCK") {
+        const delivery = await sendUrgentVoiceCall(emergencyPhone);
+        const status = delivery.transmitted ? "SENT" : "SIMULATED";
+        const metadata = JSON.stringify({ transmitted: delivery.transmitted, provider: delivery.provider, reason: delivery.reason, providerReference: delivery.providerReference });
+        await db.$transaction([
+          db.escalationAttempt.update({ where: { id: attempt.id }, data: { status, provider: delivery.provider.toUpperCase(), sentAt: now, metadata } }),
+          db.auditLog.create({ data: { userId, action: delivery.transmitted ? "CALL_SENT" : "CALL_SIMULATED", entityType: "EscalationAttempt", entityId: attempt.id, source: "SYSTEM", result: JSON.stringify({ transmitted: delivery.transmitted, provider: delivery.provider, reason: delivery.reason }) } }),
         ]);
         continue;
       }
@@ -130,6 +142,6 @@ export async function syncUserEscalations(userId: string) {
     return { alarms: [], policy };
   }
   await seedPlans(userId, now, policy, quietHours, preference?.updatedAt);
-  await processDueAttempts(userId, now, quietHours);
+  await processDueAttempts(userId, now, quietHours, preference?.emergencyPhone);
   return { alarms: await listNativeEscalationAlarms(userId), policy };
 }

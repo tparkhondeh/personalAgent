@@ -1,4 +1,4 @@
-export type EscalationLevel = "IN_APP_PUSH" | "ANDROID_ALARM" | "HIGH_PRIORITY" | "SMS_MOCK" | "CALL_MOCK";
+export type EscalationLevel = "IN_APP_PUSH" | "ANDROID_ALARM" | "HIGH_PRIORITY" | "SMS_MOCK" | "CALL" | "CALL_MOCK";
 
 export type EscalationPolicy = {
   urgentEscalationEnabled: boolean;
@@ -14,7 +14,7 @@ export type EscalationPlanEntry = {
   level: EscalationLevel;
   attemptNumber: number;
   scheduledFor: Date;
-  provider: "WEB" | "ANDROID" | "MOCK";
+  provider: "WEB" | "ANDROID" | "MOCK" | "EXTERNAL";
 };
 
 export const defaultEscalationPolicy: EscalationPolicy = {
@@ -50,7 +50,7 @@ export function buildEscalationPlan(anchor: Date, policy: EscalationPolicy): Esc
     nextStep++;
   }
   if (policy.callEscalationEnabled) {
-    plan.push({ level: "CALL_MOCK", attemptNumber: 1, scheduledFor: after(nextStep), provider: "MOCK" });
+    plan.push({ level: "CALL", attemptNumber: 1, scheduledFor: after(nextStep), provider: "EXTERNAL" });
   }
   return plan;
 }

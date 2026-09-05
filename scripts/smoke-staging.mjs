@@ -96,6 +96,8 @@ await call("/api/escalations", { method: "POST" });
 const escalations = await call("/api/escalations");
 const agent = await call("/api/agent", { method: "POST", body: JSON.stringify({ message: "برنامه امروز من را خلاصه کن", timezone: "Asia/Tehran", localOnly: true }) });
 if (!agent.data.reply || agent.data.proposal.kind !== "PLAN") throw new Error("The assistant did not return a usable planning response.");
+const integrations = await call("/api/integrations");
+if (!integrations.data?.llm?.mode || !integrations.data?.call?.mode) throw new Error("Integration readiness status is incomplete.");
 
 await call(`/api/tasks/${task.data.id}`, { method: "DELETE" }, 204);
 await call(`/api/meetings/${meeting.data.id}`, { method: "DELETE" }, 204);
@@ -110,5 +112,6 @@ process.stdout.write(`${JSON.stringify({
   notifications: "reachable",
   reminders: "three-default-offsets-saved",
   assistant: `${agent.data.mode}-response-ok`,
+  integrations: `llm-${integrations.data.llm.mode},call-${integrations.data.call.mode}`,
   escalationAlarms: escalations.data.alarms.length,
 }, null, 2)}\n`);

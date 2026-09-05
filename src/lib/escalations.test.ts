@@ -11,9 +11,9 @@ describe("urgent escalation planning", () => {
     expect(plan.at(-1)?.scheduledFor.toISOString()).toBe("2026-08-31T11:00:00.000Z");
   });
 
-  it("keeps paid channels as explicit mock stages", () => {
+  it("keeps SMS mocked and routes calls through the guarded external stage", () => {
     const plan = buildEscalationPlan(anchor, { ...defaultEscalationPolicy, smsEscalationEnabled: true, callEscalationEnabled: true });
-    expect(plan.slice(-2).map((entry) => [entry.level, entry.provider])).toEqual([["SMS_MOCK", "MOCK"], ["CALL_MOCK", "MOCK"]]);
+    expect(plan.slice(-2).map((entry) => [entry.level, entry.provider])).toEqual([["SMS_MOCK", "MOCK"], ["CALL", "EXTERNAL"]]);
   });
 
   it("produces stable unique keys and Android-safe numeric identifiers", () => {
