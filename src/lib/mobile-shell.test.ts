@@ -39,6 +39,8 @@ describe("offline Android mobile shell", () => {
     expect(recoveryHtml).toContain("اتصال برقرار نشد");
     expect(recoveryHtml).toContain("تلاش دوباره");
     expect(recoveryHtml).toContain("ادامه در حالت محلی");
+    expect(recoveryHtml).toContain('location.replace("./index.html")');
+    expect(recoveryHtml).toContain('document.querySelector("#offline").addEventListener');
     expect(recoveryHtml).not.toMatch(/https?:\/\//);
     expect(capacitorConfig).toContain('errorPath: "connection-error.html"');
     expect(capacitorConfig).toContain('allowNavigation: ["localhost"]');

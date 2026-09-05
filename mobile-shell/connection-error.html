@@ -103,7 +103,13 @@
           else fallback();
         };
         document.querySelector("#retry").addEventListener("click", () => callRecovery("retry", () => history.back()));
-        document.querySelector("#offline").addEventListener("click", () => callRecovery("openOffline", () => location.replace("./index.html")));
+        document.querySelector("#offline").addEventListener("click", () => {
+          const fallbackToLocal = () => location.replace("./index.html");
+          callRecovery("openOffline", fallbackToLocal);
+          window.setTimeout(() => {
+            if (location.pathname.endsWith("/connection-error.html")) fallbackToLocal();
+          }, 500);
+        });
         window.addEventListener("online", updateStatus);
         window.addEventListener("offline", updateStatus);
         updateStatus();

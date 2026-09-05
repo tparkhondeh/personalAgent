@@ -42,7 +42,7 @@ async function inspect() {
     socket.addEventListener("error", rejectOpen, { once: true });
   });
 
-  const expression = `JSON.stringify({title:document.title,url:location.href,text:document.body?document.body.innerText:"",direction:document.documentElement.dir})`;
+  const snapshotExpression = `JSON.stringify({title:document.title,url:location.href,text:document.body?document.body.innerText:"",direction:document.documentElement.dir})`;
   let requestId = 0;
   const pending = new Map();
   socket.addEventListener("message", (event) => {
@@ -52,7 +52,7 @@ async function inspect() {
     pending.delete(message.id);
     resolver(message);
   });
-  const evaluate = () => new Promise((resolveResponse, rejectResponse) => {
+  const evaluate = (expression = snapshotExpression) => new Promise((resolveResponse, rejectResponse) => {
     requestId += 1;
     const currentId = requestId;
     const timeout = setTimeout(() => {
@@ -92,8 +92,16 @@ async function inspect() {
   if (action === "open-offline") {
     const recovery = await waitForText("اتصال برقرار نشد");
     if (!recovery) throw new Error("The Persian recovery page was not ready for offline fallback.");
-    requestId += 1;
-    socket.send(JSON.stringify({ id: requestId, method: "Runtime.evaluate", params: { expression: "window.HamrahRecovery.openOffline()" } }));
+    const actionResponse = await evaluate(`(() => {
+      const button = document.querySelector("#offline");
+      if (!button) throw new Error("Offline recovery button was not found.");
+      button.click();
+      return { clicked: true, bridge: typeof window.HamrahRecovery, url: location.href };
+    })()`);
+    if (actionResponse?.result?.exceptionDetails) {
+      throw new Error(`Clicking the offline recovery button failed: ${JSON.stringify(actionResponse.result.exceptionDetails)}`);
+    }
+    process.stdout.write(`Offline action: ${JSON.stringify(actionResponse?.result?.result?.value)}\n`);
     await delay(1_500);
   }
 
