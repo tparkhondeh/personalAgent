@@ -16,7 +16,11 @@ async function inspect() {
   const pid = adb("shell", "pidof", packageName).replace(/\r/g, "").split(/\s+/)[0];
   if (!pid) throw new Error(`No running process found for ${packageName}`);
 
-  adb("forward", "--remove", "tcp:9222");
+  // A fresh CI emulator has no previous forward yet. Removing a missing
+  // listener returns exit code 1, which is harmless and must not fail QA.
+  try {
+    adb("forward", "--remove", "tcp:9222");
+  } catch {}
   adb("forward", "tcp:9222", `localabstract:webview_devtools_remote_${pid}`);
 
   let targets = [];
