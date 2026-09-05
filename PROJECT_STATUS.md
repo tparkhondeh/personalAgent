@@ -9,8 +9,8 @@
 - پیشرفت نسخه وب/PWA: **۱۰۰٪**
 - پیشرفت کل محدوده پیش از Production شامل Android و هشدار پیشرفته: **۱۰۰٪**
 - پیشرفت کل تا انتشار عمومی: **۹۷٪**
-- مرحله فعلی: آزمایش نهایی ظاهر و رفتار اپ روی گوشی با APK متصلِ بدون Cloudflare و محیط کاملاً جدا از Production
-- قدم بعدی: نصب «همراه آزمایشی بدون کلودفلر»، ثبت بازخورد رابط گوشی و انجام اصلاحات احتمالی؛ سپس رفع Reverse Proxy دامنه فقط بعد از تأیید نهایی شما
+- مرحله فعلی: APK متصل «همراه آزمایشی ۱۳» بدون Cloudflare روی Android 16 نصب، اجرا و از نظر رندر غیرسفید تأیید شده است
+- قدم بعدی: نصب نسخه ۱۳ روی گوشی و ثبت بازخورد نهایی رابط؛ سپس رفع Reverse Proxy دامنه فقط بعد از تأیید نهایی شما
 - انتقال دامنه: روی آدرس واقعی هنوز به‌دلیل `Index of /` روی وب‌سرور لایت‌اسپیید بلاک می‌شود؛ برنامه و پورت داخلی سالم است
 
 محیط لوکال و دیتابیس موجود بدون حذف داده‌ها آماده شده‌اند. به‌دلیل اشغال‌بودن پورت ۳۰۰۰ توسط پروژه‌ای دیگر، نسخه فعلی Personal Agent روی `http://localhost:3001` اجرا می‌شود.
@@ -100,6 +100,7 @@ flowchart LR
 - کنترل APK بدون Cloudflare: Android Lint و تست واحد موفق، Build موفق، حجم فایل ۴٬۳۷۲٬۳۳۱ بایت و SHA-256 برابر `7fb0195de7ab13910e422f643719f059685ebb84bd0ca1a0bc4e27e26b605a31` است. مقصد HTTPS و User-Agent اختصاصی داخل APK بررسی شد تا صفحه واسط تونل داخل اپ نمایش داده نشود.
 - Smoke محیط بدون Cloudflare: Health و دیتابیس `ok`، صفحه اصلی `200`، ثبت‌نام آزمایشی، ساخت کار و دریافت فهرست کارها همگی از مسیر عمومی موفق شدند. اجرای شماره ۸ GitHub به‌دلیل ناپایداری آدرس رایگان `localhost.run` متوقف شد و Workflow از آن سرویس به Pinggy با باینری نسخه‌ثابت و کنترل SHA-256 منتقل شد.
 - جایگزینی لینک منقضی‌شده: پس از پایان محیط محلی نسخه اول، [اجرای شماره ۹](https://github.com/tparkhondeh/personalAgent/actions/runs/33972695058) یک محیط تازه غیرCloudflare ساخت و Type Check، Lint، ۳۲ تست، Build وب، Android Lint، تست واحد، ساخت APK، سلامت API، دیتابیس، هدرهای امنیتی، دانلود و ثبت‌نام آزمایشی را با موفقیت گذراند. نسخه «همراه آزمایشی ۹» با شناسه مستقل `ir.wealthos.personalagent.preview9` در [Release شماره ۲](https://github.com/tparkhondeh/personalAgent/releases/tag/phone-preview-no-cloudflare-2) منتشر شد؛ حجم ۴٬۳۷۱٬۹۰۱ بایت و SHA-256 برابر `c4e5a5f30983275018fc3ae4d460e225cf3f14839f88e93dd0872ed7a855f3e5` است.
+- رفع گزارش صفحه سفید: نسخه‌های متصل قبلی بعد از پایان محیط موقت دیگر قابل نمایش نبودند. [اجرای شماره ۱۳](https://github.com/tparkhondeh/personalAgent/actions/runs/33974783381) نسخه تازه «همراه آزمایشی ۱۳» را با شناسه مستقل `ir.wealthos.personalagent.preview13` ساخت؛ Type Check، Lint، ۳۲ تست، Build، Android Lint، تست واحد، سلامت API و دانلود موفق بودند. خود APK روی شبیه‌ساز Android 16 نصب و اجرا شد و تصویر صفحه از نظر رندر غیرسفید و Logcat از نظر خطای شبکه یا خطای بحرانی کنترل شد. فایل ۴٬۳۷۱٬۹۰۵ بایتی با SHA-256 برابر `6289994363bc4a96fbb0cd31bcc1db98f129d936e4ae4af86e2c6e28594fb31d` در [Release شماره ۳](https://github.com/tparkhondeh/personalAgent/releases/tag/phone-preview-no-cloudflare-3) منتشر شد و Production تغییر نکرد.
 - آزمایش رابط پیش‌نمایش: داشبورد فارسی و RTL روی دسکتاپ و نمای موبایل ۳۹۰×۸۴۴ به‌صورت واقعی باز شد؛ چیدمان Responsive بود و Console مرورگر خطا یا هشدار نداشت
 - نصب پیش‌نمایش: هر Build موقت شناسه بسته و نام آزمایشی منحصربه‌فرد می‌گیرد تا باقی‌ماندن نسخه‌ای با امضای متفاوت در گوشی، نصب نسخه تازه را مسدود نکند
 - پیش‌نمایش آفلاین پایدار: [اجرای موفق شماره ۲](https://github.com/tparkhondeh/personalAgent/actions/runs/33501513180) APK مستقل با نام «همراه آفلاین ۲» و شناسه `ir.wealthos.personalagent.offlinepreview2` را منتشر کرد. دانلود عمومی فایل ۴٬۳۷۵٬۳۳۷ بایتی، SHA-256 برابر `7d2293f7dacd3264c26c1974afd5d244cee96d93569e9d5666a100c3b63ebc43` و نبود `server.url` دوباره خارج از GitHub Actions تأیید شد
@@ -127,7 +128,7 @@ flowchart LR
 - پیامک و تماس تا انتخاب سرویس‌دهنده، شماره تأییدشده و تأیید هزینه فقط Mock هستند و هیچ داده‌ای ارسال نمی‌کنند.
 - JDK، Android SDK و Gradle به‌صورت محلی نصب شده‌اند و در Git قرار ندارند.
 - اعلان و Alarm روی گوشی واقعی تأیید شده‌اند؛ بررسی طولانی‌مدت در حالت Doze و ذخیره باتری سازندگان مختلف، کنترل سازگاری تکمیلی پیش از انتشار عمومی است.
-- فایل نصب پیش‌نمایش متصل [بدون Cloudflare، نسخه ۲](https://github.com/tparkhondeh/personalAgent/releases/download/phone-preview-no-cloudflare-2/Hamrah-preview-no-cloudflare-2.apk) روی GitHub پایدار است، اما سرور آزمایشی متصل عمداً موقت است و پس از پایان جلسه باید دوباره ساخته شود. [APK آفلاین شماره ۳](https://github.com/tparkhondeh/personalAgent/releases/download/phone-preview-offline-3/hamrah-offline-preview-3.apk) منقضی نمی‌شود و داده‌هایش فقط روی همان گوشی ذخیره می‌شوند.
+- فایل نصب پیش‌نمایش متصل [بدون Cloudflare، نسخه ۱۳](https://github.com/tparkhondeh/personalAgent/releases/download/phone-preview-no-cloudflare-3/Hamrah-preview-no-cloudflare-3.apk) روی GitHub پایدار است، اما سرور آزمایشی متصل عمداً موقت است و پس از پایان جلسه باید دوباره ساخته شود. [APK آفلاین شماره ۳](https://github.com/tparkhondeh/personalAgent/releases/download/phone-preview-offline-3/hamrah-offline-preview-3.apk) منقضی نمی‌شود و داده‌هایش فقط روی همان گوشی ذخیره می‌شوند.
 - فضای دیسک اصلی سرور حدود ۱۰۰٪ مصرف شده و تقریباً ۱٫۴ گیگابایت آزاد دارد؛ پیش از Cutover عمومی باید مدیر سرور با حفظ Backupها فضای امن آزاد کند.
 
 ## ریسک و Rollback مرحله‌ی Production (برای تصمیم نهایی شما)
