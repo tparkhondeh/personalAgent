@@ -38,6 +38,7 @@ const config: CapacitorConfig = {
     server: {
       url: developmentServerUrl,
       cleartext: developmentServerUrl.startsWith("http://"),
+      errorPath: "connection-error.html",
     },
   } : {}),
 };

@@ -35,6 +35,7 @@ import java.util.Arrays;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.json.JSONObject;
 import org.junit.Test;
@@ -45,7 +46,7 @@ public class ApplicationContextTest {
     @Test
     public void applicationContextUsesExpectedPackage() {
         Context appContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
-        assertEquals("ir.wealthos.personalagent", appContext.getPackageName());
+        assertTrue(appContext.getPackageName().startsWith("ir.wealthos.personalagent"));
     }
 
     @Test
@@ -80,6 +81,47 @@ public class ApplicationContextTest {
                 assertNotNull(activity.getBridge());
                 assertNotNull(activity.getBridge().getWebView());
             });
+        }
+    }
+
+    @Test
+    public void bundledRecoveryPageContainsRealPersianActions() throws Exception {
+        Context appContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        String recovery;
+        try (InputStream stream = appContext.getAssets().open("public/connection-error.html");
+             BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
+            recovery = reader.lines().collect(Collectors.joining("\n"));
+        }
+
+        assertTrue(recovery.contains("اتصال برقرار نشد"));
+        assertTrue(recovery.contains("تلاش دوباره"));
+        assertTrue(recovery.contains("ادامه در حالت محلی"));
+        assertFalse(recovery.contains("http://"));
+        assertFalse(recovery.contains("https://"));
+    }
+
+    @Test
+    public void mainActivityRendersRealPersianContent() throws Exception {
+        CountDownLatch evaluated = new CountDownLatch(1);
+        AtomicReference<String> bodyText = new AtomicReference<>("");
+
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            Thread.sleep(3_000);
+            scenario.onActivity(activity -> activity.getBridge().getWebView().evaluateJavascript(
+                "document.body ? document.body.innerText : ''",
+                value -> {
+                    bodyText.set(value == null ? "" : value);
+                    evaluated.countDown();
+                }
+            ));
+
+            assertTrue("WebView text evaluation timed out", evaluated.await(10, TimeUnit.SECONDS));
+            String content = bodyText.get();
+            assertFalse("WebView rendered an empty document", content.equals("\"\"") || content.equals("null"));
+            assertTrue(
+                "WebView did not render the Persian interface",
+                content.contains("همراه") || content.contains("ورود") || content.contains("اتصال برقرار نشد")
+            );
         }
     }
 

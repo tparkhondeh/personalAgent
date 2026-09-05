@@ -1,4 +1,4 @@
-name: Stable offline phone preview
+name: Verified stable Android preview
 
 on:
   workflow_dispatch:
@@ -7,21 +7,27 @@ permissions:
   contents: write
 
 concurrency:
-  group: stable-offline-phone-preview
-  cancel-in-progress: true
+  group: verified-stable-android-preview
+  cancel-in-progress: false
 
 env:
   CI: true
   NEXT_TELEMETRY_DISABLED: 1
-  DATABASE_URL: file:./data/offline-preview-ci.db
+  DATABASE_URL: file:./data/stable-preview-ci.db
   BETTER_AUTH_URL: http://localhost:3000
-  BETTER_AUTH_SECRET: offline-preview-build-only-secret-000000000000000000000000
+  BETTER_AUTH_SECRET: stable-preview-build-only-secret-000000000000000000000
+  STAGING_URL: https://personalagent.wealthos.ir:8443
 
 jobs:
   build:
-    name: Build and publish stable offline APK
+    name: Build the exact APKs once
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
+    outputs:
+      package_id: ${{ steps.identity.outputs.package_id }}
+      app_name: ${{ steps.identity.outputs.app_name }}
+      apk_name: ${{ steps.identity.outputs.apk_name }}
+      artifact_name: ${{ steps.identity.outputs.artifact_name }}
 
     steps:
       - name: Check out source
@@ -49,56 +55,48 @@ jobs:
           java-version: 21
           cache: gradle
 
-      - name: Install locked dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Generate the isolated database client
-        run: pnpm db:generate
-
-      - name: Install Android SDK components
+      - name: Install locked dependencies and Android SDK
         run: |
+          pnpm install --frozen-lockfile
+          pnpm db:generate
           SDKMANAGER="${ANDROID_SDK_ROOT:-$ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
           "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;35.0.0"
 
-      - name: Run web quality checks
+      - name: Run full web quality checks
         run: |
           pnpm typecheck
           pnpm lint
           pnpm test
           pnpm build
+          pnpm audit --prod --audit-level high
 
-      - name: Prepare Android and run quality checks
+      - name: Prepare Android assets and stable identity
+        id: identity
         run: |
+          package_id="ir.wealthos.personalagent.stable${GITHUB_RUN_NUMBER}"
+          app_name="همراه پایدار ${GITHUB_RUN_NUMBER}"
+          apk_name="Hamrah-stable-${GITHUB_RUN_NUMBER}.apk"
+          artifact_name="hamrah-stable-build-${GITHUB_RUN_ID}"
+          printf 'package_id=%s\napp_name=%s\napk_name=%s\nartifact_name=%s\n' \
+            "$package_id" "$app_name" "$apk_name" "$artifact_name" >> "$GITHUB_OUTPUT"
+          printf 'PREVIEW_PACKAGE_ID=%s\nPREVIEW_APP_NAME=%s\nAPK_NAME=%s\n' \
+            "$package_id" "$app_name" "$apk_name" >> "$GITHUB_ENV"
+
           node scripts/generate-android-assets.mjs
-          pnpm android:sync
-          chmod +x android/gradlew
-          ./android/gradlew -p android --no-daemon :app:lintDebug :app:testDebugUnitTest
-
-      - name: Configure standalone preview identity
-        run: |
-          preview_package="ir.wealthos.personalagent.offlinepreview${GITHUB_RUN_NUMBER}"
-          preview_name="همراه آفلاین ${GITHUB_RUN_NUMBER}"
-          export PREVIEW_PACKAGE_ID="$preview_package"
-          export PREVIEW_APP_NAME="$preview_name"
-          echo "PREVIEW_PACKAGE_ID=$preview_package" >> "$GITHUB_ENV"
-          echo "PREVIEW_APP_NAME=$preview_name" >> "$GITHUB_ENV"
+          CAPACITOR_SERVER_URL="$STAGING_URL" pnpm exec cap sync android
 
           node - <<'NODE'
           const fs = require("node:fs");
           const packageId = process.env.PREVIEW_PACKAGE_ID;
           const appName = process.env.PREVIEW_APP_NAME;
-          if (!packageId || !appName) throw new Error("Offline preview identity is missing");
-
           const gradlePath = "android/app/build.gradle";
-          const gradle = fs.readFileSync(gradlePath, "utf8").replace(
-            /applicationId\s+"[^"]+"/,
-            `applicationId "${packageId}"`,
-          );
+          const gradle = fs.readFileSync(gradlePath, "utf8")
+            .replace(/applicationId\s+"[^"]+"/, `applicationId "${packageId}"`)
+            .replace(/versionCode\s+\d+/, `versionCode ${process.env.GITHUB_RUN_NUMBER}`)
+            .replace(/versionName\s+"[^"]+"/, `versionName "1.0.${process.env.GITHUB_RUN_NUMBER}"`);
           fs.writeFileSync(gradlePath, gradle);
-
           const stringsPath = "android/app/src/main/res/values/strings.xml";
-          const strings = fs
-            .readFileSync(stringsPath, "utf8")
+          const strings = fs.readFileSync(stringsPath, "utf8")
             .replace(/<string name="app_name">[^<]*<\/string>/, `<string name="app_name">${appName}</string>`)
             .replace(/<string name="title_activity_main">[^<]*<\/string>/, `<string name="title_activity_main">${appName}</string>`)
             .replace(/<string name="package_name">[^<]*<\/string>/, `<string name="package_name">${packageId}</string>`)
@@ -106,53 +104,188 @@ jobs:
           fs.writeFileSync(stringsPath, strings);
           NODE
 
-      - name: Build and verify standalone APK
+      - name: Build and verify the deliverable APK
         run: |
-          mkdir -p artifacts/offline-preview
-          ./android/gradlew -p android --no-daemon :app:assembleDebug
-          apk_path="android/app/build/outputs/apk/debug/app-debug.apk"
-          unzip -p "$apk_path" assets/capacitor.config.json > artifacts/offline-preview/capacitor.config.json
+          chmod +x android/gradlew scripts/android-stable-emulator-qa.sh
+          mkdir -p artifacts/build
+          ./android/gradlew -p android --no-daemon \
+            :app:lintDebug :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest
+          stable_apk="android/app/build/outputs/apk/debug/app-debug.apk"
+          test_apk="android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"
+          cp "$stable_apk" "artifacts/build/${APK_NAME}"
+          cp "$test_apk" artifacts/build/hamrah-stable-androidTest.apk
+          unzip -p "$stable_apk" assets/capacitor.config.json > artifacts/build/capacitor-config-stable.json
+          unzip -l "$stable_apk" | tee artifacts/build/apk-files.txt
+          grep -F "assets/public/index.html" artifacts/build/apk-files.txt
+          grep -F "assets/public/connection-error.html" artifacts/build/apk-files.txt
+          grep -F "assets/public/app.js" artifacts/build/apk-files.txt
           node - <<'NODE'
           const fs = require("node:fs");
-          const config = JSON.parse(fs.readFileSync("artifacts/offline-preview/capacitor.config.json", "utf8"));
-          if (config.server?.url) throw new Error(`Offline APK unexpectedly depends on ${config.server.url}`);
+          const config = JSON.parse(fs.readFileSync("artifacts/build/capacitor-config-stable.json", "utf8"));
+          if (config.server?.url !== process.env.STAGING_URL) throw new Error(`Stable APK has the wrong staging URL: ${config.server?.url}`);
+          if (config.server?.errorPath !== "connection-error.html") throw new Error("Stable APK has no local recovery page.");
           NODE
-          "${ANDROID_SDK_ROOT:-$ANDROID_HOME}/build-tools/35.0.0/aapt" dump badging "$apk_path" \
-            | tee artifacts/offline-preview/aapt-badging.txt
-          grep -F "package: name='${PREVIEW_PACKAGE_ID}'" artifacts/offline-preview/aapt-badging.txt
-          grep -F "application-label:'${PREVIEW_APP_NAME}'" artifacts/offline-preview/aapt-badging.txt
-          cp "$apk_path" "artifacts/offline-preview/hamrah-offline-preview-${GITHUB_RUN_NUMBER}.apk"
-          sha256sum "artifacts/offline-preview/hamrah-offline-preview-${GITHUB_RUN_NUMBER}.apk" \
-            | tee artifacts/offline-preview/sha256.txt
+          "${ANDROID_SDK_ROOT:-$ANDROID_HOME}/build-tools/35.0.0/aapt" dump badging "$stable_apk" | tee artifacts/build/aapt-badging.txt
+          grep -F "package: name='${PREVIEW_PACKAGE_ID}'" artifacts/build/aapt-badging.txt
+          grep -F "application-label:'${PREVIEW_APP_NAME}'" artifacts/build/aapt-badging.txt
+          sha256sum "artifacts/build/${APK_NAME}" | tee artifacts/build/SHA256SUMS.txt
 
-      - name: Upload verified build artifact
+      - name: Build diagnostic failure APKs
+        run: |
+          CAPACITOR_SERVER_URL=https://unreachable.invalid pnpm exec cap sync android
+          ./android/gradlew -p android --no-daemon :app:assembleDebug
+          cp android/app/build/outputs/apk/debug/app-debug.apk artifacts/build/diagnostic-dns.apk
+
+          CAPACITOR_SERVER_URL=https://10.0.2.2:65534 pnpm exec cap sync android
+          ./android/gradlew -p android --no-daemon :app:assembleDebug
+          cp android/app/build/outputs/apk/debug/app-debug.apk artifacts/build/diagnostic-server-down.apk
+
+          CAPACITOR_SERVER_URL=https://10.0.2.2:8443 pnpm exec cap sync android
+          ./android/gradlew -p android --no-daemon :app:assembleDebug
+          cp android/app/build/outputs/apk/debug/app-debug.apk artifacts/build/diagnostic-ssl.apk
+
+          for file in artifacts/build/diagnostic-*.apk; do
+            unzip -p "$file" assets/capacitor.config.json | grep -F '"errorPath": "connection-error.html"'
+          done
+
+          node - <<'NODE'
+          const fs = require("node:fs");
+          const crypto = require("node:crypto");
+          const apk = `artifacts/build/${process.env.APK_NAME}`;
+          const metadata = {
+            appName: process.env.PREVIEW_APP_NAME,
+            packageId: process.env.PREVIEW_PACKAGE_ID,
+            commit: process.env.GITHUB_SHA,
+            workflowRun: process.env.GITHUB_RUN_ID,
+            apk: process.env.APK_NAME,
+            sha256: crypto.createHash("sha256").update(fs.readFileSync(apk)).digest("hex"),
+            networkDependency: process.env.STAGING_URL,
+            offlineFallback: "bundled-local-interface",
+          };
+          fs.writeFileSync("artifacts/build/metadata.json", `${JSON.stringify(metadata, null, 2)}\n`);
+          NODE
+
+      - name: Upload exact build set
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: hamrah-offline-preview-${{ github.run_number }}
-          path: artifacts/offline-preview/
+          name: ${{ steps.identity.outputs.artifact_name }}
+          path: artifacts/build/
           if-no-files-found: error
           retention-days: 14
 
-      - name: Publish stable pre-release download
+  emulator:
+    name: Real UI and failures on Android ${{ matrix.api }}
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [33, 34, 36]
+
+    steps:
+      - name: Check out QA scripts
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24
+
+      - name: Download the exact APKs
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ needs.build.outputs.artifact_name }}
+          path: artifacts/build
+
+      - name: Enable emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Install, cold-launch and inspect real Persian UI
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: ${{ matrix.api }}
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: |
+            chmod +x scripts/android-stable-emulator-qa.sh
+            scripts/android-stable-emulator-qa.sh \
+              "${{ needs.build.outputs.package_id }}" \
+              "artifacts/build/${{ needs.build.outputs.apk_name }}" \
+              artifacts/build/hamrah-stable-androidTest.apk \
+              artifacts/build/diagnostic-dns.apk \
+              artifacts/build/diagnostic-server-down.apk \
+              artifacts/build/diagnostic-ssl.apk \
+              "${{ matrix.api }}"
+
+      - name: Upload screenshots, rendered text and logs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: android-evidence-${{ matrix.api }}-${{ github.run_id }}
+          path: artifacts/evidence/android-${{ matrix.api }}/
+          if-no-files-found: warn
+          retention-days: 14
+
+  release:
+    name: Publish only after all three Android versions pass
+    needs: [build, emulator]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Download the tested APK
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ needs.build.outputs.artifact_name }}
+          path: artifacts/build
+
+      - name: Download visual evidence
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: android-evidence-*-${{ github.run_id }}
+          path: artifacts/evidence
+          merge-multiple: true
+
+      - name: Publish permanent GitHub pre-release
         env:
           GH_TOKEN: ${{ github.token }}
+          APK_NAME: ${{ needs.build.outputs.apk_name }}
+          APP_NAME: ${{ needs.build.outputs.app_name }}
+          PACKAGE_ID: ${{ needs.build.outputs.package_id }}
         run: |
-          tag="phone-preview-offline-${GITHUB_RUN_NUMBER}"
-          apk="artifacts/offline-preview/hamrah-offline-preview-${GITHUB_RUN_NUMBER}.apk"
-          gh release create "$tag" "$apk#همراه آفلاین ${GITHUB_RUN_NUMBER}" \
+          tag="phone-preview-stable-${GITHUB_RUN_NUMBER}"
+          mapfile -t screenshots < <(find artifacts/evidence -type f -name '*.png' | sort)
+          gh release create "$tag" \
+            "artifacts/build/${APK_NAME}#${APP_NAME}" \
+            artifacts/build/SHA256SUMS.txt \
+            artifacts/build/metadata.json \
+            "${screenshots[@]}" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "همراه آفلاین آزمایشی ${GITHUB_RUN_NUMBER}" \
-            --notes "نسخه آزمایشی مستقل از Production و تونل موقت. داده‌ها فقط روی گوشی ذخیره می‌شوند و این Release برای انتشار عمومی نهایی نیست." \
+            --title "همراه پایدار آزمایشی ${GITHUB_RUN_NUMBER}" \
+            --notes "همان APK منتشرشده روی Android 13، 14 و 16 نصب و Cold Launch شد. رابط کامل از Staging پایدار و رابط محلی از داخل APK نمایش داده می‌شوند. متن واقعی فارسی، اینترنت قطع، راه‌اندازی مجدد و صفحه بازیابی در خطای DNS، خاموشی سرور و SSL بررسی شده‌اند. این نسخه مستقل از تونل‌های موقت و Production اصلی است." \
             --prerelease
-          download_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${tag}/hamrah-offline-preview-${GITHUB_RUN_NUMBER}.apk"
+          download_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${tag}/${APK_NAME}"
+          hash="$(awk '{print $1}' artifacts/build/SHA256SUMS.txt)"
           {
-            echo "## Stable offline Android preview"
+            echo "## Verified stable Android preview"
             echo
             echo "- APK: $download_url"
-            echo "- App name: $PREVIEW_APP_NAME"
-            echo "- Package ID: $PREVIEW_PACKAGE_ID"
-            echo "- SHA-256: $(awk '{print $1}' artifacts/offline-preview/sha256.txt)"
-            echo "- Network dependency: none"
+            echo "- App name: $APP_NAME"
+            echo "- Package ID: $PACKAGE_ID"
+            echo "- Commit: $GITHUB_SHA"
+            echo "- SHA-256: $hash"
+            echo "- Tested: Android 13, 14 and 16"
+            echo "- Stable staging: $STAGING_URL"
+            echo "- Temporary tunnel dependency: none"
           } >> "$GITHUB_STEP_SUMMARY"
-          printf 'APK_URL=%s\n' "$download_url"
