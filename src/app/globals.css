@@ -251,6 +251,14 @@ button:disabled { cursor: not-allowed; }
 .working-days label { min-height: 46px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--line); border-radius: 12px; background: #fafaff; color: var(--muted); font-size: 12px; cursor: pointer; }
 .working-days label.selected { border-color: #b8c2e6; background: var(--primary-soft); color: var(--primary-strong); font-weight: 680; }
 .working-days input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.reminder-settings { display: grid; gap: 10px; }
+.reminder-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
+.preferences-card .reminder-options label { min-height: 76px; display: flex; align-items: center; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-soft); cursor: pointer; }
+.preferences-card .reminder-options label.selected { border-color: #aebbe4; background: linear-gradient(145deg, #eef1ff, #eaf8f2); box-shadow: 0 8px 22px rgba(94, 109, 158, 0.08); }
+.preferences-card .reminder-options input { width: 20px; min-height: 20px; flex: none; accent-color: var(--primary-strong); }
+.reminder-options span { display: grid; gap: 3px; }
+.reminder-options strong { color: var(--ink); font-size: 14px; font-weight: 690; }
+.reminder-options small { color: var(--muted); font-size: 11px; font-weight: 470; }
 .escalation-settings { display: grid; gap: 16px; padding-top: 22px !important; border-top: 1px solid var(--line) !important; }
 .escalation-settings legend { margin-bottom: 2px; font-size: 16px; font-weight: 700; }
 .preference-note { margin: 0; padding: 11px 13px; border-radius: 12px; background: #fff3e9; color: #7d604f; font-size: 12px; line-height: 1.9; }
@@ -264,6 +272,10 @@ button:disabled { cursor: not-allowed; }
 .native-alarm-control p { margin: 0; color: var(--primary-strong); font-size: 12px; }
 .preference-status { margin: 0; padding: 12px 14px; border-radius: 12px; background: var(--primary-soft); color: var(--primary-strong); font-size: 13px; }
 .preferences-card .submit-button { justify-self: start; }
+.composer-reminder-summary { display: grid; grid-template-columns: auto 1fr; align-items: baseline; gap: 4px 12px; padding: 12px 14px; border: 1px solid #dce0f0; border-radius: 13px; background: var(--primary-soft); }
+.composer-reminder-summary strong { color: var(--primary-strong); font-size: 13px; font-weight: 700; }
+.composer-reminder-summary span { color: var(--ink); font-size: 13px; font-weight: 610; }
+.composer-reminder-summary small { grid-column: 1 / -1; color: var(--muted); font-size: 11px; line-height: 1.7; }
 .preferences-signin { display: grid; justify-items: start; gap: 13px; }
 .preferences-signin .submit-button { display: inline-flex; align-items: center; text-decoration: none; }
 
@@ -351,6 +363,7 @@ button:disabled { cursor: not-allowed; }
   .preferences-heading { display: grid; }
   .preferences-heading > span { justify-self: start; }
   .working-days { grid-template-columns: repeat(4, 1fr); }
+  .reminder-options { grid-template-columns: 1fr; }
   .preference-options { grid-template-columns: 1fr; }
   .assistant-panel { min-height: 520px; padding-inline: 20px; }
   .chat-box { align-items: stretch; }
@@ -393,7 +406,7 @@ button:disabled { cursor: not-allowed; }
   body { background: radial-gradient(circle at 88% 4%, rgba(51, 59, 91, 0.7), transparent 28rem), radial-gradient(circle at 7% 88%, rgba(48, 40, 67, 0.54), transparent 24rem), var(--bg); }
   .sidebar, .mobile-nav { border-color: var(--line); background: rgba(24, 26, 37, 0.9); }
   .nav-button > small, .filters, .auth-tabs, .composer-heading button, .notification-heading button { background: #282b39; }
-  .nav-button.active, .working-days label.selected { border-color: #4b5270; background: #2c324b; }
+  .nav-button.active, .working-days label.selected, .preferences-card .reminder-options label.selected { border-color: #4b5270; background: #2c324b; }
   .space-button:hover, .nav-button:hover { background: #252936; }
   .settings-button, .icon-button, .content-card, .calendar-card, .preferences-card, .assistant-panel, .composer, .auth-card, .notification-panel, .chat-box, .check-button, .filters button.active, .auth-tabs button.active, .system-card { border-color: var(--line); background: var(--surface-solid); color: var(--ink); }
   .focus-card { border-color: #385049; background: linear-gradient(138deg, #22352f, #242d3b); }
@@ -402,7 +415,7 @@ button:disabled { cursor: not-allowed; }
   .summary-card.lavender { border-color: #45405c; background: linear-gradient(138deg, #302b40, #272632) !important; color: var(--ink) !important; }
   .day-column { background: #1c1e2a; }
   .day-column.current { background: linear-gradient(180deg, #273149, #24342f); }
-  .composer input, .composer select, .auth-card input, .preferences-card input, .preferences-card select, .working-days label { border-color: var(--line); background: #151720; color: var(--ink); }
+  .composer input, .composer select, .auth-card input, .preferences-card input, .preferences-card select, .working-days label, .preferences-card .reminder-options label, .composer-reminder-summary { border-color: var(--line); background: #151720; color: var(--ink); }
   .notification-item { border-color: #39465a; background: linear-gradient(135deg, #222e3d, #24372f); }
   .notification-item.read { background: #232633; }
   .calendar-add { border-color: #535a70; }

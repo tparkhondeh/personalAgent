@@ -190,6 +190,7 @@ model UserPreference {
   workdayEndsAt       String   @default("18:00")
   workingDays         String   @default("SAT,SUN,MON,TUE,WED")
   defaultReminderMins Int      @default(15)
+  defaultReminderOffsets String @default("1440,180,60")
   quietHoursStartsAt  String   @default("22:00")
   quietHoursEndsAt    String   @default("08:00")
   planningProfile     String?

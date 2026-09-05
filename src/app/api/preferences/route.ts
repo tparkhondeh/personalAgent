@@ -2,9 +2,10 @@ import { db } from "@/lib/db";
 import { jsonError, requireApiSession } from "@/lib/api";
 import { userPreferenceInputSchema } from "@/lib/validation";
 import { guardUserRateLimit } from "@/lib/rate-limit";
+import { normalizeReminderOffsets, parseStoredReminderOffsets, serializeReminderOffsets } from "@/lib/reminder-offsets";
 
-function serializePreference(preference: { timezone: string; locale: string; workdayStartsAt: string; workdayEndsAt: string; workingDays: string; defaultReminderMins: number; quietHoursStartsAt: string; quietHoursEndsAt: string; planningProfile: string | null; urgentEscalationEnabled: boolean; urgentRepeatMinutes: number; urgentMaxRepeats: number; androidAlarmEnabled: boolean; highPriorityEnabled: boolean; smsEscalationEnabled: boolean; callEscalationEnabled: boolean; emergencyContactName: string | null; emergencyPhone: string | null }) {
-  return { ...preference, workingDays: preference.workingDays.split(",").filter(Boolean), planningProfile: preference.planningProfile || "BALANCED" };
+function serializePreference(preference: { timezone: string; locale: string; workdayStartsAt: string; workdayEndsAt: string; workingDays: string; defaultReminderMins: number; defaultReminderOffsets: string; quietHoursStartsAt: string; quietHoursEndsAt: string; planningProfile: string | null; urgentEscalationEnabled: boolean; urgentRepeatMinutes: number; urgentMaxRepeats: number; androidAlarmEnabled: boolean; highPriorityEnabled: boolean; smsEscalationEnabled: boolean; callEscalationEnabled: boolean; emergencyContactName: string | null; emergencyPhone: string | null }) {
+  return { ...preference, workingDays: preference.workingDays.split(",").filter(Boolean), defaultReminderOffsets: parseStoredReminderOffsets(preference.defaultReminderOffsets, preference.defaultReminderMins), planningProfile: preference.planningProfile || "BALANCED" };
 }
 
 export async function GET(request: Request) {
@@ -21,12 +22,14 @@ export async function PUT(request: Request) {
   if (limited) return limited;
   const parsed = userPreferenceInputSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return jsonError("تنظیمات واردشده معتبر نیست", 422, parsed.error.flatten());
-  const { workingDays, ...values } = parsed.data;
+  const { workingDays, defaultReminderOffsets, defaultReminderMins, ...values } = parsed.data;
+  const reminderOffsets = normalizeReminderOffsets(defaultReminderOffsets, defaultReminderMins);
+  const legacyReminderMinutes = Math.min(...reminderOffsets);
   const preference = await db.$transaction(async (tx) => {
     const saved = await tx.userPreference.upsert({
       where: { userId: session.user.id },
-      update: { ...values, workingDays: workingDays.join(",") },
-      create: { ...values, workingDays: workingDays.join(","), userId: session.user.id },
+      update: { ...values, workingDays: workingDays.join(","), defaultReminderMins: legacyReminderMinutes, defaultReminderOffsets: serializeReminderOffsets(reminderOffsets) },
+      create: { ...values, workingDays: workingDays.join(","), defaultReminderMins: legacyReminderMinutes, defaultReminderOffsets: serializeReminderOffsets(reminderOffsets), userId: session.user.id },
     });
     await tx.escalationAttempt.updateMany({ where: { userId: session.user.id, status: { in: ["PENDING", "PROCESSING", "READY_FOR_DEVICE", "SCHEDULED"] } }, data: { status: "CANCELLED" } });
     const { emergencyPhone, ...auditSafeInput } = parsed.data;

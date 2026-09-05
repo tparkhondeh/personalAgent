@@ -21,4 +21,10 @@ describe("local agent fallback", () => {
     expect(result.proposal).toMatchObject({ kind: "PLAN", needsApproval: false });
     expect(result.reply).toContain("1 کار باز");
   });
+
+  it("gives a useful plan for the free-time suggestion", () => {
+    const result = createLocalAgentResponse({ message: "برای زمان آزاد امروز پیشنهاد بده", now, tasks: [{ title: "مرور گزارش", dueAt: new Date("2026-09-01T08:00:00.000Z") }], meetings: [] });
+    expect(result.proposal).toMatchObject({ kind: "PLAN", needsApproval: false });
+    expect(result.reply).toContain("مرور گزارش");
+  });
 });

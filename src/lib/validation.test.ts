@@ -33,8 +33,15 @@ describe("input validation", () => {
   });
 
   it("accepts a complete personal planning profile", () => {
-    const result = userPreferenceInputSchema.safeParse({ timezone: "Asia/Tehran", locale: "fa-IR", workdayStartsAt: "09:00", workdayEndsAt: "18:00", workingDays: ["SAT", "SUN", "MON", "TUE", "WED"], defaultReminderMins: 15, quietHoursStartsAt: "22:00", quietHoursEndsAt: "08:00", planningProfile: "BALANCED" });
+    const result = userPreferenceInputSchema.safeParse({ timezone: "Asia/Tehran", locale: "fa-IR", workdayStartsAt: "09:00", workdayEndsAt: "18:00", workingDays: ["SAT", "SUN", "MON", "TUE", "WED"], defaultReminderMins: 60, defaultReminderOffsets: [1440, 180, 60], quietHoursStartsAt: "22:00", quietHoursEndsAt: "08:00", planningProfile: "BALANCED" });
     expect(result.success).toBe(true);
+  });
+
+  it("requires two or three unique default reminder times in the new interface", () => {
+    const base = { timezone: "Asia/Tehran", locale: "fa-IR", workdayStartsAt: "09:00", workdayEndsAt: "18:00", workingDays: ["SAT"], defaultReminderMins: 60, quietHoursStartsAt: "22:00", quietHoursEndsAt: "08:00", planningProfile: "BALANCED" };
+    expect(userPreferenceInputSchema.safeParse({ ...base, defaultReminderOffsets: [1440] }).success).toBe(false);
+    expect(userPreferenceInputSchema.safeParse({ ...base, defaultReminderOffsets: [1440, 180, 180] }).success).toBe(false);
+    expect(userPreferenceInputSchema.safeParse({ ...base, defaultReminderOffsets: [1440, 60] }).success).toBe(true);
   });
 
   it("rejects a profile without a working day", () => {
@@ -46,6 +53,7 @@ describe("input validation", () => {
     const base = { workdayStartsAt: "09:00", workdayEndsAt: "18:00", workingDays: ["SAT"], defaultReminderMins: 15, quietHoursStartsAt: "22:00", quietHoursEndsAt: "08:00", planningProfile: "BALANCED" };
     expect(userPreferenceInputSchema.safeParse({ ...base, emergencyContactName: "خانواده", emergencyPhone: "+98 912 000 0000" }).success).toBe(true);
     expect(userPreferenceInputSchema.safeParse({ ...base, emergencyPhone: "not-a-phone" }).success).toBe(false);
+    expect(userPreferenceInputSchema.safeParse({ ...base, emergencyContactName: null, emergencyPhone: null }).success).toBe(true);
   });
 
   it("limits Android alarm acknowledgement batches", () => {

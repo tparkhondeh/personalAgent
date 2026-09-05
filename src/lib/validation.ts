@@ -48,6 +48,11 @@ export const userPreferenceInputSchema = z.object({
   workdayEndsAt: clockTimeSchema,
   workingDays: z.array(workingDaySchema).min(1, "حداقل یک روز کاری انتخاب کن").max(7),
   defaultReminderMins: z.number().int().min(0).max(10080),
+  defaultReminderOffsets: z.array(z.union([z.literal(60), z.literal(180), z.literal(1440)]))
+    .min(2, "حداقل دو زمان یادآوری انتخاب کن")
+    .max(3)
+    .refine((values) => new Set(values).size === values.length, "زمان‌های یادآوری نباید تکراری باشند")
+    .optional(),
   quietHoursStartsAt: clockTimeSchema,
   quietHoursEndsAt: clockTimeSchema,
   planningProfile: z.enum(["BALANCED", "FOCUS", "FLEXIBLE"]),
@@ -58,8 +63,8 @@ export const userPreferenceInputSchema = z.object({
   highPriorityEnabled: z.boolean().default(true),
   smsEscalationEnabled: z.boolean().default(false),
   callEscalationEnabled: z.boolean().default(false),
-  emergencyContactName: z.string().trim().max(100).optional().transform((value) => value || null),
-  emergencyPhone: z.string().trim().max(30).regex(/^[+0-9۰-۹٠-٩\s()-]*$/, "شماره تماس معتبر نیست").optional().transform((value) => value || null),
+  emergencyContactName: z.string().trim().max(100).nullish().transform((value) => value || null),
+  emergencyPhone: z.string().trim().max(30).regex(/^[+0-9۰-۹٠-٩\s()-]*$/, "شماره تماس معتبر نیست").nullish().transform((value) => value || null),
 }).refine((value) => value.workdayStartsAt !== value.workdayEndsAt, { message: "شروع و پایان ساعت کاری نمی‌تواند یکسان باشد", path: ["workdayEndsAt"] });
 
 export const notificationReadSchema = z.object({

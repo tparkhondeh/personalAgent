@@ -3,6 +3,7 @@ import { jsonError, requireApiSession } from "@/lib/api";
 import { taskUpdateSchema } from "@/lib/validation";
 import { reminderIdempotencyKey, shouldScheduleTaskReminder } from "@/lib/reminders";
 import { guardUserRateLimit } from "@/lib/rate-limit";
+import { buildReminderSchedule, parseStoredReminderOffsets } from "@/lib/reminder-offsets";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireApiSession(request.headers);
@@ -12,7 +13,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const { id } = await params;
   const existing = await db.task.findFirst({ where: { id, userId: session.user.id } });
   if (!existing) return jsonError("کار پیدا نشد", 404);
-  const preference = await db.userPreference.findUnique({ where: { userId: session.user.id }, select: { defaultReminderMins: true } });
+  const preference = await db.userPreference.findUnique({ where: { userId: session.user.id }, select: { defaultReminderMins: true, defaultReminderOffsets: true } });
   const parsed = taskUpdateSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return jsonError("اطلاعات کار معتبر نیست", 422, parsed.error.flatten());
   const { reminderMinutes, ...updates } = parsed.data;
@@ -30,8 +31,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (updates.dueAt !== undefined || reminderMinutes !== undefined || updates.status !== undefined) {
       await tx.reminder.deleteMany({ where: { taskId: id } });
       if (shouldScheduleTaskReminder(updated) && updated.dueAt) {
-        const scheduledFor = new Date(updated.dueAt.getTime() - (reminderMinutes ?? preference?.defaultReminderMins ?? 15) * 60_000);
-        await tx.reminder.create({ data: { userId: session.user.id, taskId: id, scheduledFor, channel: "PUSH", idempotencyKey: reminderIdempotencyKey(session.user.id, id, scheduledFor, "PUSH") } });
+        const offsets = reminderMinutes !== undefined ? [reminderMinutes] : parseStoredReminderOffsets(preference?.defaultReminderOffsets, preference?.defaultReminderMins);
+        await tx.reminder.createMany({ data: buildReminderSchedule(updated.dueAt, offsets).map(({ scheduledFor }) => ({ userId: session.user.id, taskId: id, scheduledFor, channel: "PUSH", idempotencyKey: reminderIdempotencyKey(session.user.id, id, scheduledFor, "PUSH") })) });
       }
     }
     await tx.auditLog.create({ data: { userId: session.user.id, action: "TASK_UPDATED", entityType: "Task", entityId: id, input: JSON.stringify(parsed.data) } });

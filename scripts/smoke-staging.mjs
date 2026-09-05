@@ -41,6 +41,32 @@ await call("/api/auth/sign-up/email", {
 });
 if (!cookies.size) throw new Error("Sign-up did not establish a secure session.");
 
+const preferences = await call("/api/preferences", {
+  method: "PUT",
+  body: JSON.stringify({
+    timezone: "Asia/Tehran",
+    locale: "fa-IR",
+    workdayStartsAt: "09:00",
+    workdayEndsAt: "18:00",
+    workingDays: ["SAT", "SUN", "MON", "TUE", "WED"],
+    defaultReminderMins: 60,
+    defaultReminderOffsets: [1440, 180, 60],
+    quietHoursStartsAt: "22:00",
+    quietHoursEndsAt: "08:00",
+    planningProfile: "BALANCED",
+    urgentEscalationEnabled: true,
+    urgentRepeatMinutes: 15,
+    urgentMaxRepeats: 3,
+    androidAlarmEnabled: true,
+    highPriorityEnabled: true,
+    smsEscalationEnabled: false,
+    callEscalationEnabled: false,
+    emergencyContactName: null,
+    emergencyPhone: null,
+  }),
+});
+if (preferences.data.defaultReminderOffsets.join(",") !== "1440,180,60") throw new Error("Multiple default reminders were not saved.");
+
 await call("/api/tasks");
 const task = await call("/api/tasks", {
   method: "POST",
@@ -49,7 +75,6 @@ const task = await call("/api/tasks", {
     category: "WORK",
     priority: "URGENT",
     dueAt: new Date(Date.now() - 5 * 60_000).toISOString(),
-    reminderMinutes: 0,
   }),
 }, 201);
 
@@ -64,10 +89,13 @@ const meeting = await call("/api/meetings", {
     timezone: "Asia/Tehran",
   }),
 }, 201);
+if (task.meta.remindersScheduled !== 3 || meeting.meta.remindersScheduled !== 3) throw new Error("Three reminders were not created for both tasks and meetings.");
 
 await call("/api/notifications");
 await call("/api/escalations", { method: "POST" });
 const escalations = await call("/api/escalations");
+const agent = await call("/api/agent", { method: "POST", body: JSON.stringify({ message: "برنامه امروز من را خلاصه کن", timezone: "Asia/Tehran", localOnly: true }) });
+if (!agent.data.reply || agent.data.proposal.kind !== "PLAN") throw new Error("The assistant did not return a usable planning response.");
 
 await call(`/api/tasks/${task.data.id}`, { method: "DELETE" }, 204);
 await call(`/api/meetings/${meeting.data.id}`, { method: "DELETE" }, 204);
@@ -80,5 +108,7 @@ process.stdout.write(`${JSON.stringify({
   task: "created-and-deleted",
   meeting: "created-and-deleted",
   notifications: "reachable",
+  reminders: "three-default-offsets-saved",
+  assistant: `${agent.data.mode}-response-ok`,
   escalationAlarms: escalations.data.alarms.length,
 }, null, 2)}\n`);

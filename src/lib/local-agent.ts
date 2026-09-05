@@ -51,6 +51,14 @@ export function createLocalAgentResponse(input: { message: string; now?: Date; t
     };
   }
 
+  if (/(زمان آزاد|پیشنهاد بده|چه کنم|چی کار کنم)/.test(message)) {
+    const nextTask = tasks.find((task) => task.dueAt && task.dueAt >= now) ?? tasks[0];
+    return {
+      reply: nextTask ? `برای زمان آزاد امروز، یک بازه کوتاه روی «${nextTask.title}» بگذار و بعد چند دقیقه استراحت کن.` : "برای زمان آزاد امروز، یک کار کوتاه مفید یا زمان استراحت آگاهانه در برنامه بگذار.",
+      proposal: { kind: "PLAN", needsApproval: false, reasoning: nextTask ? `پیشنهاد من شروع با «${nextTask.title}» است.` : "برنامه باز فوری نداری؛ یک مرور کوتاه هفتگی یا استراحت انتخاب خوبی است." } satisfies LocalAgentProposal,
+    };
+  }
+
   const isMeeting = /جلسه|قرار/.test(message);
   const asksToCreate = /(بساز|بذار|ثبت کن|یادآوری کن|اضافه کن|دارم)/.test(message);
   if (isMeeting && asksToCreate) {
