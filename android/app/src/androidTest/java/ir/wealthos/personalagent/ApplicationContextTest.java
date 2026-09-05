@@ -98,8 +98,12 @@ public class ApplicationContextTest {
         assertTrue(recovery.contains("اتصال برقرار نشد"));
         assertTrue(recovery.contains("تلاش دوباره"));
         assertTrue(recovery.contains("ادامه در حالت محلی"));
-        assertTrue(recovery.contains("fetch(\"./index.html\""));
-        assertTrue(recovery.contains("document.write(html)"));
+        assertTrue(recovery.contains("const bundledDocument ="));
+        assertTrue(recovery.contains("const bundledScript ="));
+        assertTrue(recovery.contains("document.write(bundledDocument)"));
+        assertTrue(recovery.contains("offlineRuntime.textContent = bundledScript"));
+        assertTrue(recovery.contains("برنامه‌های من"));
+        assertFalse(recovery.contains("fetch(\"./index.html\""));
         assertFalse(recovery.contains("http://"));
         assertFalse(recovery.contains("https://"));
     }

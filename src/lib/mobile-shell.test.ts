@@ -39,8 +39,12 @@ describe("offline Android mobile shell", () => {
     expect(recoveryHtml).toContain("اتصال برقرار نشد");
     expect(recoveryHtml).toContain("تلاش دوباره");
     expect(recoveryHtml).toContain("ادامه در حالت محلی");
-    expect(recoveryHtml).toContain('fetch("./index.html", { cache: "no-store" })');
-    expect(recoveryHtml).toContain("document.write(html)");
+    expect(recoveryHtml).toContain("const bundledDocument =");
+    expect(recoveryHtml).toContain("const bundledScript =");
+    expect(recoveryHtml).toContain("document.write(bundledDocument)");
+    expect(recoveryHtml).toContain("offlineRuntime.textContent = bundledScript");
+    expect(recoveryHtml).toContain("برنامه‌های من");
+    expect(recoveryHtml).not.toContain("fetch(\"./index.html\"");
     expect(recoveryHtml).toContain("window.HamrahOpenBundledInterface = openBundledInterface");
     expect(recoveryHtml).toContain('document.querySelector("#offline").addEventListener');
     expect(recoveryHtml).not.toMatch(/https?:\/\//);

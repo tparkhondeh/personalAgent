@@ -1,10 +1,11 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
 
 const projectRoot = process.cwd();
 const resourceRoot = path.join(projectRoot, "android", "app", "src", "main", "res");
 const publicRoot = path.join(projectRoot, "public");
+const mobileRoot = path.join(projectRoot, "mobile-shell");
 
 function appIconSvg(background = "#F7F7FF", transparent = false) {
   return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
@@ -65,4 +66,38 @@ const rawDirectory = path.join(resourceRoot, "raw");
 await mkdir(rawDirectory, { recursive: true });
 await writeFile(path.join(rawDirectory, "urgent_alarm.wav"), wav);
 
-console.log("Android icons and urgent alarm generated.");
+const indexPath = path.join(mobileRoot, "index.html");
+const recoveryPath = path.join(mobileRoot, "connection-error.html");
+const [indexHtml, appStyles, appScript, recoveryHtml] = await Promise.all([
+  readFile(indexPath, "utf8"),
+  readFile(path.join(mobileRoot, "app.css"), "utf8"),
+  readFile(path.join(mobileRoot, "app.js"), "utf8"),
+  readFile(recoveryPath, "utf8"),
+]);
+const bundledDocument = indexHtml
+  .replace('<link rel="stylesheet" href="./app.css" />', `<style>${appStyles}</style>`)
+  .replace('<script src="./app.js"></script>', "");
+const serializedDocument = JSON.stringify(bundledDocument).replaceAll("</", "<\\/");
+const serializedScript = JSON.stringify(appScript).replaceAll("</", "<\\/");
+const offlineDocumentMarker = /^(\s*)const bundledDocument = .*; \/\/ generated-offline-document$/m;
+const offlineScriptMarker = /^(\s*)const bundledScript = .*; \/\/ generated-offline-script$/m;
+if (!offlineDocumentMarker.test(recoveryHtml)) {
+  throw new Error("The Android recovery page is missing its generated offline document marker.");
+}
+if (!offlineScriptMarker.test(recoveryHtml)) {
+  throw new Error("The Android recovery page is missing its generated offline script marker.");
+}
+const generatedRecovery = recoveryHtml
+  .replace(
+    offlineDocumentMarker,
+    (_marker, indentation) =>
+      `${indentation}const bundledDocument = ${serializedDocument}; // generated-offline-document`,
+  )
+  .replace(
+    offlineScriptMarker,
+    (_marker, indentation) =>
+      `${indentation}const bundledScript = ${serializedScript}; // generated-offline-script`,
+  );
+await writeFile(recoveryPath, generatedRecovery, "utf8");
+
+console.log("Android icons, urgent alarm and self-contained offline recovery generated.");
