@@ -268,6 +268,7 @@ jobs:
             echo "- SHA-256: $(awk '{print $1}' public/downloads/hamrah-phone-preview.sha256.txt)"
             echo "- Availability: approximately two hours from this run"
           } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=Temporary Android preview::$apk_url"
           printf 'PREVIEW_READY=%s\nAPK_URL=%s\n' "$PREVIEW_URL" "$apk_url"
 
       - name: Keep temporary preview online for phone testing
