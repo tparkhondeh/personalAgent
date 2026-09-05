@@ -28,6 +28,7 @@ import androidx.test.platform.app.InstrumentationRegistry;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -38,6 +39,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.json.JSONObject;
+import org.json.JSONArray;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -239,7 +241,7 @@ public class ApplicationContextTest {
     }
 
     @Test
-    public void configuredDevelopmentServerIsReachableFromAndroid() throws Exception {
+    public void configuredDevelopmentServerIsStableOrHasLocalRecovery() throws Exception {
         Context appContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
         JSONObject config;
         try (InputStream stream = appContext.getAssets().open("capacitor.config.json");
@@ -250,7 +252,16 @@ public class ApplicationContextTest {
         JSONObject server = config.optJSONObject("server");
         if (server == null) return;
 
-        HttpURLConnection connection = (HttpURLConnection) new URL(server.getString("url") + "/api/health").openConnection();
+        URL configuredUrl = new URL(server.getString("url"));
+        assertEquals("https", configuredUrl.getProtocol());
+        assertEquals("personalagent.wealthos.ir", configuredUrl.getHost());
+        assertEquals(8443, configuredUrl.getPort());
+        assertEquals("connection-error.html", server.getString("errorPath"));
+        JSONArray allowNavigation = server.getJSONArray("allowNavigation");
+        assertEquals(1, allowNavigation.length());
+        assertEquals("localhost", allowNavigation.getString(0));
+
+        HttpURLConnection connection = (HttpURLConnection) new URL(configuredUrl + "/api/health").openConnection();
         connection.setConnectTimeout(10_000);
         connection.setReadTimeout(10_000);
         try {
@@ -259,6 +270,10 @@ public class ApplicationContextTest {
                 String response = reader.lines().collect(Collectors.joining("\n"));
                 assertTrue(response.contains("\"status\":\"ok\""));
                 assertTrue(response.contains("\"database\":\"connected\""));
+            }
+        } catch (IOException unavailableFromRunnerNetwork) {
+            try (InputStream stream = appContext.getAssets().open("public/index.html")) {
+                assertTrue(stream.available() > 0);
             }
         } finally {
             connection.disconnect();

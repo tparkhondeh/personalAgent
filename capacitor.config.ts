@@ -39,6 +39,9 @@ const config: CapacitorConfig = {
       url: developmentServerUrl,
       cleartext: developmentServerUrl.startsWith("http://"),
       errorPath: "connection-error.html",
+      // The recovery screen is served from Capacitor's private localhost
+      // origin and may navigate only to the bundled offline interface.
+      allowNavigation: ["localhost"],
     },
   } : {}),
 };
