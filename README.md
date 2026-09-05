@@ -46,6 +46,8 @@ pnpm audit --prod --audit-level high
 
 ## اپلیکیشن Android
 
+نسخه مرجع فعلی «همراه پایدار ۱۴» است. این نسخه روی Android 13، 14 و 16 آزمایش شده و بازشدن آن روی گوشی واقعی نیز تأیید شده است. برای جلوگیری از تکرار مشکل صفحه سفید، تمام علت‌ها، راه‌حل‌ها و کنترل‌های اجباری در [راهنمای دائمی ساخت و تحویل Android](docs/ANDROID_RELEASE_PLAYBOOK.md) ثبت شده‌اند.
+
 نسخه آزمایشی Android ساخته شده و با `pnpm android:build:debug` دوباره تولید می‌شود. خروجی محلی در `android/app/build/outputs/apk/debug/app-debug.apk` قرار می‌گیرد. پس از اتصال و تأیید USB debugging روی یک گوشی، دستور `pnpm android:install:device` ساخت، اتصال امن محلی، نصب و بازکردن برنامه را خودکار انجام می‌دهد. نسخه عمومیِ امضاشده تا تأیید آدرس امن Production ساخته نمی‌شود.
 
 ### یکسان‌بودن ظاهر اپ با نسخه لوکال
@@ -79,6 +81,7 @@ pnpm audit --prod --audit-level high
 - [منابع متن‌باز و مجوزها](docs/open-source-review.md)
 - [برنامه Deploy، Backup و Rollback](docs/deployment.md)
 - [راهنمای اپ Android](docs/android.md)
+- [راهنمای جلوگیری از تکرار خطاهای Android](docs/ANDROID_RELEASE_PLAYBOOK.md)
 - [کنترل‌های امنیت، Backup و Rollback](docs/security-backup-rollback.md)
 
 مجوز انتشار اختصاصی پروژه هنوز توسط مالک تعیین نشده است. کپی مستقیم از پروژه‌های AGPL انجام نشده و فقط از الگوهای معماری عمومی آن‌ها استفاده شده است.
