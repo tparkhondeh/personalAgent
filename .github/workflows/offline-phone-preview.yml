@@ -77,6 +77,9 @@ jobs:
           app_name="همراه پایدار ${GITHUB_RUN_NUMBER}"
           apk_name="Hamrah-stable-${GITHUB_RUN_NUMBER}.apk"
           artifact_name="hamrah-stable-build-${GITHUB_RUN_ID}"
+          export PREVIEW_PACKAGE_ID="$package_id"
+          export PREVIEW_APP_NAME="$app_name"
+          export APK_NAME="$apk_name"
           printf 'package_id=%s\napp_name=%s\napk_name=%s\nartifact_name=%s\n' \
             "$package_id" "$app_name" "$apk_name" "$artifact_name" >> "$GITHUB_OUTPUT"
           printf 'PREVIEW_PACKAGE_ID=%s\nPREVIEW_APP_NAME=%s\nAPK_NAME=%s\n' \
