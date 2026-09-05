@@ -62,14 +62,6 @@ jobs:
           SDKMANAGER="${ANDROID_SDK_ROOT:-$ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
           "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;35.0.0"
 
-      - name: Install verified tunnel client
-        run: |
-          curl --fail --location --retry 3 \
-            --output artifacts-cloudflared \
-            https://github.com/cloudflare/cloudflared/releases/download/2026.8.3/cloudflared-linux-amd64
-          echo "f29324fe934d1e100617484c78deef803c4dc2cd351d645bbde42e96b4fccc5e  artifacts-cloudflared" | sha256sum --check --strict
-          chmod 700 artifacts-cloudflared
-
       - name: Prepare isolated database and runtime secrets
         run: |
           mkdir -p data artifacts/phone-preview public/downloads
@@ -93,21 +85,28 @@ jobs:
           NODE
           echo "$!" > artifacts/phone-preview/placeholder.pid
 
-          nohup ./artifacts-cloudflared tunnel \
-            --no-autoupdate \
-            --url http://127.0.0.1:3012 \
-            --loglevel info \
-            > artifacts/phone-preview/cloudflared.log 2>&1 &
-          echo "$!" > artifacts/phone-preview/cloudflared.pid
+          nohup ssh \
+            -o BatchMode=yes \
+            -o ExitOnForwardFailure=yes \
+            -o ServerAliveInterval=30 \
+            -o ServerAliveCountMax=3 \
+            -o StrictHostKeyChecking=accept-new \
+            -o UserKnownHostsFile=artifacts/phone-preview/known_hosts \
+            -T \
+            -R 80:127.0.0.1:3012 \
+            nokey@localhost.run \
+            < /dev/null \
+            > artifacts/phone-preview/tunnel.log 2>&1 &
+          echo "$!" > artifacts/phone-preview/tunnel.pid
 
           preview_url=""
           for attempt in {1..60}; do
-            preview_url=$(grep -Eo 'https://[a-z0-9-]+\.trycloudflare\.com' artifacts/phone-preview/cloudflared.log | grep -v 'api\.trycloudflare\.com' | head -1 || true)
+            preview_url=$(grep -Eo 'https://[a-zA-Z0-9.-]+\.(lhr\.life|localhost\.run)' artifacts/phone-preview/tunnel.log | head -1 || true)
             if [ -n "$preview_url" ]; then
               break
             fi
-            if ! kill -0 "$(cat artifacts/phone-preview/cloudflared.pid)" 2>/dev/null; then
-              cat artifacts/phone-preview/cloudflared.log
+            if ! kill -0 "$(cat artifacts/phone-preview/tunnel.pid)" 2>/dev/null; then
+              cat artifacts/phone-preview/tunnel.log
               exit 1
             fi
             sleep 2
@@ -292,7 +291,7 @@ jobs:
         run: |
           for minute in {1..120}; do
             kill -0 "$(cat artifacts/phone-preview/server.pid)"
-            kill -0 "$(cat artifacts/phone-preview/cloudflared.pid)"
+            kill -0 "$(cat artifacts/phone-preview/tunnel.pid)"
             curl --fail --silent "$PREVIEW_URL/api/health" | grep -q '"status":"ok"'
             sleep 60
           done
