@@ -250,6 +250,55 @@ jobs:
             "$PREVIEW_URL/api/auth/sign-up/email")
           test "$signup_status" = "200"
 
+      - name: Enable Android emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Verify visible UI on Android 16
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: |
+            set -Eeuo pipefail
+            evidence_dir="artifacts/phone-preview/emulator"
+            apk_path="public/downloads/hamrah-phone-preview.apk"
+            activity_name="${PREVIEW_PACKAGE_ID}/.MainActivity"
+            mkdir -p "$evidence_dir"
+
+            collect_evidence() {
+              adb shell uiautomator dump /sdcard/hamrah-preview-window.xml > "$evidence_dir/uiautomator-command.txt" 2>&1 || true
+              adb pull /sdcard/hamrah-preview-window.xml "$evidence_dir/window.xml" > /dev/null 2>&1 || true
+              adb exec-out screencap -p > "$evidence_dir/screen.png" 2>/dev/null || true
+              adb logcat -d > "$evidence_dir/logcat.txt" 2>&1 || true
+            }
+            trap collect_evidence EXIT
+
+            adb wait-for-device
+            adb shell settings put global window_animation_scale 0
+            adb shell settings put global transition_animation_scale 0
+            adb shell settings put global animator_duration_scale 0
+            adb install -r "$apk_path"
+            adb logcat -c
+            adb shell am force-stop "$PREVIEW_PACKAGE_ID"
+            adb shell am start -W -n "$activity_name" | tee "$evidence_dir/activity-start.txt"
+            grep -Fq 'Status: ok' "$evidence_dir/activity-start.txt"
+            sleep 15
+            collect_evidence
+
+            test -n "$(adb shell pidof "$PREVIEW_PACKAGE_ID" | tr -d '\r')"
+            grep -Eq 'همراه|ورود|ساخت حساب' "$evidence_dir/window.xml"
+            if grep -Eq 'ERR_NAME_NOT_RESOLVED|net::ERR_|FATAL EXCEPTION|Uncaught (TypeError|ReferenceError)' "$evidence_dir/logcat.txt"; then
+              echo 'The connected Android preview logged a fatal rendering or network error.' >&2
+              exit 1
+            fi
+
       - name: Publish installable APK artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -263,6 +312,7 @@ jobs:
             artifacts/phone-preview/local-health.json
             artifacts/phone-preview/public-health.json
             artifacts/phone-preview/security-headers.txt
+            artifacts/phone-preview/emulator/
           if-no-files-found: error
           retention-days: 14
 
