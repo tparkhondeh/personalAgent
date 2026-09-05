@@ -26,7 +26,7 @@ jobs:
   preview:
     name: Build and host installable phone preview
     runs-on: ubuntu-latest
-    timeout-minutes: 150
+    timeout-minutes: 58
 
     steps:
       - name: Check out source
@@ -76,6 +76,13 @@ jobs:
 
       - name: Create temporary HTTPS preview address
         run: |
+          curl --fail --location --retry 5 --retry-delay 3 \
+            --output artifacts/phone-preview/pinggy \
+            https://github.com/Pinggy-io/cli-js/releases/download/v0.5.6/pinggy-linux-x64
+          echo "ffb4c665ec0bf8d22cf147fbcf072dfae560d38e09666a6692c401f35cc2d649  artifacts/phone-preview/pinggy" \
+            | sha256sum --check
+          chmod +x artifacts/phone-preview/pinggy
+
           node - <<'NODE' > artifacts/phone-preview/placeholder.log 2>&1 &
           const http = require("node:http");
           http.createServer((request, response) => {
@@ -85,23 +92,14 @@ jobs:
           NODE
           echo "$!" > artifacts/phone-preview/placeholder.pid
 
-          nohup ssh \
-            -o BatchMode=yes \
-            -o ExitOnForwardFailure=yes \
-            -o ServerAliveInterval=30 \
-            -o ServerAliveCountMax=3 \
-            -o StrictHostKeyChecking=accept-new \
-            -o UserKnownHostsFile=artifacts/phone-preview/known_hosts \
-            -T \
-            -R 80:127.0.0.1:3012 \
-            nokey@localhost.run \
-            < /dev/null \
+          nohup artifacts/phone-preview/pinggy \
+            -l http://127.0.0.1:3012 \
             > artifacts/phone-preview/tunnel.log 2>&1 &
           echo "$!" > artifacts/phone-preview/tunnel.pid
 
           preview_url=""
           for attempt in {1..60}; do
-            preview_url=$(grep -Eo 'https://[a-zA-Z0-9.-]+\.(lhr\.life|localhost\.run)' artifacts/phone-preview/tunnel.log | head -1 || true)
+            preview_url=$(grep -Eo 'https://[a-zA-Z0-9.-]+\.free\.pinggy\.net' artifacts/phone-preview/tunnel.log | head -1 || true)
             if [ -n "$preview_url" ]; then
               break
             fi
@@ -114,12 +112,12 @@ jobs:
           test -n "$preview_url"
 
           for attempt in {1..30}; do
-            if curl --fail --silent "$preview_url/api/health" | grep -q '"status":"preparing"'; then
+            if curl --fail --silent --user-agent 'HamrahPreview/1.0' "$preview_url/api/health" | grep -q '"status":"preparing"'; then
               break
             fi
             sleep 2
           done
-          curl --fail --silent "$preview_url/api/health" | grep -q '"status":"preparing"'
+          curl --fail --silent --user-agent 'HamrahPreview/1.0' "$preview_url/api/health" | grep -q '"status":"preparing"'
 
           printf '%s\n' "$preview_url" > artifacts/phone-preview/preview-url.txt
           echo "PREVIEW_URL=$preview_url" >> "$GITHUB_ENV"
@@ -173,6 +171,14 @@ jobs:
             .replace(/<string name="package_name">[^<]*<\/string>/, `<string name="package_name">${packageId}</string>`)
             .replace(/<string name="custom_url_scheme">[^<]*<\/string>/, `<string name="custom_url_scheme">${packageId}</string>`);
           fs.writeFileSync(stringsPath, strings);
+
+          const capacitorConfigPath = "android/app/src/main/assets/capacitor.config.json";
+          const capacitorConfig = JSON.parse(fs.readFileSync(capacitorConfigPath, "utf8"));
+          capacitorConfig.android = {
+            ...(capacitorConfig.android ?? {}),
+            overrideUserAgent: "HamrahPreview/1.0",
+          };
+          fs.writeFileSync(capacitorConfigPath, `${JSON.stringify(capacitorConfig, null, 2)}\n`);
           NODE
 
       - name: Build phone APK
@@ -180,6 +186,7 @@ jobs:
           ./android/gradlew -p android --no-daemon :app:assembleDebug
           unzip -p android/app/build/outputs/apk/debug/app-debug.apk assets/capacitor.config.json > artifacts/phone-preview/capacitor.config.json
           grep -F "\"url\": \"${PREVIEW_URL}\"" artifacts/phone-preview/capacitor.config.json
+          grep -F '"overrideUserAgent": "HamrahPreview/1.0"' artifacts/phone-preview/capacitor.config.json
           "${ANDROID_SDK_ROOT:-$ANDROID_HOME}/build-tools/35.0.0/aapt" dump badging android/app/build/outputs/apk/debug/app-debug.apk \
             | grep -F "package: name='${PREVIEW_PACKAGE_ID}'" \
             | tee artifacts/phone-preview/application-id.txt
@@ -209,7 +216,7 @@ jobs:
       - name: Verify public preview and install file
         run: |
           for attempt in {1..40}; do
-            if curl --fail --silent "$PREVIEW_URL/api/health" > artifacts/phone-preview/public-health.json; then
+            if curl --fail --silent --user-agent 'HamrahPreview/1.0' "$PREVIEW_URL/api/health" > artifacts/phone-preview/public-health.json; then
               if grep -q '"status":"ok"' artifacts/phone-preview/public-health.json && grep -q '"database":"connected"' artifacts/phone-preview/public-health.json; then
                 break
               fi
@@ -219,12 +226,15 @@ jobs:
           grep -F '"status":"ok"' artifacts/phone-preview/public-health.json
           grep -F '"database":"connected"' artifacts/phone-preview/public-health.json
 
-          curl --fail --silent --show-error --head "$PREVIEW_URL/" > artifacts/phone-preview/security-headers.txt
+          curl --fail --silent --show-error --head \
+            --user-agent 'HamrahPreview/1.0' \
+            "$PREVIEW_URL/" > artifacts/phone-preview/security-headers.txt
           grep -i '^x-content-type-options: nosniff' artifacts/phone-preview/security-headers.txt
           grep -i '^x-frame-options: DENY' artifacts/phone-preview/security-headers.txt
           grep -i '^strict-transport-security:' artifacts/phone-preview/security-headers.txt
 
           curl --fail --silent --show-error \
+            --user-agent 'HamrahPreview/1.0' \
             --output artifacts/phone-preview/downloaded-preview.apk \
             "$PREVIEW_URL/downloads/hamrah-phone-preview.apk"
           expected_hash=$(awk '{print $1}' public/downloads/hamrah-phone-preview.sha256.txt)
@@ -234,6 +244,7 @@ jobs:
           signup_status=$(curl --silent --show-error \
             --output artifacts/phone-preview/signup-smoke.json \
             --write-out '%{http_code}' \
+            --user-agent 'HamrahPreview/1.0' \
             --header 'content-type: application/json' \
             --data '{"name":"Phone Preview QA","email":"phone-preview@example.invalid","password":"preview-only-password-2026"}' \
             "$PREVIEW_URL/api/auth/sign-up/email")
@@ -268,13 +279,13 @@ jobs:
             echo "- App name: $PREVIEW_APP_NAME"
             echo "- Package ID: $PREVIEW_PACKAGE_ID"
             echo "- SHA-256: $(awk '{print $1}' public/downloads/hamrah-phone-preview.sha256.txt)"
-            echo "- Availability: approximately two hours from this run"
+            echo "- Availability: approximately 50 minutes from this run"
           } >> "$GITHUB_STEP_SUMMARY"
           echo "::notice title=Temporary Android preview::$apk_url"
           status_payload=$(jq -n \
             --arg state "pending" \
             --arg target_url "$apk_url" \
-            --arg description "Temporary Android preview is available for about two hours" \
+            --arg description "Temporary Android preview is available for about 50 minutes" \
             --arg context "temporary-phone-preview/${GITHUB_RUN_NUMBER}" \
             '{state: $state, target_url: $target_url, description: $description, context: $context}')
           curl --fail --silent --show-error \
@@ -289,9 +300,9 @@ jobs:
 
       - name: Keep temporary preview online for phone testing
         run: |
-          for minute in {1..120}; do
+          for minute in {1..50}; do
             kill -0 "$(cat artifacts/phone-preview/server.pid)"
             kill -0 "$(cat artifacts/phone-preview/tunnel.pid)"
-            curl --fail --silent "$PREVIEW_URL/api/health" | grep -q '"status":"ok"'
+            curl --fail --silent --user-agent 'HamrahPreview/1.0' "$PREVIEW_URL/api/health" | grep -q '"status":"ok"'
             sleep 60
           done
