@@ -26,6 +26,7 @@ const demoItems: Item[] = [
   { id: "demo-3", title: "۳۰ دقیقه پیاده‌روی", category: "personal", priority: "normal", source: "task", done: false },
 ];
 const tehranDate = new Intl.DateTimeFormat("fa-IR-u-ca-persian", { timeZone: "Asia/Tehran", weekday: "long", day: "numeric", month: "long" });
+const tehranGregorianDate = new Intl.DateTimeFormat("fa-IR-u-ca-gregory", { timeZone: "Asia/Tehran", day: "numeric", month: "long", year: "numeric" });
 const tehranShortDate = new Intl.DateTimeFormat("fa-IR-u-ca-persian", { timeZone: "Asia/Tehran", month: "short", day: "numeric" });
 const tehranTime = new Intl.DateTimeFormat("fa-IR", { timeZone: "Asia/Tehran", hour: "2-digit", minute: "2-digit" });
 
@@ -310,13 +311,12 @@ export function PersonalAgentDashboard() {
     <section className="workspace">
       <header className="topbar">
         <div className={view === "today" ? "daily-poem-wrap" : undefined}>
-          <p className="eyebrow">{tehranDate.format(new Date())}</p>
+          <div className="header-date"><p className="eyebrow">{tehranDate.format(new Date())}</p><p className="gregorian-date">{tehranGregorianDate.format(new Date())}</p></div>
           {view === "today" ? <>
             <h1 className="daily-poem" aria-label={`شعر روز مولانا: ${dailyRumi.lines.join("، ")}`}>
               <span className="poem-couplet"><span>{dailyRumi.lines[0]}</span><span>{dailyRumi.lines[1]}</span></span>
               <span className="poem-couplet"><span>{dailyRumi.lines[2]}</span><span>{dailyRumi.lines[3]}</span></span>
             </h1>
-            <a className="poem-source" href={dailyRumi.sourceUrl} target="_blank" rel="noreferrer">مولانا · {dailyRumi.poemTitle} · گنجور</a>
           </> : <h1>{view === "settings" ? "تنظیمات من" : view === "assistant" ? "گفتگو با همراه" : view === "calendar" ? "تقویم من" : "همه کارها و جلسات"}</h1>}
         </div>
         <div className="top-actions"><button className="settings-button" onClick={() => setView("settings")}>تنظیمات</button><button className="icon-button" aria-label="اعلان‌ها" title="مرکز اعلان‌ها" onClick={() => { const next = !notificationCenter; setNotificationCenter(next); if (next) void loadNotifications(); }}>اعلان{unreadNotifications > 0 && <span>{unreadNotifications}</span>}</button><button className="primary-button" onClick={() => openComposer()}>برنامه جدید</button></div>
