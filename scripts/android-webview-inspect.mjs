@@ -34,6 +34,7 @@ async function inspect() {
 
   const target = targets.find((entry) => entry.type === "page" && entry.webSocketDebuggerUrl) || targets.find((entry) => entry.webSocketDebuggerUrl);
   if (!target) throw new Error("No debuggable Android WebView target was found.");
+  process.stdout.write(`WebView target: ${target.title || "(untitled)"} ${target.url || "(no URL)"}\n`);
 
   const socket = new WebSocket(target.webSocketDebuggerUrl);
   await new Promise((resolveOpen, rejectOpen) => {
@@ -65,13 +66,23 @@ async function inspect() {
     socket.send(JSON.stringify({ id: currentId, method: "Runtime.evaluate", params: { expression, returnByValue: true } }));
   });
 
+  let lastCandidate = null;
   const waitForText = async (text) => {
     for (let attempt = 0; attempt < 35; attempt += 1) {
       const response = await evaluate();
       const serialized = response?.result?.result?.value;
       if (serialized) {
         const candidate = JSON.parse(serialized);
+        lastCandidate = candidate;
         if (candidate.text?.trim() && candidate.text.includes(text)) return candidate;
+        if (attempt === 0 || attempt % 10 === 9) {
+          process.stdout.write(`Rendered candidate ${attempt + 1}: ${JSON.stringify({
+            title: candidate.title,
+            url: candidate.url,
+            direction: candidate.direction,
+            text: candidate.text?.slice(0, 300),
+          })}\n`);
+        }
       }
       await delay(1_000);
     }
@@ -89,7 +100,9 @@ async function inspect() {
   const result = await waitForText(requiredText);
   socket.close();
 
-  if (!result) throw new Error(`Expected Persian text was not rendered within the timeout: ${requiredText}`);
+  if (!result) {
+    throw new Error(`Expected Persian text was not rendered within the timeout: ${requiredText}. Last page: ${JSON.stringify(lastCandidate)}`);
+  }
   if (result.direction !== "rtl") throw new Error("Android WebView document is not RTL.");
 
   mkdirSync(dirname(outputPath), { recursive: true });

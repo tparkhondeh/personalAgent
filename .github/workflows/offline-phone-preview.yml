@@ -203,6 +203,13 @@ jobs:
           name: ${{ needs.build.outputs.artifact_name }}
           path: artifacts/build
 
+      - name: Verify stable staging from the runner
+        run: |
+          curl --fail --silent --show-error --retry 3 --connect-timeout 10 \
+            "${STAGING_URL}/api/health" | grep -F '"status":"ok"'
+          curl --fail --silent --show-error --retry 3 --connect-timeout 10 \
+            "${STAGING_URL}/login" | grep -Fq 'خوش برگشتی'
+
       - name: Enable emulator acceleration
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
