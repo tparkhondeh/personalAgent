@@ -7,7 +7,7 @@ export function urlBase64ToUint8Array(value: string) {
 
 export async function enablePushNotifications() {
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) throw new Error("مرورگر از اعلان پشتیبانی نمی‌کند");
-  const registration = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+  const registration = await navigator.serviceWorker.register("/sw.js", { scope: "/", updateViaCache: "none" });
   const permission = await Notification.requestPermission();
   if (permission !== "granted") throw new Error("اجازه اعلان داده نشد");
   const key = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;

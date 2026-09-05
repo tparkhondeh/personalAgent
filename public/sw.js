@@ -1,7 +1,12 @@
-const CACHE_NAME = "hamrah-shell-v4";
+const CACHE_NAME = "hamrah-shell-v5";
 const CORE_ASSETS = ["/", "/manifest.webmanifest", "/icon.svg", "/icon-192.png", "/icon-512.png"];
+const IS_LOCAL_DEVELOPMENT = self.location.hostname === "localhost" || self.location.hostname === "127.0.0.1";
 
 self.addEventListener("install", (event) => {
+  if (IS_LOCAL_DEVELOPMENT) {
+    self.skipWaiting();
+    return;
+  }
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(CORE_ASSETS)),
   );
@@ -12,7 +17,7 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) => Promise.all(
       keys
-        .filter((key) => key.startsWith("hamrah-shell-") && key !== CACHE_NAME)
+        .filter((key) => key.startsWith("hamrah-shell-") && (IS_LOCAL_DEVELOPMENT || key !== CACHE_NAME))
         .map((key) => caches.delete(key)),
     )),
   );
@@ -20,6 +25,10 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
+  // A cached development page can look healthy after `next dev` stops while
+  // none of its React controls are hydrated. Never serve that misleading shell.
+  if (IS_LOCAL_DEVELOPMENT) return;
+
   const request = event.request;
   if (request.method !== "GET") return;
   const url = new URL(request.url);
