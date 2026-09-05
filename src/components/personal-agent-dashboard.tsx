@@ -8,6 +8,7 @@ import { defaultPreferences, PreferencesPanel, type UserPreferences } from "@/co
 import { NotificationCenter, type AppNotification } from "@/components/notification-center";
 import { buildEscalationPlan, defaultEscalationPolicy } from "@/lib/escalations";
 import { syncNativeEscalationAlarms, type NativeEscalationAlarm } from "@/lib/native-escalations";
+import { getDailyRumiSelection } from "@/lib/daily-rumi";
 
 type Category = "personal" | "work" | "meeting";
 type Priority = "urgent" | "important" | "normal";
@@ -84,6 +85,7 @@ export function PersonalAgentDashboard() {
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [escalationRevision, setEscalationRevision] = useState(0);
+  const [dailyRumi, setDailyRumi] = useState(() => getDailyRumiSelection());
   const { data: session } = authClient.useSession();
   const signedIn = Boolean(session?.user);
 
@@ -102,6 +104,16 @@ export function PersonalAgentDashboard() {
     void navigator.serviceWorker.register("/sw.js", { scope: "/", updateViaCache: "none" })
       .then((registration) => registration.update())
       .catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setDailyRumi((current) => {
+        const next = getDailyRumiSelection();
+        return next.id === current.id ? current : next;
+      });
+    }, 60_000);
+    return () => window.clearInterval(timer);
   }, []);
 
   useEffect(() => { if (hydrated && !signedIn) localStorage.setItem("hamrah.items.v2", JSON.stringify(items)); }, [items, hydrated, signedIn]);
@@ -282,7 +294,6 @@ export function PersonalAgentDashboard() {
     }
   }
 
-  const greetingName = session?.user.name?.split(" ")[0] || "دوست من";
   const unreadNotifications = notifications.filter((notification) => !notification.readAt).length;
   return <main className="app-shell">
     <aside className="sidebar">
@@ -292,7 +303,19 @@ export function PersonalAgentDashboard() {
       <div className="profile"><div className="avatar">{session?.user.name?.slice(0, 1) || "ه"}</div><div><strong>{session?.user.name || "نسخه آزمایشی"}</strong><small>{signedIn ? "حساب متصل است" : "برای ذخیره دائمی وارد شو"}</small></div>{signedIn ? <button aria-label="خروج" title="خروج" onClick={() => authClient.signOut()}>خروج</button> : <Link className="login-link" href="/login">ورود</Link>}</div>
     </aside>
     <section className="workspace">
-      <header className="topbar"><div><p className="eyebrow">{tehranDate.format(new Date())}</p><h1>{view === "settings" ? "تنظیمات من" : view === "assistant" ? "گفتگو با همراه" : view === "calendar" ? "تقویم من" : view === "tasks" ? "همه کارها و جلسات" : `سلام، ${greetingName}`}</h1></div><div className="top-actions"><button className="settings-button" onClick={() => setView("settings")}>تنظیمات</button><button className="icon-button" aria-label="اعلان‌ها" title="مرکز اعلان‌ها" onClick={() => { const next = !notificationCenter; setNotificationCenter(next); if (next) void loadNotifications(); }}>اعلان{unreadNotifications > 0 && <span>{unreadNotifications}</span>}</button><button className="primary-button" onClick={() => openComposer()}>برنامه جدید</button></div></header>
+      <header className="topbar">
+        <div className={view === "today" ? "daily-poem-wrap" : undefined}>
+          <p className="eyebrow">{tehranDate.format(new Date())}</p>
+          {view === "today" ? <>
+            <h1 className="daily-poem" aria-label={`شعر روز مولانا: ${dailyRumi.lines.join("، ")}`}>
+              <span className="poem-couplet"><span>{dailyRumi.lines[0]}</span><span>{dailyRumi.lines[1]}</span></span>
+              <span className="poem-couplet"><span>{dailyRumi.lines[2]}</span><span>{dailyRumi.lines[3]}</span></span>
+            </h1>
+            <a className="poem-source" href={dailyRumi.sourceUrl} target="_blank" rel="noreferrer">مولانا · {dailyRumi.poemTitle} · گنجور</a>
+          </> : <h1>{view === "settings" ? "تنظیمات من" : view === "assistant" ? "گفتگو با همراه" : view === "calendar" ? "تقویم من" : "همه کارها و جلسات"}</h1>}
+        </div>
+        <div className="top-actions"><button className="settings-button" onClick={() => setView("settings")}>تنظیمات</button><button className="icon-button" aria-label="اعلان‌ها" title="مرکز اعلان‌ها" onClick={() => { const next = !notificationCenter; setNotificationCenter(next); if (next) void loadNotifications(); }}>اعلان{unreadNotifications > 0 && <span>{unreadNotifications}</span>}</button><button className="primary-button" onClick={() => openComposer()}>برنامه جدید</button></div>
+      </header>
       {message && <p className="page-message">{message}</p>}
       {view === "settings" ? <PreferencesPanel key={preferences ? "stored" : "default"} initial={preferences} signedIn={signedIn} onSaved={setPreferences} onNativePermissionChanged={() => setEscalationRevision((value) => value + 1)} /> : view === "assistant" ? <Assistant onAdd={() => openComposer()} onChanged={loadRemote} /> : view === "calendar" ? <Calendar items={items} onEdit={openComposer} onAdd={(date) => openComposer(null, date)} /> : <>
         <section className="summary-grid"><article className="focus-card"><div><p>تمرکز امروز</p><strong>{open} کار باقی مانده</strong></div><div className="progress-ring" style={{ "--progress": `${progress * 3.6}deg` } as React.CSSProperties}><span>{progress}٪</span></div></article><article className="summary-card peach"><div><small>جلسه بعدی</small><strong>{nextMeeting?.title || "جلسه‌ای ثبت نشده"}</strong><p>{nextMeeting ? `${itemDate(nextMeeting)}، ساعت ${itemTime(nextMeeting)}` : "برنامه‌ات آزاد است"}</p></div></article><article className="summary-card lavender"><div><small>پیشنهاد همراه</small><strong>{open ? "از مهم‌ترین کار شروع کن" : "برنامه‌ات مرتب است"}</strong><p>{open ? `${open} کار باز داری` : "زمانی برای استراحت بگذار"}</p></div></article></section>

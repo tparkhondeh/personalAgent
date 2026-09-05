@@ -120,6 +120,12 @@ button:disabled { cursor: not-allowed; }
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 32px; }
 .eyebrow { margin: 0 0 5px; color: var(--muted); font-size: 13px; font-weight: 580; line-height: 1.7; }
 .topbar h1 { margin: 0; font-size: clamp(27px, 2.4vw, 32px); font-weight: 760; line-height: 1.45; }
+.daily-poem-wrap { min-width: 0; flex: 1; max-width: 850px; }
+.topbar h1.daily-poem { display: grid; gap: 2px; margin: 0; color: var(--ink); font-size: clamp(17px, 1.5vw, 21px); font-weight: 680; line-height: 1.85; letter-spacing: -0.015em; }
+.poem-couplet { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(18px, 3vw, 42px); }
+.poem-couplet > span { min-width: 0; }
+.poem-source { display: inline-block; margin-top: 6px; color: var(--muted); font-size: 12px; font-weight: 600; line-height: 1.7; text-decoration: none; }
+.poem-source:hover { color: var(--primary-strong); text-decoration: underline; text-underline-offset: 4px; }
 .top-actions { display: flex; align-items: center; gap: 9px; }
 .primary-button, .submit-button { min-height: 46px; padding: 10px 19px; border: 1px solid rgba(76, 94, 157, 0.18); border-radius: 14px; background: linear-gradient(135deg, #5b70b5 0%, #4f7b72 115%); color: #fff; box-shadow: 0 12px 28px rgba(87, 104, 164, 0.25); font-size: 14px; font-weight: 680; cursor: pointer; transition: transform 160ms ease, background 160ms ease, box-shadow 160ms ease; }
 .primary-button:hover, .submit-button:hover { background: linear-gradient(135deg, #4e62a4 0%, #416b63 115%); box-shadow: 0 15px 32px rgba(75, 91, 148, 0.31); transform: translateY(-1px); }
@@ -325,6 +331,8 @@ button:disabled { cursor: not-allowed; }
   .workspace { padding: 22px 14px 42px; }
   .topbar { align-items: flex-start; flex-direction: column; gap: 17px; margin-bottom: 24px; }
   .topbar h1 { font-size: 27px; }
+  .topbar h1.daily-poem { gap: 5px; font-size: 17px; line-height: 1.8; }
+  .poem-couplet { grid-template-columns: 1fr; gap: 0; }
   .top-actions { width: 100%; display: grid; grid-template-columns: 1fr 1fr 1.15fr; }
   .settings-button, .icon-button, .primary-button { width: 100%; min-width: 0; padding-inline: 8px; font-size: 12px; }
   .summary-grid { grid-template-columns: 1fr; gap: 12px; }

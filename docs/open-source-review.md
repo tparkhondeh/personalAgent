@@ -13,6 +13,7 @@
 | Capacitor 8 | پوسته بومی Android | MIT | استفاده مستقیم؛ اشتراک کد با نسخه وب |
 | Capacitor Local Notifications | اعلان و Alarm محلی Android | MIT | استفاده مستقیم با مجوز کاربر |
 | Sharp | تولید تکرارپذیر آیکون و Splash | Apache-2.0 | فقط در زمان توسعه و Build Asset |
+| Ganjoor Data | متن رباعیات کلاسیک مولانا | متن کلاسیک در مالکیت عمومی؛ داده عمومی و منبع‌دهی‌شده | Snapshot ثابت Commit `1afaf46`؛ فقط ۳۶۰ رباعی منتخب و بدون وابستگی زمان اجرا |
 | FullCalendar | الگوی تقویم | MIT برای Standard | فعلاً استفاده نشده؛ UI سبک اختصاصی سریع‌تر بود |
 | Vikunja | Task Management | AGPL-3.0 | فقط مطالعه معماری؛ کدی کپی نشده |
 | Cal.com | Scheduling | AGPL-3.0/Commercial | فقط مطالعه UX؛ کدی کپی نشده |
