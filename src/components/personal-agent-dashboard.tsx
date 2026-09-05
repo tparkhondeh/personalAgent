@@ -186,7 +186,7 @@ export function PersonalAgentDashboard() {
       if (!response.ok) return;
       const result = await response.json();
       setPreferences(result.data as UserPreferences | null);
-      if (!result.data) setView("settings");
+      if (!result.data) setView((currentView) => currentView === "today" ? "settings" : currentView);
     }).catch(() => undefined);
     return () => controller.abort();
   }, [session?.user]);
