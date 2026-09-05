@@ -102,14 +102,40 @@
           if (recovery && typeof recovery[method] === "function") recovery[method]();
           else fallback();
         };
+        const openBundledInterface = async () => {
+          const offlineButton = document.querySelector("#offline");
+          offlineButton.disabled = true;
+          offlineButton.textContent = "در حال باز کردن نسخه محلی";
+
+          try {
+            // The connected APK starts on a remote origin, but Capacitor always
+            // serves these packaged files from its private localhost origin.
+            // Replacing the current document avoids a second top-level WebView
+            // navigation, which some Android WebView versions can reject after
+            // a remote startup failure.
+            const response = await fetch("./index.html", { cache: "no-store" });
+            if (!response.ok) throw new Error(`Bundled interface returned ${response.status}`);
+            const html = await response.text();
+            if (!html.includes('id="task-list"') || !html.includes("./app.js")) {
+              throw new Error("Bundled interface is incomplete");
+            }
+
+            const recovery = window.HamrahRecovery;
+            if (recovery && typeof recovery.offlineReady === "function") recovery.offlineReady();
+            history.replaceState({ mode: "local" }, "", "./index.html?mode=local");
+            document.open();
+            document.write(html);
+            document.close();
+          } catch (error) {
+            offlineButton.disabled = false;
+            offlineButton.textContent = "ادامه در حالت محلی";
+            status.textContent = "بازکردن نسخه محلی کامل نشد؛ دوباره تلاش کنید";
+            console.error("Hamrah bundled interface failed", error);
+          }
+        };
+        window.HamrahOpenBundledInterface = openBundledInterface;
         document.querySelector("#retry").addEventListener("click", () => callRecovery("retry", () => history.back()));
-        document.querySelector("#offline").addEventListener("click", () => {
-          const fallbackToLocal = () => location.replace("./index.html");
-          callRecovery("openOffline", fallbackToLocal);
-          window.setTimeout(() => {
-            if (location.pathname.endsWith("/connection-error.html")) fallbackToLocal();
-          }, 500);
-        });
+        document.querySelector("#offline").addEventListener("click", () => void openBundledInterface());
         window.addEventListener("online", updateStatus);
         window.addEventListener("offline", updateStatus);
         updateStatus();

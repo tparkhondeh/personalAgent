@@ -191,13 +191,6 @@ public class MainActivity extends BridgeActivity {
         getBridge().getWebView().loadUrl(errorUrl);
     }
 
-    private String offlineUrl() {
-        String errorUrl = getBridge() == null ? null : getBridge().getErrorUrl();
-        if (errorUrl == null) return null;
-        int separator = errorUrl.lastIndexOf('/');
-        return separator >= 0 ? errorUrl.substring(0, separator + 1) + "index.html" : null;
-    }
-
     private final class RecoveryActions {
         @JavascriptInterface
         public void retry() {
@@ -213,11 +206,20 @@ public class MainActivity extends BridgeActivity {
         @JavascriptInterface
         public void openOffline() {
             mainHandler.post(() -> {
-                String target = offlineUrl();
-                if (target == null || getBridge() == null) return;
+                if (getBridge() == null) return;
+                getBridge().getWebView().evaluateJavascript(
+                    "window.HamrahOpenBundledInterface && window.HamrahOpenBundledInterface()",
+                    null
+                );
+            });
+        }
+
+        @JavascriptInterface
+        public void offlineReady() {
+            mainHandler.post(() -> {
                 showingRecovery = false;
-                showLoadingOverlay();
-                getBridge().getWebView().loadUrl(target);
+                cancelLoadTimeout();
+                hideLoadingOverlay();
             });
         }
     }

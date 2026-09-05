@@ -98,6 +98,8 @@ public class ApplicationContextTest {
         assertTrue(recovery.contains("اتصال برقرار نشد"));
         assertTrue(recovery.contains("تلاش دوباره"));
         assertTrue(recovery.contains("ادامه در حالت محلی"));
+        assertTrue(recovery.contains("fetch(\"./index.html\""));
+        assertTrue(recovery.contains("document.write(html)"));
         assertFalse(recovery.contains("http://"));
         assertFalse(recovery.contains("https://"));
     }
