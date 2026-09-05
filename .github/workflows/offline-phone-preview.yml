@@ -219,16 +219,15 @@ jobs:
           profile: pixel_6
           disable-animations: true
           emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          script: |
-            chmod +x scripts/android-stable-emulator-qa.sh
-            scripts/android-stable-emulator-qa.sh \
-              "${{ needs.build.outputs.package_id }}" \
-              "artifacts/build/${{ needs.build.outputs.apk_name }}" \
-              artifacts/build/hamrah-stable-androidTest.apk \
-              artifacts/build/diagnostic-dns.apk \
-              artifacts/build/diagnostic-server-down.apk \
-              artifacts/build/diagnostic-ssl.apk \
-              "${{ matrix.api }}"
+          script: >-
+            bash scripts/android-stable-emulator-qa.sh
+            "${{ needs.build.outputs.package_id }}"
+            "artifacts/build/${{ needs.build.outputs.apk_name }}"
+            artifacts/build/hamrah-stable-androidTest.apk
+            artifacts/build/diagnostic-dns.apk
+            artifacts/build/diagnostic-server-down.apk
+            artifacts/build/diagnostic-ssl.apk
+            "${{ matrix.api }}"
 
       - name: Upload screenshots, rendered text and logs
         if: always()
@@ -257,7 +256,7 @@ jobs:
         with:
           pattern: android-evidence-*-${{ github.run_id }}
           path: artifacts/evidence
-          merge-multiple: true
+          merge-multiple: false
 
       - name: Publish permanent GitHub pre-release
         env:
