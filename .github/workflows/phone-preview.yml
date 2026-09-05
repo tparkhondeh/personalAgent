@@ -266,7 +266,7 @@ jobs:
           disable-animations: true
           emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: |
-            set -Eeuo pipefail
+            bash -Eeuo pipefail <<'BASH'
             evidence_dir="artifacts/phone-preview/emulator"
             apk_path="public/downloads/hamrah-phone-preview.apk"
             activity_name="${PREVIEW_PACKAGE_ID}/.MainActivity"
@@ -298,6 +298,7 @@ jobs:
               echo 'The connected Android preview logged a fatal rendering or network error.' >&2
               exit 1
             fi
+            BASH
 
       - name: Publish installable APK artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
