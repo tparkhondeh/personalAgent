@@ -312,6 +312,31 @@ public class ApplicationContextTest {
         }
     }
 
+    @Test
+    public void nativeEventsWaitForAnAvailableJavascriptBridge() throws Exception {
+        CountDownLatch checked = new CountDownLatch(1);
+        AtomicReference<String> outcome = new AtomicReference<>("");
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            Thread.sleep(3_000);
+            scenario.onActivity(activity -> {
+                android.webkit.WebView view = activity.getBridge().getWebView();
+                view.evaluateJavascript("window.__qaErrors=0;window.__qaSavedCap=window.Capacitor;window.__qaErrorListener=()=>window.__qaErrors++;window.addEventListener('error',window.__qaErrorListener);window.Capacitor=undefined;true", ignored -> {
+                    activity.getBridge().triggerDocumentJSEvent("hamrah-qa-before-ready");
+                    activity.getBridge().triggerWindowJSEvent("hamrah-qa-before-ready", "{}");
+                    view.postDelayed(() -> view.evaluateJavascript("window.Capacitor=window.__qaSavedCap;window.__qaDelivered=0;document.addEventListener('hamrah-qa-ready',()=>window.__qaDelivered++,{once:true});true", restored -> {
+                        activity.getBridge().triggerDocumentJSEvent("hamrah-qa-ready");
+                        view.postDelayed(() -> view.evaluateJavascript("(()=>{window.removeEventListener('error',window.__qaErrorListener);return window.__qaErrors===0 && window.__qaDelivered===1})()", result -> {
+                            outcome.set(result);
+                            checked.countDown();
+                        }), 300);
+                    }), 300);
+                });
+            });
+            assertTrue("Bridge readiness test timed out", checked.await(10, TimeUnit.SECONDS));
+            assertEquals("Early events threw or ready events were lost", "true", outcome.get());
+        }
+    }
+
     private boolean waitForNotificationState(
         NotificationManager manager,
         int notificationId,

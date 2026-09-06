@@ -7,3 +7,5 @@ allowBuilds:
 overrides:
   deepmerge-ts: 8.0.0
   mysql2: 3.23.1
+patchedDependencies:
+  '@capacitor/android@8.5.0': patches/@capacitor__android@8.5.0.patch

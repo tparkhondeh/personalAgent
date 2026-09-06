@@ -1,0 +1,33 @@
+diff --git a/capacitor/src/main/java/com/getcapacitor/Bridge.java b/capacitor/src/main/java/com/getcapacitor/Bridge.java
+index d4995fbbc9e4d3f0db7ac0330ef78e2f3547b055..69d22b65d3bc2f4e18adb39456ec23b2190f71b6 100644
+--- a/capacitor/src/main/java/com/getcapacitor/Bridge.java
++++ b/capacitor/src/main/java/com/getcapacitor/Bridge.java	
+@@ -879,11 +879,13 @@ public class Bridge {
+     }
+ 
+     public void triggerJSEvent(final String eventName, final String target) {
+-        eval("window.Capacitor.triggerEvent(\"" + eventName + "\", \"" + target + "\")", (s) -> {});
++        // Lifecycle callbacks may arrive on the initial/failed document before
++        // the JS bridge is injected. There are no registered JS listeners yet.
++        eval("if (window.Capacitor && typeof window.Capacitor.triggerEvent === 'function') { window.Capacitor.triggerEvent(\"" + eventName + "\", \"" + target + "\"); }", (s) -> {});
+     }
+ 
+     public void triggerJSEvent(final String eventName, final String target, final String data) {
+-        eval("window.Capacitor.triggerEvent(\"" + eventName + "\", \"" + target + "\", " + data + ")", (s) -> {});
++        eval("if (window.Capacitor && typeof window.Capacitor.triggerEvent === 'function') { window.Capacitor.triggerEvent(\"" + eventName + "\", \"" + target + "\", " + data + "); }", (s) -> {});
+     }
+ 
+     public void triggerWindowJSEvent(final String eventName) {
+diff --git a/capacitor/src/main/java/com/getcapacitor/cordova/MockCordovaWebViewImpl.java b/capacitor/src/main/java/com/getcapacitor/cordova/MockCordovaWebViewImpl.java
+index 020c1457a18360a1f9f85d217ca6051a003051e8..7af988177ff2b772652f1c28861f1319f9d4a036 100644
+--- a/capacitor/src/main/java/com/getcapacitor/cordova/MockCordovaWebViewImpl.java
++++ b/capacitor/src/main/java/com/getcapacitor/cordova/MockCordovaWebViewImpl.java	
+@@ -190,7 +190,7 @@ public class MockCordovaWebViewImpl implements CordovaWebView {
+     }
+ 
+     public void triggerDocumentEvent(final String eventName) {
+-        eval("window.Capacitor.triggerEvent('" + eventName + "', 'document');", (s) -> {});
++        eval("if (window.Capacitor && typeof window.Capacitor.triggerEvent === 'function') { window.Capacitor.triggerEvent('" + eventName + "', 'document'); }", (s) -> {});
+     }
+ 
+     @Override
