@@ -88,7 +88,7 @@
       p { margin: 0; color: var(--muted); font-size: 15px; line-height: 2; }
       .actions { display: grid; gap: 10px; margin-top: 26px; }
       button { min-height: 50px; padding: 10px 16px; border-radius: 14px; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
-      .primary { border: 1px solid var(--primary); background: linear-gradient(135deg, #5c70b4, #527e73); color: #fff; }
+      .primary { border: 1px solid var(--primary); background: linear-gradient(135deg, #5b70b5 0%, #4f7b72 115%); color: #fff; }
       .secondary { border: 1px solid var(--line); background: var(--primary-soft); color: var(--text); }
       button:focus-visible { outline: 3px solid rgba(92, 112, 180, 0.28); outline-offset: 2px; }
       .note { margin-top: 18px; padding: 12px 14px; border-radius: 13px; background: var(--mint); color: #4d6d62; font-size: 12px; line-height: 1.9; }
@@ -96,7 +96,8 @@
       /* Explicit dark appearance: never follows the OS. */
 :root[data-theme="dark"] { --bg: #13151f; --surface: rgba(28, 30, 42, 0.94); --text: #eff0f8; --muted: #b2b6c9; --line: #393d50; --primary: #9cabe6; --primary-soft: #2c324d; --mint: #213b33; --peach: #3b2b27; --shadow: 0 24px 64px rgba(0, 0, 0, 0.32); }
 :root[data-theme="dark"] body { background: radial-gradient(circle at 88% 8%, #303955, transparent 42%), radial-gradient(circle at 8% 88%, #243b34, transparent 40%), var(--bg); }
-:root[data-theme="dark"] .primary { color: #171925; }
+:root[data-theme="dark"] .primary { color: #fff; }
+:root[data-theme="dark"] .status, :root[data-theme="dark"] .note { color: var(--text); }
 
 </style>
   </head>
