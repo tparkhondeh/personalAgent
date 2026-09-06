@@ -78,7 +78,7 @@ jobs:
           ram-size: 4096M
           heap-size: 512M
           disable-animations: true
-          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -no-boot-anim -camera-back none
           script: >-
             bash scripts/android-emulator-settle.sh artifacts/evidence/android-${{ matrix.api }} &&
             bash scripts/android-stable-emulator-qa.sh "$APK_PACKAGE" "artifacts/build/$APK_FILE"

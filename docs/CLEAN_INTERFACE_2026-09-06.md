@@ -31,4 +31,10 @@
 
 ## منابع پیاده‌سازی
 
+## پیگیری آزمون APK ۳۴
+
+Build و ۴۶ آزمون HTTP در CI موفق شدند؛ APK از `8db5cf4eb44207efd0d8ebecbae089e4e10143f9` ساخته شد. Staging با پشتیبان `pre-release-20260906T182555Z` به همین منبع ارتقا یافت و ۴۶ کنترل HTTP و مرورگر تازه روی آن موفق شدند. Release عمومی هنوز انجام نشده است.
+
+اجرای نخست Android در انتظار عنوان قدیمی «برنامه‌های من» متوقف شد؛ متن واقعی ثبت‌شده در Logcat/WebView عنوان تازه «برنامه امروز» و رابط فارسی را نشان می‌داد. انتظار آزمون با عنوان واقعی همگام شد، نه اینکه کنترل متن حذف شود. همچنین گزینه قدیمی `-noaudio` از تنظیم شبیه‌ساز حذف شد تا آزمون ضبط با پشتیبانی صوت اجرا شود؛ [توضیح رسمی Android](https://developer.android.com/studio/run/emulator-commandline). این تغییر تنها ابزار آزمون است. همان APK اولیه، بدون بازسازی، باید دوباره روی هر سه نسخه بررسی شود؛ آزمون کیفیت صدای میکروفون فیزیکی گوشی با آزمون pipeline شبیه‌ساز یکسان نیست.
+
 کد نصب‌شده Better Auth مرجع رفتار rememberMe بود؛ [ورود](https://better-auth.com/docs/authentication/email-password) و [کوکی‌ها](https://better-auth.com/docs/concepts/cookies). کنترل ضبط مطابق [getUserMedia](https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia) و [MediaRecorder](https://developer.mozilla.org/en-US/docs/Web/API/MediaRecorder) است.

@@ -59,7 +59,7 @@ if [[ "$staging_expectation" == "online" ]]; then
 else
   launch_and_verify "stable-runner-network-recovery" "اتصال برقرار نشد"
   node scripts/android-webview-inspect.mjs \
-    "$package_name" "$evidence_dir/stable-runner-local-fallback-webview.json" "برنامه‌های من" "open-offline"
+    "$package_name" "$evidence_dir/stable-runner-local-fallback-webview.json" "برنامه امروز" "open-offline"
   capture_verified stable-runner-local-fallback
 fi
 
@@ -70,19 +70,19 @@ grep -Fq "OK (" "$evidence_dir/instrumented-tests.txt"
 
 adb shell settings put global http_proxy 127.0.0.1:9
 launch_and_verify "stable-offline" "اتصال برقرار نشد"
-node scripts/android-webview-inspect.mjs "$package_name" "$evidence_dir/stable-local-fallback-webview.json" "برنامه‌های من" "open-offline"
+node scripts/android-webview-inspect.mjs "$package_name" "$evidence_dir/stable-local-fallback-webview.json" "برنامه امروز" "open-offline"
 capture_verified stable-local-fallback
 launch_and_verify "stable-offline-relaunch" "اتصال برقرار نشد"
 adb shell cmd uimode night yes
 launch_and_verify "stable-os-dark-default-light" "اتصال برقرار نشد" "assert-light"
-node scripts/android-webview-inspect.mjs "$package_name" "$evidence_dir/stable-dark-local-webview.json" "برنامه‌های من" "open-offline"
-node scripts/android-webview-inspect.mjs "$package_name" "$evidence_dir/explicit-dark-webview.json" "برنامه‌های من" "appearance-dark"
+node scripts/android-webview-inspect.mjs "$package_name" "$evidence_dir/stable-dark-local-webview.json" "برنامه امروز" "open-offline"
+node scripts/android-webview-inspect.mjs "$package_name" "$evidence_dir/explicit-dark-webview.json" "برنامه امروز" "appearance-dark"
 capture_verified stable-dark-local
 launch_and_verify "stable-dark-offline" "اتصال برقرار نشد" "assert-dark"
 adb shell cmd uimode night no
 launch_and_verify "stable-saved-dark-os-light" "اتصال برقرار نشد" "assert-dark"
-node scripts/android-webview-inspect.mjs "$package_name" "$evidence_dir/saved-dark-local-webview.json" "برنامه‌های من" "open-offline"
-node scripts/android-webview-inspect.mjs "$package_name" "$evidence_dir/explicit-light-webview.json" "برنامه‌های من" "appearance-light"
+node scripts/android-webview-inspect.mjs "$package_name" "$evidence_dir/saved-dark-local-webview.json" "برنامه امروز" "open-offline"
+node scripts/android-webview-inspect.mjs "$package_name" "$evidence_dir/explicit-light-webview.json" "برنامه امروز" "appearance-light"
 launch_and_verify "stable-saved-light" "اتصال برقرار نشد" "assert-light"
 
 adb shell settings put global http_proxy :0 || true
@@ -111,7 +111,7 @@ if [[ "$staging_expectation" == "online" ]]; then
 else
   launch_and_verify "stable-restored-recovery" "اتصال برقرار نشد"
   node scripts/android-webview-inspect.mjs \
-    "$package_name" "$evidence_dir/stable-restored-local-webview.json" "برنامه‌های من" "open-offline"
+    "$package_name" "$evidence_dir/stable-restored-local-webview.json" "برنامه امروز" "open-offline"
   capture_verified stable-restored-local
 fi
 
