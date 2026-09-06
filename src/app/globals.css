@@ -123,6 +123,7 @@ button:disabled { cursor: not-allowed; }
 .header-date .eyebrow { margin-bottom: 0; }
 .gregorian-date { margin: -1px 0 0; color: var(--faint); font-size: 12px; font-weight: 540; line-height: 1.6; }
 .topbar h1 { margin: 0; font-size: clamp(27px, 2.4vw, 32px); font-weight: 760; line-height: 1.45; }
+.session-loading { min-height: 100dvh; display: grid; place-items: center; padding: 24px; color: var(--ink); font-size: 16px; }
 .daily-poem-wrap { min-width: 0; flex: 1; max-width: 850px; }
 .topbar h1.daily-poem { display: grid; gap: 1px; margin: 0; color: var(--ink); font-size: clamp(16px, 1.3vw, 18px); font-weight: 640; line-height: 1.9; letter-spacing: -0.012em; }
 .poem-couplet { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(18px, 3vw, 42px); }

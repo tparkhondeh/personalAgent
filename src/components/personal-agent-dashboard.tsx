@@ -76,7 +76,15 @@ function reminderOffsetsLabel(offsets: readonly number[]) {
 }
 
 export function PersonalAgentDashboard() {
-  const [items, setItems] = useState<Item[]>(demoItems);
+  const { data: session, isPending } = authClient.useSession();
+  if (isPending) return <main className="session-loading" role="status">در حال آماده‌سازی همراه…</main>;
+  // A new account boundary discards private in-memory state and late responses.
+  // An authenticated component must never become the guest localStorage writer.
+  return <SessionDashboard key={session?.user.id ? `user:${session.user.id}` : "guest"} session={session} />;
+}
+
+function SessionDashboard({ session }: { session: ReturnType<typeof authClient.useSession>["data"] }) {
+  const [items, setItems] = useState<Item[]>(() => session?.user ? [] : demoItems);
   const [view, setView] = useState<View>("today");
   const [filter, setFilter] = useState<Category | "all">("all");
   const [composer, setComposer] = useState(false);
@@ -92,7 +100,6 @@ export function PersonalAgentDashboard() {
   const [hydrated, setHydrated] = useState(false);
   const [escalationRevision, setEscalationRevision] = useState(0);
   const [dailyRumi, setDailyRumi] = useState(() => getDailyRumiSelection());
-  const { data: session } = authClient.useSession();
   const signedIn = Boolean(session?.user);
 
   useEffect(() => {
