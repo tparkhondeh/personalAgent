@@ -11,7 +11,7 @@ async function call(path,method="GET",body){
 const email=process.env.QA_EMAIL||`schedule-qa-${Date.now()}@example.invalid`;
 assert(/^schedule-qa-[0-9]+@example.invalid$/.test(email));
 await call(process.env.QA_EMAIL?"/api/auth/sign-in/email":"/api/auth/sign-up/email","POST",{name:"آزمون حفظ هشدار",email,password:"Synthetic-schedule-QA-20260906"});
-const p={timezone:"Asia/Tehran",locale:"fa-IR",workdayStartsAt:"09:00",workdayEndsAt:"18:00",workingDays:["SAT","SUN"],defaultReminderMins:60,defaultReminderOffsets:[1440,180,60],quietHoursStartsAt:"00:00",quietHoursEndsAt:"23:59",planningProfile:"BALANCED",urgentEscalationEnabled:true,urgentRepeatMinutes:15,urgentMaxRepeats:3,androidAlarmEnabled:true,highPriorityEnabled:true,smsEscalationEnabled:false,callEscalationEnabled:false,emergencyContactName:null,emergencyPhone:null};
+const p={timezone:"Asia/Tehran",locale:"fa-IR",workdayStartsAt:"09:00",workdayEndsAt:"18:00",workingDays:["SAT","SUN"],defaultReminderMins:60,defaultReminderOffsets:[1440,180,60],quietHoursStartsAt:"00:00",quietHoursEndsAt:"23:59",urgentEscalationEnabled:true,urgentRepeatMinutes:15,urgentMaxRepeats:3,androidAlarmEnabled:true,highPriorityEnabled:true,smsEscalationEnabled:false,callEscalationEnabled:false,emergencyContactName:null,emergencyPhone:null};
 await call("/api/preferences","PUT",p);
 const task=await call("/api/tasks","POST",{title:"آزمون حفظ زنجیره هشدار",category:"WORK",priority:"URGENT",dueAt:new Date(Date.now()-300000).toISOString()});
 const before=Date.now();

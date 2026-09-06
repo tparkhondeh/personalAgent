@@ -32,25 +32,31 @@ describe("input validation", () => {
     expect(result.success).toBe(false);
   });
 
-  it("accepts a complete personal planning profile", () => {
-    const result = userPreferenceInputSchema.safeParse({ timezone: "Asia/Tehran", locale: "fa-IR", workdayStartsAt: "09:00", workdayEndsAt: "18:00", workingDays: ["SAT", "SUN", "MON", "TUE", "WED"], defaultReminderMins: 60, defaultReminderOffsets: [1440, 180, 60], quietHoursStartsAt: "22:00", quietHoursEndsAt: "08:00", planningProfile: "BALANCED" });
+  it("accepts preferences without the retired planning style", () => {
+    const result = userPreferenceInputSchema.safeParse({ timezone: "Asia/Tehran", locale: "fa-IR", workdayStartsAt: "09:00", workdayEndsAt: "18:00", workingDays: ["SAT", "SUN", "MON", "TUE", "WED"], defaultReminderMins: 60, defaultReminderOffsets: [1440, 180, 60], quietHoursStartsAt: "22:00", quietHoursEndsAt: "08:00" });
     expect(result.success).toBe(true);
+    if (result.success) expect(result.data).not.toHaveProperty("planningProfile");
+  });
+
+  it("ignores a retired planning style from an older client", () => {
+    const result = userPreferenceInputSchema.parse({ workdayStartsAt: "09:00", workdayEndsAt: "18:00", workingDays: ["SAT"], defaultReminderMins: 60, quietHoursStartsAt: "22:00", quietHoursEndsAt: "08:00", planningProfile: "FOCUS" });
+    expect(result).not.toHaveProperty("planningProfile");
   });
 
   it("requires two or three unique default reminder times in the new interface", () => {
-    const base = { timezone: "Asia/Tehran", locale: "fa-IR", workdayStartsAt: "09:00", workdayEndsAt: "18:00", workingDays: ["SAT"], defaultReminderMins: 60, quietHoursStartsAt: "22:00", quietHoursEndsAt: "08:00", planningProfile: "BALANCED" };
+    const base = { timezone: "Asia/Tehran", locale: "fa-IR", workdayStartsAt: "09:00", workdayEndsAt: "18:00", workingDays: ["SAT"], defaultReminderMins: 60, quietHoursStartsAt: "22:00", quietHoursEndsAt: "08:00" };
     expect(userPreferenceInputSchema.safeParse({ ...base, defaultReminderOffsets: [1440] }).success).toBe(false);
     expect(userPreferenceInputSchema.safeParse({ ...base, defaultReminderOffsets: [1440, 180, 180] }).success).toBe(false);
     expect(userPreferenceInputSchema.safeParse({ ...base, defaultReminderOffsets: [1440, 60] }).success).toBe(true);
   });
 
   it("rejects a profile without a working day", () => {
-    const result = userPreferenceInputSchema.safeParse({ workdayStartsAt: "09:00", workdayEndsAt: "18:00", workingDays: [], defaultReminderMins: 15, quietHoursStartsAt: "22:00", quietHoursEndsAt: "08:00", planningProfile: "BALANCED" });
+    const result = userPreferenceInputSchema.safeParse({ workdayStartsAt: "09:00", workdayEndsAt: "18:00", workingDays: [], defaultReminderMins: 15, quietHoursStartsAt: "22:00", quietHoursEndsAt: "08:00" });
     expect(result.success).toBe(false);
   });
 
   it("accepts a local emergency contact and rejects arbitrary phone text", () => {
-    const base = { workdayStartsAt: "09:00", workdayEndsAt: "18:00", workingDays: ["SAT"], defaultReminderMins: 15, quietHoursStartsAt: "22:00", quietHoursEndsAt: "08:00", planningProfile: "BALANCED" };
+    const base = { workdayStartsAt: "09:00", workdayEndsAt: "18:00", workingDays: ["SAT"], defaultReminderMins: 15, quietHoursStartsAt: "22:00", quietHoursEndsAt: "08:00" };
     expect(userPreferenceInputSchema.safeParse({ ...base, emergencyContactName: "خانواده", emergencyPhone: "+98 912 000 0000" }).success).toBe(true);
     expect(userPreferenceInputSchema.safeParse({ ...base, emergencyPhone: "not-a-phone" }).success).toBe(false);
     expect(userPreferenceInputSchema.safeParse({ ...base, emergencyContactName: null, emergencyPhone: null }).success).toBe(true);

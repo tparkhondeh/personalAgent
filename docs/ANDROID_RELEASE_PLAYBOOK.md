@@ -4,8 +4,10 @@
 
 ## نسخه مرجع فعلی — ۲۶
 
+یادداشت ۲۰۲۶-۰۹-۰۶: حذف «سبک برنامه‌ریزی» فعلاً در کد وب و لوکال اعمال شده، نه Staging. این گزینه در رابط آفلاین نسخه ۲۶ وجود ندارد؛ برای این اصلاح نیازی به تغییر فایل‌های APK نیست، اما حالت متصل فقط پس از انتشار وب روی Staging به‌روز می‌شود. نسخه نصب‌شده را خودکار به‌روز فرض نکنید.
+
 - نام `همراه پایدار 26`؛ Package `ir.wealthos.personalagent.stable26`؛ نسخه `1.0.26`.
-- Commit برنامه `07f98c06e24b877b8934763a5f94942be76add4d`؛ Staging از همین Commit است. Commitهای بعدی QA و گزارش‌اند.
+- Commit برنامه داخل APK `07f98c06e24b877b8934763a5f94942be76add4d`؛ آخرین Staging نیز از همین Commit است. تغییرهای منتشرنشده وب در `PROJECT_STATUS.md` ثبت می‌شوند.
 - SHA-256: `b34d1bade9e13033af3af7ab1f7c355f2e9665056ce620a8d8373ea11d48b91c`.
 - [دانلود دائمی](https://github.com/tparkhondeh/personalAgent/releases/download/phone-preview-stable-26/Hamrah-stable-26.apk)؛ [CI نهایی سه Android](https://github.com/tparkhondeh/personalAgent/actions/runs/34018848466)؛ [گزارش تحویل و محدودیت‌ها](SIMPLIFIED_APPROVAL_2026-09-06.md).
 - فایل منتشرشده دوباره دانلود و SHA با همان Artifact تست‌شده برابر شد. تست گوشی مالک برای این نسخه معوق است؛ نسخه‌های پایین سابقه‌اند، نه لینک پیشنهادی نصب.

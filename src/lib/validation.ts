@@ -58,7 +58,7 @@ export const userPreferenceInputSchema = z.object({
     .optional(),
   quietHoursStartsAt: clockTimeSchema,
   quietHoursEndsAt: clockTimeSchema,
-  planningProfile: z.enum(["BALANCED", "FOCUS", "FLEXIBLE"]),
+  // Retired planningProfile from older clients is stripped; stored history stays untouched.
   urgentEscalationEnabled: z.boolean().default(true),
   urgentRepeatMinutes: z.number().int().min(10).max(1440).default(15),
   urgentMaxRepeats: z.number().int().min(1).max(6).default(3),

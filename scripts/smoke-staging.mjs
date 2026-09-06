@@ -59,7 +59,6 @@ const preferences = await call("/api/preferences", {
     defaultReminderOffsets: [1440, 180, 60],
     quietHoursStartsAt: "22:00",
     quietHoursEndsAt: "08:00",
-    planningProfile: "BALANCED",
     urgentEscalationEnabled: true,
     urgentRepeatMinutes: 15,
     urgentMaxRepeats: 3,

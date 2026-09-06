@@ -5,8 +5,10 @@ import { userPreferenceInputSchema } from "@/lib/validation";
 import { guardUserRateLimit } from "@/lib/rate-limit";
 import { normalizeReminderOffsets, parseStoredReminderOffsets, serializeReminderOffsets } from "@/lib/reminder-offsets";
 
-function serializePreference(preference: { timezone: string; locale: string; workdayStartsAt: string; workdayEndsAt: string; workingDays: string; defaultReminderMins: number; defaultReminderOffsets: string; quietHoursStartsAt: string; quietHoursEndsAt: string; planningProfile: string | null; urgentEscalationEnabled: boolean; urgentRepeatMinutes: number; urgentMaxRepeats: number; androidAlarmEnabled: boolean; highPriorityEnabled: boolean; smsEscalationEnabled: boolean; callEscalationEnabled: boolean; emergencyContactName: string | null; emergencyPhone: string | null }) {
-  return { ...preference, workingDays: preference.workingDays.split(",").filter(Boolean), defaultReminderOffsets: parseStoredReminderOffsets(preference.defaultReminderOffsets, preference.defaultReminderMins), planningProfile: preference.planningProfile || "BALANCED" };
+function serializePreference({ planningProfile: retiredProfile, ...preference }: { timezone: string; locale: string; workdayStartsAt: string; workdayEndsAt: string; workingDays: string; defaultReminderMins: number; defaultReminderOffsets: string; quietHoursStartsAt: string; quietHoursEndsAt: string; planningProfile: string | null; urgentEscalationEnabled: boolean; urgentRepeatMinutes: number; urgentMaxRepeats: number; androidAlarmEnabled: boolean; highPriorityEnabled: boolean; smsEscalationEnabled: boolean; callEscalationEnabled: boolean; emergencyContactName: string | null; emergencyPhone: string | null }) {
+  // Retain the legacy database column, but never expose or use it in new settings.
+  void retiredProfile;
+  return { ...preference, workingDays: preference.workingDays.split(",").filter(Boolean), defaultReminderOffsets: parseStoredReminderOffsets(preference.defaultReminderOffsets, preference.defaultReminderMins) };
 }
 
 export async function GET(request: Request) {

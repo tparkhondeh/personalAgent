@@ -2,7 +2,7 @@ import { parseStoredReminderOffsets } from "./reminder-offsets";
 
 type ContextTask = { title: string; category: string; priority: string; dueAt: Date | null };
 type ContextMeeting = { title: string; startsAt: Date; endsAt: Date };
-type ContextPreference = { workdayStartsAt: string; workdayEndsAt: string; workingDays: string; defaultReminderMins: number; defaultReminderOffsets?: string; quietHoursStartsAt: string; quietHoursEndsAt: string; planningProfile: string | null } | null;
+type ContextPreference = { workdayStartsAt: string; workdayEndsAt: string; workingDays: string; defaultReminderMins: number; defaultReminderOffsets?: string; quietHoursStartsAt: string; quietHoursEndsAt: string } | null;
 
 export function formatAgentContext({ preference, tasks, meetings }: { preference: ContextPreference; tasks: ContextTask[]; meetings: ContextMeeting[] }) {
   const planning = preference ? {
@@ -10,7 +10,6 @@ export function formatAgentContext({ preference, tasks, meetings }: { preference
     workingDays: preference.workingDays.split(",").filter(Boolean),
     defaultReminderMinutes: parseStoredReminderOffsets(preference.defaultReminderOffsets, preference.defaultReminderMins),
     quietHours: `${preference.quietHoursStartsAt}-${preference.quietHoursEndsAt}`,
-    planningProfile: preference.planningProfile || "BALANCED",
   } : null;
   return JSON.stringify({
     planning,
