@@ -1,5 +1,7 @@
 # وضعیت انتقال Production — به‌روزرسانی ۲۰۲۶-۰۹-۰۱
 
+> این سند سابقه وضعیت ۲۰۲۶-۰۹-۰۱ است. برای نسخه فعال Staging، APK، فضای دیسک و برنامه بازگشت جاری، [گزارش تحویل ۲۰۲۶-۰۹-۰۶](RELEASE_HANDOFF_2026-09-06.md) مرجع است. سرویس داخلی Production هنوز `49cceed` است؛ در نوبت تازه هیچ تغییر Production انجام نشده است.
+
 ## وضعیت فعلی
 
 - نسخه Production از Commit `49cceed` در مسیر مستقل `/home/wealthos_dev/apps/personal-agent` (با symlink روی `current`) اجرا شده است.

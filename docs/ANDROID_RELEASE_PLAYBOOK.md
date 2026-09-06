@@ -2,7 +2,15 @@
 
 این سند حاصل خطاهایی است که هنگام ساخت نسخه Android پروژه «همراه» رخ داد. هدف آن این است که صفحه سفید، لینک منقضی، اشتباه‌گرفتن APKها و اعلام موفقیت زودهنگام دوباره تکرار نشوند.
 
-## نسخه مرجع تأییدشده
+## نسخه مرجع فعلی — ۱۹
+
+- نام: `همراه پایدار 19`؛ Package: `ir.wealthos.personalagent.stable19`؛ Version: `1.0.19`.
+- Commit: `17afb3d5e55ce984fc663068902db7125e9f7d77`.
+- SHA-256: `bb396ba1be0f0efddc2073facedae3670eb9ba0b032c5ac75e5622d79cfac566`.
+- [APK دائمی](https://github.com/tparkhondeh/personalAgent/releases/download/phone-preview-stable-19/Hamrah-stable-19.apk)؛ [CI موفق هر سه Android](https://github.com/tparkhondeh/personalAgent/actions/runs/34008659255)؛ [گزارش تحویل و محدودیت آزمون شبکه Runner](RELEASE_HANDOFF_2026-09-06.md).
+- فایل تحویلی با Artifact آزموده‌شده تطبیق دارد؛ فایل فونت، شعر، تاریخ، سه اعلان و لغو آن‌ها واقعاً آزموده شدند. نصب روی گوشی مالک برای نسخه ۱۹ **معوق** است.
+
+## سابقه تأیید گوشی — نسخه ۱۴ (نسخه فعلی نیست)
 
 - نام روی گوشی: `همراه پایدار 14`
 - Package ID: `ir.wealthos.personalagent.stable14`
