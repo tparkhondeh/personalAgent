@@ -70,6 +70,22 @@ jobs:
           pnpm build
           pnpm audit --prod --audit-level high
 
+      - name: Package the matching Linux staging server
+        run: |
+          mkdir -p artifacts/server/.next artifacts/server/prisma artifacts/server/scripts artifacts/build
+          cp -R .next/standalone/. artifacts/server/
+          cp -R .next/static artifacts/server/.next/static
+          cp -R public artifacts/server/public
+          cp prisma/schema.prisma artifacts/server/prisma/schema.prisma
+          cp -R prisma/migrations artifacts/server/prisma/migrations
+          cp scripts/migrate.mjs scripts/run-schedulers.sh artifacts/server/scripts/
+          printf '%s\n' "$GITHUB_SHA" > artifacts/server/BUILD_COMMIT.txt
+          if find artifacts/server -type f \( -name '.env' -o -name '.env.local' -o -name '*.keystore' -o -name '*.jks' \) | grep -q .; then
+            echo 'Private configuration found in server package'; exit 1
+          fi
+          tar -czf artifacts/build/hamrah-staging-server.tar.gz -C artifacts/server .
+          sha256sum artifacts/build/hamrah-staging-server.tar.gz > artifacts/build/SERVER_SHA256SUMS.txt
+
       - name: Prepare Android assets and stable identity
         id: identity
         run: |
@@ -284,6 +300,8 @@ jobs:
             "artifacts/build/${APK_NAME}#${APP_NAME}" \
             artifacts/build/SHA256SUMS.txt \
             artifacts/build/metadata.json \
+            artifacts/build/hamrah-staging-server.tar.gz \
+            artifacts/build/SERVER_SHA256SUMS.txt \
             "${screenshots[@]}" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \

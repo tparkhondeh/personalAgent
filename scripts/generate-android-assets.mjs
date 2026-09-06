@@ -68,17 +68,24 @@ await writeFile(path.join(rawDirectory, "urgent_alarm.wav"), wav);
 
 const indexPath = path.join(mobileRoot, "index.html");
 const recoveryPath = path.join(mobileRoot, "connection-error.html");
-const [indexHtml, appStyles, appScript, recoveryHtml] = await Promise.all([
+const poems = JSON.parse(await readFile(path.join(projectRoot, "src/data/rumi-daily.json"), "utf8"));
+// Keep the same curated source and selection order as the web app, without external links.
+const poemScript = `window.HamrahPoems = ${JSON.stringify(poems.selections.map(({ lines }) => lines)).replaceAll("<", "\\u003c")};\n`;
+await writeFile(path.join(mobileRoot, "content.js"), poemScript);
+const [indexHtml, appStyles, appScript, recoveryHtml, domainScript] = await Promise.all([
   readFile(indexPath, "utf8"),
   readFile(path.join(mobileRoot, "app.css"), "utf8"),
   readFile(path.join(mobileRoot, "app.js"), "utf8"),
   readFile(recoveryPath, "utf8"),
+  readFile(path.join(mobileRoot, "domain.js"), "utf8"),
 ]);
 const bundledDocument = indexHtml
-  .replace('<link rel="stylesheet" href="./app.css" />', `<style>${appStyles}</style>`)
+  .replace('<link rel="stylesheet" href="./app.css" />', () => `<style>${appStyles}</style>`)
+  .replace('<script src="./content.js"></script>', "")
+  .replace('<script src="./domain.js"></script>', "")
   .replace('<script src="./app.js"></script>', "");
 const serializedDocument = JSON.stringify(bundledDocument).replaceAll("</", "<\\/");
-const serializedScript = JSON.stringify(appScript).replaceAll("</", "<\\/");
+const serializedScript = JSON.stringify(`${poemScript}\n${domainScript}\n${appScript}`).replaceAll("</", "<\\/");
 const offlineDocumentMarker = /^(\s*)const bundledDocument = .*; \/\/ generated-offline-document$/m;
 const offlineScriptMarker = /^(\s*)const bundledScript = .*; \/\/ generated-offline-script$/m;
 if (!offlineDocumentMarker.test(recoveryHtml)) {

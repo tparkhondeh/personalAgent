@@ -28,7 +28,7 @@ describe("offline Android mobile shell", () => {
   it("keeps the essential dashboard usable inside the APK", () => {
     expect(html).toContain("برنامه‌های من");
     expect(html).toContain("تقویم این ماه");
-    expect(html).toContain("همراه هوشمند محلی");
+    expect(html).toContain("گفتگو با همراه");
     expect(html).toContain("زنگ آزمایشی ۳۰ ثانیه‌ای");
     expect(mobileStyles).toContain("Vazirmatn.woff2");
     expect(mobileStyles).toContain("prefers-color-scheme:dark");
