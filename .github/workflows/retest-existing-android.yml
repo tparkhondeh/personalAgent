@@ -8,6 +8,15 @@ on:
         required: true
         default: '34017986340'
         type: string
+      android_api:
+        description: Retest one failed platform without rebuilding or discarding other platforms' evidence
+        type: choice
+        default: all
+        options: [all, '33', '34', '36']
+      publish_after_qa:
+        description: Automatic publishing requires all platforms and prior visual review
+        type: boolean
+        default: false
 
 permissions:
   actions: read
@@ -24,7 +33,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        api: [33, 34, 36]
+        api: ${{ fromJSON(inputs.android_api == '33' && '[33]' || inputs.android_api == '34' && '[34]' || inputs.android_api == '36' && '[36]' || '[33,34,36]') }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
@@ -83,6 +92,7 @@ jobs:
           retention-days: 14
 
   release:
+    if: ${{ inputs.publish_after_qa && inputs.android_api == 'all' }}
     needs: emulator
     runs-on: ubuntu-latest
     timeout-minutes: 10
