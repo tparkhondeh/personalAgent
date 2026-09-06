@@ -58,7 +58,14 @@
   }
   async function scheduleNotification(task, kind = "task") {
     if (!task.deadline || task.done || !(await ensureNotificationAccess(false))) return false;
-    const times = kind === "test" ? [new Date(task.deadline).getTime()] : domain.reminderTimes(task);
+    const times = kind === "test" ? [new Date(task.deadline).getTime()] : task.approvedPlan ? planner.plannedReminderTimes({...task.approvedPlan,operation:"CREATE",recurrence:"NONE",occurrenceCount:null,...planner.dateParts(new Date(task.deadline),task.approvedPlan.timezone)}).map(r=>Date.parse(r.scheduledFor)) : domain.reminderTimes(task);
+    if(kind!=="test" && task.approvedPlan?.escalation && task.priority==="urgent" && task.approvedPlan.channels.includes("ALARM")){
+      for(let n=1;n<=task.approvedPlan.repeatCount;n++){
+        const base=new Date(Date.parse(task.deadline)+n*task.approvedPlan.repeatMinutes*60000);
+        const extra=planner.plannedReminderTimes({...task.approvedPlan,operation:"CREATE",recurrence:"NONE",occurrenceCount:null,reminderOffsets:[0],...planner.dateParts(base,task.approvedPlan.timezone)});
+        if(extra[0])times.push(Date.parse(extra[0].scheduledFor));
+      }
+    }
     if (!times.length) return false;
     const usedIds = new Set(tasks.flatMap(domain.notificationIds));
     task.notificationIds = times.map(() => { let id; do { id = notificationId(); } while (usedIds.has(id)); usedIds.add(id); return id; });
@@ -79,7 +86,7 @@
   }
   function render() {
     const endOfToday = new Date(); endOfToday.setHours(23, 59, 59, 999);
-    const scoped = panel === "today" ? tasks.filter((task) => !task.done && (!task.deadline || new Date(task.deadline) <= endOfToday)) : tasks;
+    const scoped = (panel === "today" ? tasks.filter((task) => !task.done && (!task.deadline || new Date(task.deadline) <= endOfToday)) : tasks).filter(task=>!task.archived);
     const visible = filter === "all" ? scoped : scoped.filter((task) => task.category === filter);
     list.innerHTML = visible.length ? visible.map(taskMarkup).join("") : '<div class="empty"><strong>هنوز برنامه‌ای ثبت نشده</strong>با دکمه «برنامه جدید» اولین مورد را اضافه کنید.</div>';
     $("#all-count").textContent = toFa(tasks.length);
@@ -150,13 +157,62 @@
   modal.addEventListener("click", (event) => { if (event.target === modal) closeForm(); });
   $$(`[data-filter]`).forEach((button) => button.addEventListener("click", () => { filter = button.dataset.filter; $$(`[data-filter]`).forEach((item) => item.classList.toggle("active", item === button)); render(); }));
   $$(`[data-panel]`).forEach((button) => button.addEventListener("click", () => showPanel(button.dataset.panel, button)));
+  let agentDraft = null, agentBusy = false;
+  const planner = window.HamrahPlanner;
+  const draftKey = "hamrah-confirmed-local-draft-v1";
+  function planningItems() { return tasks.filter(t=>!t.done && !t.archived).map(t=>({id:t.id,title:t.title,entity:t.category==="meeting"?"MEETING":"TASK",dueAt:t.deadline,startsAt:t.category==="meeting"?t.deadline:null,endsAt:t.endsAt,updatedAt:t.updatedAt||t.id})); }
+  function showAgentDraft(extraMessage = "") {
+    const root=$("#assistant-result"); root.hidden=false;
+    if(!agentDraft){root.textContent=extraMessage;return;}
+    const p=agentDraft.plan, check=planner.inspectPlan(p,new Date(),planningItems());
+    check.questions.push(...(agentDraft.questions||[]));
+    const fields=[
+      ["عنوان","title","text",p.title],["تاریخ میلادی","date","date",p.date],["ساعت ۲۴ساعته","time","time",p.time],
+      ["مدت جلسه، دقیقه","durationMinutes","number",p.durationMinutes??""],["تعداد نوبت تکرار، ۲ تا ۱۲","occurrenceCount","number",p.occurrenceCount??""],
+      ["تعداد هشدار","repeatCount","number",p.repeatCount],["فاصله هشدار، دقیقه","repeatMinutes","number",p.repeatMinutes],
+      ["شروع سکوت","quietStart","time",p.quietStart],["پایان سکوت","quietEnd","time",p.quietEnd],
+    ];
+    const choices=(key,values)=>'<label>'+({category:"دسته",priority:"اولویت",operation:"عملیات",entity:"نوع",recurrence:"تکرار"}[key])+'<select data-plan="'+key+'">'+Object.entries(values).map(([v,label])=>'<option value="'+v+'"'+(p[key]===v?' selected':'')+'>'+label+'</option>').join("")+'</select></label>';
+    root.innerHTML='<h3>پیش‌نمایش تأیید — نسخه '+toFa(agentDraft.revision)+'</h3><p>پردازش محلی؛ بدون ارسال اطلاعات. منطقه زمانی: '+escapeText(p.timezone)+'</p><p>'+escapeText(extraMessage)+'</p><div class="form-grid">'+fields.map(([label,key,type,value])=>'<label class="field">'+label+'<input data-plan="'+key+'" type="'+type+'" value="'+escapeText(String(value))+'"/></label>').join("")+choices("operation",{CREATE:"ایجاد",UPDATE:"ویرایش",COMPLETE:"تکمیل",DELETE:"حذف و بایگانی"})+choices("entity",{TASK:"کار",MEETING:"جلسه"})+choices("category",{PERSONAL:"شخصی",WORK:"شرکتی"})+choices("priority",{NORMAL:"عادی",IMPORTANT:"مهم",URGENT:"فوری"})+choices("recurrence",{NONE:"ندارد",DAILY:"روزانه",WEEKLY:"هفتگی"})+'</div><div class="reminder-options">'+[1440,180,60].map(m=>'<label><input type="checkbox" data-offset="'+m+'" '+(p.reminderOffsets.includes(m)?"checked":"")+'>'+offsetLabels[m]+'</label>').join("")+'</div><div class="reminder-options">'+Object.entries({IN_APP:"داخل برنامه",PUSH:"Push؛ نیازمند اتصال",NATIVE:"اعلان گوشی",ALARM:"Alarm گوشی"}).map(([v,label])=>'<label><input type="checkbox" data-channel="'+v+'" '+(p.channels.includes(v)?"checked":"")+'>'+label+'</label>').join("")+'</div><label><input type="checkbox" id="local-escalation" '+(p.escalation?"checked":"")+'>تشدید هشدار فوری</label><p>'+p.defaults.map(escapeText).join("؛ ")+'</p>'+[...check.questions,...check.warnings].map(t=>'<p>'+escapeText(t)+'</p>').join("")+'<p>تبدیل صوت آفلاین در دسترس نیست. برای وویس از نسخه متصل استفاده کن. تماس و پیامک واقعی غیرفعال‌اند.</p><div class="settings-actions"><button id="local-plan-confirm" class="primary" '+(check.questions.length?"disabled":"")+'>تأیید و اجرا</button><button id="local-plan-cancel" class="secondary">انصراف</button></div><p id="local-plan-status" role="status"></p>';
+    root.querySelectorAll("[data-plan],[data-offset],[data-channel],#local-escalation").forEach(input=>input.addEventListener("change",()=>{
+      if(input.dataset.plan) {const key=input.dataset.plan;p[key]=["durationMinutes","occurrenceCount","repeatCount","repeatMinutes"].includes(key)?(input.value?Number(input.value):null):input.value;}
+      if(input.dataset.offset){const m=Number(input.dataset.offset);p.reminderOffsets=input.checked?[...new Set([...p.reminderOffsets,m])].sort((a,b)=>b-a):p.reminderOffsets.filter(v=>v!==m);}
+      if(input.dataset.channel){const c=input.dataset.channel;p.channels=input.checked?[...new Set([...p.channels,c])]:p.channels.filter(v=>v!==c);}
+      if(input.id==="local-escalation")p.escalation=input.checked;
+      agentDraft.revision++;agentDraft.questions=[]; localStorage.setItem(draftKey,JSON.stringify(agentDraft));showAgentDraft("جزئیات تغییر کرد؛ نسخه تازه را بررسی و تأیید کن.");
+    }));
+    $("#local-plan-cancel").onclick=()=>{agentDraft.status="CANCELLED";localStorage.setItem(draftKey,JSON.stringify(agentDraft));agentDraft=null;showAgentDraft("لغو شد؛ چیزی ثبت یا زمان‌بندی نشد.");};
+    $("#local-plan-confirm").onclick=async()=>{
+      if(agentBusy)return;agentBusy=true;
+      try{
+        const stored=JSON.parse(localStorage.getItem(draftKey)||"null");
+        if(!stored||stored.id!==agentDraft.id||stored.revision!==agentDraft.revision||stored.status!=="PENDING")throw new Error("نسخه پیشنهاد تغییر کرده است.");
+        if(planner.inspectPlan(p,new Date(),planningItems()).questions.length || agentDraft.questions?.length)throw new Error("ابتدا اطلاعات نامشخص را تکمیل کن.");
+        const existing=p.targetId?tasks.find(t=>t.id===p.targetId):null;
+        if(p.operation!=="CREATE" && (!existing||(existing.updatedAt||existing.id)!==p.targetUpdatedAt))throw new Error("مورد انتخاب‌شده تغییر کرده؛ دوباره درخواست بده.");
+        // Claim before any await; repeated clicks/reloads cannot create another entity.
+        agentDraft.status="EXECUTING";localStorage.setItem(draftKey,JSON.stringify(agentDraft));
+        if(existing)await cancelNotifications(existing);
+        const instant=planner.planInstant(p.date,p.time,p.timezone);
+        const task={...existing,id:existing?.id||agentDraft.id,title:p.title,category:p.entity==="MEETING"?"meeting":p.category==="WORK"?"company":"personal",priority:p.priority.toLowerCase(),deadline:instant?.toISOString()??null,endsAt:instant&&p.durationMinutes?new Date(instant.getTime()+p.durationMinutes*60000).toISOString():null,reminderOffsets:p.reminderOffsets,notificationIds:[],done:p.operation==="COMPLETE",archived:p.operation==="DELETE",updatedAt:new Date().toISOString(),approvedPlan:p};
+        const series=p.operation==="CREATE"&&p.recurrence!=="NONE"?planner.planOccurrences(p).map((o,i)=>({...task,id:i?task.id+"-"+i:task.id,deadline:o.instant,notificationIds:[],endsAt:o.instant&&p.durationMinutes?new Date(Date.parse(o.instant)+p.durationMinutes*60000).toISOString():null})):[task];
+        tasks=existing?tasks.map(t=>t.id===task.id?task:t):[...series,...tasks];saveTasks();
+        agentDraft.status="EXECUTED";localStorage.setItem(draftKey,JSON.stringify(agentDraft));agentDraft=null;
+        let result="ثبت محلی انجام شد؛ هنوز با حساب سرور همگام نشده است.";
+        if(p.channels.includes("PUSH"))result+=" Push در حالت آفلاین ارسال نمی‌شود.";
+        if(p.operation==="CREATE"||p.operation==="UPDATE"){
+          try{if(p.channels.some(c=>c==="ALARM"||c==="NATIVE")){let scheduled=0;for(const item of series){if(await scheduleNotification(item))scheduled++;}result+=scheduled===series.length?" اعلان گوشی تنظیم شد.":" برخی اعلان‌ها تنظیم نشدند؛ زمان آینده و اجازه گوشی لازم است.";}}catch{result+=" ثبت انجام شد، اما اعلان گوشی کامل تنظیم نشد.";}
+        }
+        showAgentDraft(result);render();
+      }catch(error){$("#local-plan-status").textContent=error.message||"ثبت انجام نشد؛ دوباره بررسی کن.";}finally{agentBusy=false;}
+    };
+  }
   function replyToMessage() {
-    const open = tasks.filter((task) => !task.done);
-    const urgent = open.filter((task) => task.priority === "urgent");
-    const next = [...open].filter((task) => task.deadline).sort((a, b) => new Date(a.deadline) - new Date(b.deadline))[0];
-    $("#assistant-result").hidden = false;
-    const freeTime = /آزاد|استراحت/.test($("#assistant-input").value);
-    $("#assistant-result").textContent = freeTime ? `برای زمان آزاد، یک استراحت کوتاه یا پیاده‌روی در نظر بگیر.${urgent.length ? " ابتدا کارهای فوری را مرور کن." : ""}` : open.length ? `در حال حاضر ${toFa(open.length)} برنامه باز داری${urgent.length ? ` که ${toFa(urgent.length)} مورد فوری است` : ""}.${next ? ` نزدیک‌ترین زمان مربوط به «${next.title}» است.` : " بهتر است یک زمان مشخص برای مهم‌ترین کار تعیین کنی."}` : "همه برنامه‌ها انجام شده‌اند. زمان خوبی برای مرور برنامه بعدی است.";
+    const message=$("#assistant-input").value.trim();if(!message||agentBusy)return;
+    const result=planner.planPersian(message,{timezone:"Asia/Tehran",previous:agentDraft?.status==="PENDING"?agentDraft.plan:null,items:planningItems(),offsets:reminderOffsets});
+    if(!result.plan){agentDraft=null;showAgentDraft(result.reply);return;}
+    agentDraft={id:agentDraft?.status==="PENDING"?agentDraft.id:crypto.randomUUID(),revision:(agentDraft?.revision||0)+1,status:"PENDING",plan:result.plan,questions:result.questions.filter(q=>/چند درخواست|تاریخ شمسی/.test(q))};
+    localStorage.setItem(draftKey,JSON.stringify(agentDraft));$("#assistant-input").value="";showAgentDraft(result.reply);
   }
   $("#assistant-send").addEventListener("click", replyToMessage);
   $("#assistant-summary").addEventListener("click", () => { $("#assistant-input").value = "برنامه امروز من را خلاصه کن"; replyToMessage(); });

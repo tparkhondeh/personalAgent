@@ -1,0 +1,52 @@
+import assert from "node:assert/strict";
+const base=process.env.QA_BASE_URL || "http://localhost:3001";
+if(!/^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(base) && base!=="https://personalagent.wealthos.ir:8443")throw new Error("QA target must be local or approved staging");
+const stamp=Date.now();
+async function account(suffix){
+  const response=await fetch(`${base}/api/auth/sign-up/email`,{method:"POST",headers:{"content-type":"application/json",origin:base},body:JSON.stringify({name:"آزمون تأیید همراه",email:`agent-qa-${stamp}-${suffix}@example.invalid`,password:`Synthetic-test-${stamp}-only`})});
+  assert.equal(response.status,200,`QA registration: ${response.status}`);
+  return response.headers.getSetCookie().map(s=>s.split(";")[0]).join("; ");
+}
+const cookie=await account("owner"),other=await account("other");let checks=0;
+async function call(path,body,expected=200,auth=cookie){
+  const response=await fetch(`${base}${path}`,{method:body?"POST":"GET",headers:{"content-type":"application/json",origin:base,cookie:auth},body:body?JSON.stringify(body):undefined});
+  const json=await response.json().catch(()=>null);
+  assert.equal(response.status,expected,`${path}: ${JSON.stringify(json)}`);checks++;return json?.data;
+}
+const future=new Date(Date.now()+4*86400000).toISOString().slice(0,10);
+const before=await call("/api/tasks");
+const response=await call("/api/agent",{message:`${future} ساعت 17 گزارش آزمون را ثبت کن؛ یک روز قبل، سه ساعت قبل و یک ساعت قبل یادم بنداز و آلارم هم بگذار.`,localOnly:true});
+assert(response.draft);assert.equal(response.draft.plan.time,"17:00");assert.deepEqual(response.draft.plan.reminderOffsets,[1440,180,60]);
+assert.equal((await call("/api/tasks")).length,before.length,"No mutation before approval");
+const path=`/api/agent/drafts/${response.draft.id}`;
+await call(path,{action:"confirm",revision:1,confirmed:true},409,other);
+await call(path,{action:"confirm",revision:1},422);
+const changed=await call(path,{action:"edit",revision:1,plan:{...response.draft.plan,title:"گزارش آزمون تأیید کامل"}});
+assert.equal(changed.revision,2);
+await call(path,{action:"confirm",revision:1,confirmed:true},409);
+const result=await call(path,{action:"confirm",revision:2,confirmed:true});
+const repeated=await call(path,{action:"confirm",revision:2,confirmed:true});
+assert.equal(result.entityId,repeated.entityId,"Idempotent execution");
+assert.equal((await call("/api/tasks")).length,before.length+1);
+assert.equal(result.remindersScheduled,3);assert.equal(result.devicePending,3);
+assert.equal((await call("/api/agent/alarms")).length,3);
+const cancelled=await call("/api/agent",{message:`${future} ساعت 17 مورد لغوشده بساز`,localOnly:true});
+await call(`/api/agent/drafts/${cancelled.draft.id}`,{action:"cancel",revision:1});
+await call(`/api/agent/drafts/${cancelled.draft.id}`,{action:"confirm",revision:1,confirmed:true},409);
+assert.equal((await call("/api/tasks")).length,before.length+1);
+const meeting=await call("/api/agent",{message:"فردا ساعت پنج عصر جلسه با تیم فروش دارم؛ یک روز قبل، سه ساعت قبل و یک ساعت قبل یادم بنداز و آلارم هم بگذار.",localOnly:true});
+assert.equal(meeting.draft.plan.durationMinutes,null);
+await call(`/api/agent/drafts/${meeting.draft.id}`,{action:"confirm",revision:1,confirmed:true},422);
+const continuation=await call("/api/agent",{message:"نه، ساعت چهار عصر؛ مدت 45 دقیقه",conversationId:meeting.conversationId,draftId:meeting.draft.id,revision:1,localOnly:true});
+assert.equal(continuation.draft.id,meeting.draft.id);assert.equal(continuation.draft.revision,2);assert.equal(continuation.draft.plan.time,"16:00");assert.equal(continuation.draft.plan.durationMinutes,45);
+const completed=await call("/api/agent",{message:"گزارش آزمون تأیید کامل را تکمیل کن",localOnly:true});
+assert.equal(completed.draft.plan.targetId,result.entityId);
+await call(`/api/agent/drafts/${completed.draft.id}`,{action:"confirm",revision:1,confirmed:true});
+assert.equal((await call("/api/agent/alarms")).length,0,"Completion cancels pending alarms");
+assert.equal((await call("/api/tasks")).find(t=>t.id===result.entityId).status,"DONE");
+const weekly=await call("/api/agent",{message:`${future} ساعت 17 هر هفته برای 3 نوبت گزارش دوره‌ای بساز؛ 1 ساعت قبل یادآوری کن`,localOnly:true});
+assert.equal(weekly.draft.plan.occurrenceCount,3);assert.equal(weekly.draft.preview.occurrences.length,3);
+const series=await call(`/api/agent/drafts/${weekly.draft.id}`,{action:"confirm",revision:1,confirmed:true});
+assert.equal(series.entityIds.length,3);assert.equal(series.remindersScheduled,3);
+assert.equal((await call(`/api/agent/drafts/${weekly.draft.id}`,{action:"confirm",revision:1,confirmed:true})).entityIds.length,3);
+console.log(JSON.stringify({passed:true,checks,target:base,coverage:["draft-no-effects","owned-drafts","explicit-confirmation","revision","idempotency","three-reminders","alarm-cancellation","ambiguous-duration","follow-up-correction","cancel"]}));

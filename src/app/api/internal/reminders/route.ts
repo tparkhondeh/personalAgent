@@ -11,8 +11,8 @@ export async function POST(request: Request) {
     if (claimed.count === 0) continue;
     const title = reminder.task?.title ?? reminder.meeting?.title ?? "یادآوری همراه";
     try {
-      await db.notification.create({ data: { userId: reminder.userId, title: "زمان انجام کار رسیده", body: title, type: "REMINDER" } });
-      const results = await Promise.allSettled(reminder.user.pushSubscriptions.map((subscription) => sendWebPush(subscription, { title: "همراه", body: title, url: "/", tag: reminder.id })));
+      await db.notification.create({ data: { userId: reminder.userId, title: "یادآوری برنامه", body: title, type: "REMINDER" } });
+      const results = reminder.channel === "PUSH" ? await Promise.allSettled(reminder.user.pushSubscriptions.map((subscription) => sendWebPush(subscription, { title: "همراه", body: title, url: "/", tag: reminder.id }))) : [];
       const rejected = results.filter((result) => result.status === "rejected");
       await db.reminder.update({ where: { id: reminder.id }, data: { status: rejected.length ? "PARTIAL" : "SENT", sentAt: new Date(), lastError: rejected.length ? `${rejected.length} push delivery failed` : null } });
       sent++;

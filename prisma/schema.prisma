@@ -26,6 +26,8 @@ model User {
   auditLogs     AuditLog[]
   pushSubscriptions PushSubscription[]
   escalationAttempts EscalationAttempt[]
+  agentDrafts AgentDraft[]
+  aiUsage AiUsage[]
 }
 
 model Session {
@@ -83,6 +85,7 @@ model Task {
   dueAt           DateTime?
   estimatedMinutes Int?
   recurrenceRule  String?
+  alertPolicy     String?
   completedAt     DateTime?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -106,6 +109,8 @@ model Meeting {
   startsAt    DateTime
   endsAt      DateTime
   timezone    String   @default("Asia/Tehran")
+  alertPolicy String?
+  status      String   @default("SCHEDULED")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -253,4 +258,30 @@ model PushSubscription {
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@index([userId])
+}
+
+model AgentDraft {
+  id String @id @default(cuid())
+  userId String
+  conversationId String
+  revision Int @default(1)
+  status String @default("PENDING")
+  payload String
+  preview String
+  result String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, conversationId, status])
+}
+
+model AiUsage {
+  id String @id
+  userId String
+  requests Int @default(0)
+  day String
+  kind String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, day])
 }

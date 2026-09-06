@@ -3,7 +3,8 @@ import { jsonError, requireApiSession } from "@/lib/api";
 import { meetingUpdateSchema } from "@/lib/validation";
 import { reminderIdempotencyKey } from "@/lib/reminders";
 import { guardUserRateLimit } from "@/lib/rate-limit";
-import { buildReminderSchedule, parseStoredReminderOffsets } from "@/lib/reminder-offsets";
+import { parseStoredReminderOffsets } from "@/lib/reminder-offsets";
+import { storedReminderSchedule } from "@/lib/stored-reminder-schedule";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireApiSession(request.headers);
@@ -36,9 +37,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       update: { title: updated.title, startsAt, endsAt },
       create: { title: updated.title, startsAt, endsAt, meetingId: id },
     });
-    await tx.reminder.deleteMany({ where: { meetingId: id } });
+    await tx.reminder.updateMany({ where: { meetingId: id, status: {in:["PENDING","DEVICE_PENDING","PROCESSING"]} },data:{status:"CANCELLED"} });
     const offsets = parseStoredReminderOffsets(preference?.defaultReminderOffsets, preference?.defaultReminderMins);
-    await tx.reminder.createMany({ data: buildReminderSchedule(startsAt, offsets).map(({ scheduledFor }) => ({ userId: session.user.id, meetingId: id, scheduledFor, channel: "PUSH", idempotencyKey: reminderIdempotencyKey(session.user.id, id, scheduledFor, "PUSH") })) });
+    if(updated.status==="SCHEDULED")await tx.reminder.createMany({ data: storedReminderSchedule(startsAt,updated.alertPolicy,offsets).map(row => ({ ...row,userId:session.user.id,meetingId:id,idempotencyKey:`${reminderIdempotencyKey(session.user.id,id,row.scheduledFor,row.channel)}:${updated.updatedAt.toISOString()}` })) });
     await tx.auditLog.create({ data: { userId: session.user.id, action: "MEETING_UPDATED", entityType: "Meeting", entityId: id, input: JSON.stringify(parsed.data) } });
     return updated;
   });

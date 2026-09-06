@@ -21,6 +21,7 @@ const migrations = [
   ["20260831090000_add_escalation_policy", new URL("../prisma/migrations/20260831090000_add_escalation_policy/migration.sql", import.meta.url)],
   ["20260831100000_add_emergency_contact", new URL("../prisma/migrations/20260831100000_add_emergency_contact/migration.sql", import.meta.url)],
   ["20260905130000_add_multiple_default_reminders", new URL("../prisma/migrations/20260905130000_add_multiple_default_reminders/migration.sql", import.meta.url)],
+  ["20260906041000_confirmed_agent", new URL("../prisma/migrations/20260906041000_confirmed_agent/migration.sql", import.meta.url)],
 ];
 
 for (const [id, file] of migrations) {

@@ -10,13 +10,15 @@ import { buildEscalationPlan, defaultEscalationPolicy } from "@/lib/escalations"
 import { syncNativeEscalationAlarms, type NativeEscalationAlarm } from "@/lib/native-escalations";
 import { getDailyRumiSelection } from "@/lib/daily-rumi";
 import { REMINDER_OFFSET_OPTIONS } from "@/lib/reminder-offsets";
+import { AgentAssistant } from "@/components/agent-assistant";
+import { clearApprovedDeviceReminders, syncApprovedDeviceReminders } from "@/lib/approved-device-reminders";
 
 type Category = "personal" | "work" | "meeting";
 type Priority = "urgent" | "important" | "normal";
 type View = "today" | "tasks" | "calendar" | "assistant" | "settings";
 type Item = { id: string; title: string; category: Category; priority: Priority; source: "task" | "meeting"; startsAt?: string; endsAt?: string; dueAt?: string; done: boolean };
 type ApiTask = { id: string; title: string; category: "PERSONAL" | "WORK"; priority: "URGENT" | "IMPORTANT" | "NORMAL"; status: string; startAt?: string | null; dueAt?: string | null };
-type ApiMeeting = { id: string; title: string; startsAt: string; endsAt: string };
+type ApiMeeting = { id: string; title: string; startsAt: string; endsAt: string; status?: string };
 
 const categories: Record<Category, [string, string]> = { personal: ["شخصی", "mint"], work: ["شرکتی", "lavender"], meeting: ["جلسه", "peach"] };
 const priorities: Record<Priority, [string, string]> = { urgent: ["فوری", "rose"], important: ["مهم", "amber"], normal: ["عادی", "sage"] };
@@ -35,7 +37,7 @@ function taskToItem(task: ApiTask): Item {
 }
 
 function meetingToItem(meeting: ApiMeeting): Item {
-  return { id: meeting.id, title: meeting.title, category: "meeting", priority: "important", source: "meeting", startsAt: meeting.startsAt, endsAt: meeting.endsAt, done: false };
+  return { id: meeting.id, title: meeting.title, category: "meeting", priority: "important", source: "meeting", startsAt: meeting.startsAt, endsAt: meeting.endsAt, done: meeting.status === "DONE" };
 }
 
 function itemMoment(item: Item) { return item.startsAt || item.dueAt; }
@@ -84,6 +86,12 @@ export function PersonalAgentDashboard() {
 }
 
 function SessionDashboard({ session }: { session: ReturnType<typeof authClient.useSession>["data"] }) {
+  useEffect(() => {
+    if(!session?.user.id)return;
+    const sync=()=>{void syncApprovedDeviceReminders().catch(()=>{});};
+    sync(); const interval=setInterval(sync,30000); window.addEventListener("focus",sync);
+    return()=>{clearInterval(interval);window.removeEventListener("focus",sync);void clearApprovedDeviceReminders().catch(()=>{});};
+  },[session?.user.id]);
   const [items, setItems] = useState<Item[]>(() => session?.user ? [] : demoItems);
   const [view, setView] = useState<View>("today");
   const [filter, setFilter] = useState<Category | "all">("all");
@@ -356,41 +364,7 @@ function Composer({ initial, initialDate, defaultReminderOffsets, onClose, onSub
 }
 
 function Nav({ active, label, badge, onClick }: { active: boolean; label: string; badge?: number; onClick: () => void }) { return <button className={`nav-button ${active ? "active" : ""}`} onClick={onClick}>{label}{badge !== undefined && <small>{badge}</small>}</button>; }
-type AgentProposal = { kind: "CREATE_TASK" | "CREATE_MEETING" | "PLAN" | "NONE"; needsApproval: boolean; title?: string; category?: "PERSONAL" | "WORK"; priority?: "URGENT" | "IMPORTANT" | "NORMAL"; startsAt?: string; endsAt?: string; dueAt?: string; reasoning?: string };
-
-function Assistant({ onAdd, onChanged }: { onAdd: () => void; onChanged: () => Promise<void> }) {
-  const { data: session } = authClient.useSession();
-  const [input, setInput] = useState(""); const [reply, setReply] = useState(""); const [proposal, setProposal] = useState<AgentProposal | null>(null); const [pending, setPending] = useState(false); const [status, setStatus] = useState(""); const [conversationId, setConversationId] = useState<string>();
-  async function send(event: FormEvent) {
-    event.preventDefault(); if (!input.trim()) return; setPending(true); setStatus(""); setReply(""); setProposal(null);
-    try {
-      const response = await fetch("/api/agent", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ message: input, timezone: "Asia/Tehran", conversationId }) });
-      const body = await response.json().catch(() => null);
-      if (!response.ok || !body?.data) { setStatus(body?.error || "پاسخی دریافت نشد"); return; }
-      setReply(body.data.reply); setProposal(body.data.proposal); setConversationId(body.data.conversationId); setInput("");
-    } catch {
-      setStatus("ارتباط با دستیار برقرار نشد؛ دوباره تلاش کن.");
-    } finally {
-      setPending(false);
-    }
-  }
-  async function approve() {
-    if (!proposal?.title) return; setPending(true);
-    const isMeeting = proposal.kind === "CREATE_MEETING"; const endpoint = isMeeting ? "/api/meetings" : "/api/tasks";
-    const body = isMeeting ? { title: proposal.title, startsAt: proposal.startsAt, endsAt: proposal.endsAt, timezone: "Asia/Tehran", attendees: [] } : { title: proposal.title, category: proposal.category || "PERSONAL", priority: proposal.priority || "NORMAL", dueAt: proposal.dueAt };
-    try {
-      const response = await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-      if (!response.ok) { setStatus("ثبت پیشنهاد انجام نشد؛ زمان‌ها یا اطلاعات را دوباره بررسی کن."); return; }
-      setStatus("انجام شد و در برنامه‌ات ثبت شد."); setProposal(null); await onChanged();
-    } catch {
-      setStatus("ارتباط با برنامه برقرار نشد؛ دوباره تلاش کن.");
-    } finally {
-      setPending(false);
-    }
-  }
-  const actionableProposal = proposal?.kind === "CREATE_TASK" || proposal?.kind === "CREATE_MEETING";
-  return <section className="assistant-panel" aria-label="گفتگو با همراه">{!session && <p className="agent-notice">برای استفاده از دستیار ابتدا <Link href="/login">وارد حساب شو</Link>.</p>}<div className="suggestions"><button onClick={onAdd}>یک کار برای امروز بساز</button><button onClick={() => setInput("برنامه امروز من را خلاصه کن")}>برنامه امروز را خلاصه کن</button><button onClick={() => setInput("برای زمان آزاد امروز پیشنهاد بده")}>برای زمان آزاد پیشنهاد بده</button></div>{reply && <div className="agent-response"><strong>همراه</strong><p>{reply}</p>{proposal && proposal.kind !== "NONE" && <div className="proposal"><span>{actionableProposal ? "پیشنهاد برای تأیید" : "پیشنهاد برنامه‌ریزی"}</span><strong>{proposal.title || proposal.reasoning}</strong>{actionableProposal && <button onClick={() => void approve()} disabled={pending}>تأیید و اجرا</button>}</div>}</div>}{status && <p className="agent-status">{status}</p>}<form className="chat-box" onSubmit={send}><input aria-label="پیام" placeholder="با همراه صحبت کن..." value={input} onChange={(event) => setInput(event.target.value)} disabled={!session || pending} /><button aria-label="ارسال" disabled={!session || pending}>{pending ? "در حال بررسی" : "ارسال"}</button></form></section>;
-}
+function Assistant(props: { onAdd: () => void; onChanged: () => Promise<void> }) { return <AgentAssistant {...props} />; }
 
 function Calendar({ items, onEdit, onAdd }: { items: Item[]; onEdit: (item: Item) => void; onAdd: (date: string) => void }) {
   const [weekOffset, setWeekOffset] = useState(0);

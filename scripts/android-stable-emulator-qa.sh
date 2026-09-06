@@ -69,6 +69,11 @@ launch_and_verify "stable-offline" "اتصال برقرار نشد"
 node scripts/android-webview-inspect.mjs "$package_name" "$evidence_dir/stable-local-fallback-webview.json" "برنامه‌های من" "open-offline"
 adb exec-out screencap -p > "$evidence_dir/android-${api_level}-stable-local-fallback.png"
 launch_and_verify "stable-offline-relaunch" "اتصال برقرار نشد"
+adb shell cmd uimode night yes
+launch_and_verify "stable-dark-offline" "اتصال برقرار نشد"
+node scripts/android-webview-inspect.mjs "$package_name" "$evidence_dir/stable-dark-local-webview.json" "برنامه‌های من" "open-offline"
+adb exec-out screencap -p > "$evidence_dir/android-${api_level}-stable-dark-local.png"
+adb shell cmd uimode night no
 
 adb shell settings put global http_proxy :0 || true
 adb shell svc wifi enable || true

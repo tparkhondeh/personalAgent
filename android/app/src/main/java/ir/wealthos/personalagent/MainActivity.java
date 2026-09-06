@@ -23,6 +23,7 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.BridgeWebViewClient;
+import com.getcapacitor.BridgeWebChromeClient;
 import com.getcapacitor.Logger;
 import com.getcapacitor.WebViewListener;
 import com.getcapacitor.JSExport;
@@ -55,6 +56,21 @@ public class MainActivity extends BridgeActivity {
         if (getBridge() == null || getBridge().getWebView() == null) return;
 
         WebView webView = getBridge().getWebView();
+        if (android.os.Build.VERSION.SDK_INT >= 33) webView.getSettings().setAlgorithmicDarkeningAllowed(false);
+        webView.setWebChromeClient(new BridgeWebChromeClient(getBridge()) {
+            @Override
+            public void onPermissionRequest(android.webkit.PermissionRequest request) {
+                android.net.Uri origin = request.getOrigin();
+                android.net.Uri trusted = android.net.Uri.parse(getBridge().getAppUrl());
+                boolean sameOrigin = origin != null && origin.getScheme() != null &&
+                    origin.getScheme().equals(trusted.getScheme()) &&
+                    origin.getEncodedAuthority() != null && origin.getEncodedAuthority().equals(trusted.getEncodedAuthority());
+                boolean audioOnly = request.getResources().length == 1 &&
+                    android.webkit.PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(request.getResources()[0]);
+                if (sameOrigin && audioOnly) super.onPermissionRequest(request);
+                else request.deny();
+            }
+        });
         clearDataWhenEndpointChanges(webView);
         webView.setBackgroundColor(Color.parseColor("#F7F7FF"));
         webView.addJavascriptInterface(new RecoveryActions(), RECOVERY_INTERFACE);

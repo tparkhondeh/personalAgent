@@ -1,5 +1,25 @@
 @import "tailwindcss";
 
+.agent-review { margin-block:20px;padding:20px;border:1px solid var(--line);border-radius:20px;background:var(--surface-soft); }
+.agent-review h2 { margin:0;font-size:21px; }
+.agent-review fieldset { padding:0;border:0;min-width:0; }
+.agent-grid { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px; }
+.agent-grid label { display:grid;gap:6px;font-size:13px;color:var(--muted); }
+.agent-grid input,.agent-grid select,.chat-box textarea { width:100%;min-width:0;min-height:46px;border:1px solid var(--line);border-radius:12px;background:var(--surface-solid);color:var(--ink);padding:9px;font:inherit; }
+.agent-grid :disabled { opacity:1;-webkit-text-fill-color:var(--ink); }
+.agent-actions { display:flex;flex-wrap:wrap;gap:10px;margin-block:14px; }
+.agent-actions button { min-height:46px;padding:9px 16px;border:1px solid var(--line);border-radius:12px;background:var(--primary-soft);color:var(--primary-strong);font-weight:600; }
+.agent-actions button:disabled { opacity:.55; }
+.agent-toggle { display:flex;align-items:center;gap:9px;min-height:46px;font-size:13px; }
+.agent-toggle input { width:20px;height:20px;accent-color:var(--primary); }
+.agent-review .reminder-options { display:flex;flex-wrap:wrap;gap:14px;margin-block:16px; }
+.agent-review .reminder-options label { display:flex;align-items:center;gap:7px;min-height:44px; }
+.agent-question { color:var(--danger);font-weight:600; }
+.agent-mode,.voice-input p,.agent-review p,.agent-schedule { font-size:13px;line-height:1.9; }
+.voice-input { margin-block:20px;padding-block:10px;border-top:1px solid var(--line); }
+.chat-box textarea { min-height:86px;resize:vertical; }
+@media(max-width:540px){.agent-grid{grid-template-columns:1fr}.agent-review{padding:14px}.agent-actions button{flex:1 1 auto}}
+
 :root {
   --bg: #f7f7ff;
   --surface: rgba(255, 255, 255, 0.82);

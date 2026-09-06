@@ -8,7 +8,7 @@ import { buildReminderSchedule, parseStoredReminderOffsets } from "@/lib/reminde
 export async function GET(request: Request) {
   const session = await requireApiSession(request.headers);
   if (!session) return jsonError("ابتدا وارد حساب شوید", 401);
-  const tasks = await db.task.findMany({ where: { userId: session.user.id }, orderBy: [{ dueAt: "asc" }, { createdAt: "desc" }] });
+  const tasks = await db.task.findMany({ where: { userId: session.user.id, status: { not: "CANCELLED" } }, orderBy: [{ dueAt: "asc" }, { createdAt: "desc" }] });
   return Response.json({ data: tasks });
 }
 

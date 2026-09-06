@@ -1,6 +1,7 @@
 import { jsonError, requireApiSession } from "@/lib/api";
 import { db } from "@/lib/db";
 import { getVoiceCallReadiness } from "@/lib/outbound-calls";
+import { aiReadiness } from "@/lib/ai-budget";
 
 export const dynamic = "force-dynamic";
 
@@ -12,11 +13,12 @@ export async function GET(request: Request) {
   return Response.json({
     data: {
       llm: {
-        mode: process.env.OPENAI_API_KEY?.trim() ? "configured" : "local",
+        mode: aiReadiness().enabled ? "configured" : "local",
         provider: process.env.AI_PROVIDER || "openai",
         model: process.env.OPENAI_MODEL || "gpt-5-mini",
       },
       call,
+      voice: { enabled: aiReadiness().enabled, provider: "OpenAI", maxSeconds: 60, costApproved: aiReadiness().costApproved },
     },
   });
 }

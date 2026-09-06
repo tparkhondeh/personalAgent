@@ -70,6 +70,22 @@ jobs:
           pnpm build
           pnpm audit --prod --audit-level high
 
+      - name: Test server-side approval and cancellation on an isolated database
+        # Source and UI/API QA are distinct from proving a paid OpenAI connection.
+        # Run on an isolated CI database; never copy it into the server package.
+        if: success()
+        run: |
+          mkdir -p data artifacts/build
+          pnpm db:init
+          pnpm exec next start --hostname 127.0.0.1 --port 3000 > artifacts/build/qa-server.log 2>&1 &
+          qa_pid=$!
+          trap 'kill "$qa_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..40}; do
+            if curl -fsS http://localhost:3000/api/health >/dev/null; then break; fi
+            sleep 1
+          done
+          QA_BASE_URL=http://localhost:3000 node scripts/qa-agent-flow.mjs > artifacts/build/agent-flow.json
+
       - name: Package the matching Linux staging server
         run: |
           mkdir -p artifacts/server/.next artifacts/server/prisma artifacts/server/scripts artifacts/build

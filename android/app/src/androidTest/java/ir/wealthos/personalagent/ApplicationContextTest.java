@@ -61,6 +61,8 @@ public class ApplicationContextTest {
 
         assertNotNull(packageInfo.requestedPermissions);
         assertTrue(Arrays.asList(packageInfo.requestedPermissions).contains(Manifest.permission.POST_NOTIFICATIONS));
+        assertTrue(Arrays.asList(packageInfo.requestedPermissions).contains(Manifest.permission.RECORD_AUDIO));
+        assertTrue(Arrays.asList(packageInfo.requestedPermissions).contains(Manifest.permission.MODIFY_AUDIO_SETTINGS));
         assertTrue(Arrays.asList(packageInfo.requestedPermissions).contains(Manifest.permission.SCHEDULE_EXACT_ALARM));
         assertTrue(Arrays.asList(packageInfo.requestedPermissions).contains(Manifest.permission.RECEIVE_BOOT_COMPLETED));
         assertNotNull(packageInfo.receivers);
@@ -283,6 +285,20 @@ public class ApplicationContextTest {
             }
         } finally {
             connection.disconnect();
+        }
+    }
+
+    @Test
+    public void microphoneIsDeniedForUntrustedOrigins() throws Exception {
+        CountDownLatch denied = new CountDownLatch(1);
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> activity.getBridge().getWebView().getWebChromeClient().onPermissionRequest(new android.webkit.PermissionRequest() {
+                @Override public Uri getOrigin() { return Uri.parse("https://untrusted.example.invalid"); }
+                @Override public String[] getResources() { return new String[] { RESOURCE_AUDIO_CAPTURE }; }
+                @Override public void grant(String[] resources) { throw new AssertionError("Untrusted origin got microphone access"); }
+                @Override public void deny() { denied.countDown(); }
+            }));
+            assertTrue("Untrusted microphone request was not denied", denied.await(5, TimeUnit.SECONDS));
         }
     }
 

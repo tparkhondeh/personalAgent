@@ -3,7 +3,9 @@ import { jsonError, requireApiSession } from "@/lib/api";
 import { taskUpdateSchema } from "@/lib/validation";
 import { reminderIdempotencyKey, shouldScheduleTaskReminder } from "@/lib/reminders";
 import { guardUserRateLimit } from "@/lib/rate-limit";
-import { buildReminderSchedule, parseStoredReminderOffsets } from "@/lib/reminder-offsets";
+import { parseStoredReminderOffsets } from "@/lib/reminder-offsets";
+import { storedReminderSchedule } from "@/lib/stored-reminder-schedule";
+import { readAlertPolicy } from "@/lib/alert-policy";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireApiSession(request.headers);
@@ -17,8 +19,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const parsed = taskUpdateSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return jsonError("اطلاعات کار معتبر نیست", 422, parsed.error.flatten());
   const { reminderMinutes, ...updates } = parsed.data;
+  const oldPolicy=readAlertPolicy(existing.alertPolicy);
   const data = {
     ...updates,
+    alertPolicy: oldPolicy && reminderMinutes!==undefined ? JSON.stringify({...oldPolicy,reminderOffsets:[reminderMinutes]}) : undefined,
     startAt: updates.startAt === null ? null : updates.startAt ? new Date(updates.startAt) : undefined,
     dueAt: updates.dueAt === null ? null : updates.dueAt ? new Date(updates.dueAt) : undefined,
     completedAt: updates.status === "DONE" ? new Date() : updates.status ? null : undefined,
@@ -29,10 +33,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       await tx.escalationAttempt.updateMany({ where: { taskId: id, status: { in: ["PENDING", "PROCESSING", "READY_FOR_DEVICE", "SCHEDULED"] } }, data: { status: "CANCELLED" } });
     }
     if (updates.dueAt !== undefined || reminderMinutes !== undefined || updates.status !== undefined) {
-      await tx.reminder.deleteMany({ where: { taskId: id } });
+      await tx.reminder.updateMany({ where: { taskId: id, status: {in:["PENDING","DEVICE_PENDING","PROCESSING"]} },data:{status:"CANCELLED"} });
       if (shouldScheduleTaskReminder(updated) && updated.dueAt) {
         const offsets = reminderMinutes !== undefined ? [reminderMinutes] : parseStoredReminderOffsets(preference?.defaultReminderOffsets, preference?.defaultReminderMins);
-        await tx.reminder.createMany({ data: buildReminderSchedule(updated.dueAt, offsets).map(({ scheduledFor }) => ({ userId: session.user.id, taskId: id, scheduledFor, channel: "PUSH", idempotencyKey: reminderIdempotencyKey(session.user.id, id, scheduledFor, "PUSH") })) });
+        await tx.reminder.createMany({ data: storedReminderSchedule(updated.dueAt,updated.alertPolicy,offsets,reminderMinutes).map(row => ({ ...row, userId: session.user.id, taskId: id, idempotencyKey: `${reminderIdempotencyKey(session.user.id,id,row.scheduledFor,row.channel)}:${updated.updatedAt.toISOString()}` })) });
       }
     }
     await tx.auditLog.create({ data: { userId: session.user.id, action: "TASK_UPDATED", entityType: "Task", entityId: id, input: JSON.stringify(parsed.data) } });

@@ -36,8 +36,9 @@ set +a
 cp -p "$backup/hamrah-staging.db" "$backup/migration-check.db"
 DATABASE_URL="file:$backup/migration-check.db" node "$release/scripts/migrate.mjs"
 [[ "$(sqlite3 "$backup/migration-check.db" 'PRAGMA integrity_check;')" == ok ]]
-# The only new migration adds defaultReminderOffsets. The previous version can
-# still read this schema, so rollback never overwrites user data with a snapshot.
+# Migrations are additive. Rolling back code must not restore an old DB over
+# new user data. Older code does not understand per-item approval policies;
+# pause the staging scheduler during rollback until a forward fix is ready.
 node "$release/scripts/migrate.mjs"
 switch_release() {
   local target="$1"
@@ -54,6 +55,7 @@ switch_release() {
 }
 rollback() {
   trap - ERR
+  pm2 stop personal-agent-staging-scheduler >/dev/null || true
   switch_release "$previous"
   pm2 save >/dev/null
   echo "Staging rolled back to $previous; backup: $backup" >&2

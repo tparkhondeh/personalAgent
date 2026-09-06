@@ -5,6 +5,7 @@ import { buildEscalationPlan, defaultEscalationPolicy, escalationIdempotencyKey,
 import { sendWebPush } from "@/lib/push";
 import { isInsideQuietHours, moveOutsideQuietHours } from "@/lib/reminders";
 import { sendUrgentVoiceCall } from "@/lib/outbound-calls";
+import { readAlertPolicy } from "@/lib/alert-policy";
 
 const activeStatuses = ["PENDING", "PROCESSING", "READY_FOR_DEVICE", "SCHEDULED"];
 
@@ -27,17 +28,21 @@ async function seedPlans(userId: string, now: Date, policy: EscalationPolicy, qu
   if (!policy.urgentEscalationEnabled) return;
   const tasks = await db.task.findMany({
     where: { userId, priority: "URGENT", status: { in: ["TODO", "IN_PROGRESS"] }, dueAt: { lte: now } },
-    select: { id: true, updatedAt: true },
+    select: { id: true, updatedAt: true, alertPolicy: true },
   });
   for (const task of tasks) {
+    const approved = readAlertPolicy(task.alertPolicy);
+    if(approved && !approved.escalation)continue;
+    const taskPolicy = approved ? { ...policy, urgentRepeatMinutes: approved.repeatMinutes, urgentMaxRepeats: approved.repeatCount, androidAlarmEnabled: approved.channels.includes("ALARM"), highPriorityEnabled: approved.channels.includes("PUSH"), smsEscalationEnabled: false, callEscalationEnabled: false } : policy;
+    const taskQuiet = approved ? { timezone: approved.timezone, quietHoursStartsAt: approved.quietStart, quietHoursEndsAt: approved.quietEnd } : quietHours;
     const active = await db.escalationAttempt.findFirst({ where: { taskId: task.id, status: { in: activeStatuses } }, select: { id: true } });
     if (active) continue;
     let previousAlertAt = now;
-    const spacing = Math.max(10, policy.urgentRepeatMinutes) * 60_000;
-    const plan = buildEscalationPlan(now, policy).map((entry) => {
+    const spacing = Math.max(10, taskPolicy.urgentRepeatMinutes) * 60_000;
+    const plan = buildEscalationPlan(now, taskPolicy).filter(entry => !approved || entry.level !== "IN_APP_PUSH" || approved.channels.some(c=>c==="IN_APP"||c==="PUSH")).map((entry) => {
       if (entry.level === "IN_APP_PUSH") return entry;
       const spaced = new Date(Math.max(entry.scheduledFor.getTime(), previousAlertAt.getTime() + spacing));
-      const scheduledFor = moveOutsideQuietHours(spaced, quietHours.quietHoursStartsAt, quietHours.quietHoursEndsAt, quietHours.timezone);
+      const scheduledFor = moveOutsideQuietHours(spaced, taskQuiet.quietHoursStartsAt, taskQuiet.quietHoursEndsAt, taskQuiet.timezone);
       previousAlertAt = scheduledFor;
       return { ...entry, scheduledFor };
     });
@@ -65,7 +70,7 @@ async function seedPlans(userId: string, now: Date, policy: EscalationPolicy, qu
 async function processDueAttempts(userId: string, now: Date, quietHours: QuietHours, emergencyPhone?: string | null) {
   const due = await db.escalationAttempt.findMany({
     where: { userId, status: "PENDING", scheduledFor: { lte: now } },
-    include: { task: { select: { title: true } }, user: { include: { pushSubscriptions: true } } },
+    include: { task: { select: { title: true, alertPolicy: true } }, user: { include: { pushSubscriptions: true } } },
     orderBy: { scheduledFor: "asc" },
     take: 100,
   });
@@ -101,7 +106,8 @@ async function processDueAttempts(userId: string, now: Date, quietHours: QuietHo
           type: highPriority ? "URGENT_ESCALATION" : "URGENT_REMINDER",
         },
       });
-      const suppressPush = attempt.level === "IN_APP_PUSH" && isInsideQuietHours(now, quietHours.quietHoursStartsAt, quietHours.quietHoursEndsAt, quietHours.timezone);
+      const approved = readAlertPolicy(attempt.task.alertPolicy);
+      const suppressPush = (approved && !approved.channels.includes("PUSH")) || (attempt.level === "IN_APP_PUSH" && isInsideQuietHours(now, approved?.quietStart ?? quietHours.quietHoursStartsAt, approved?.quietEnd ?? quietHours.quietHoursEndsAt, quietHours.timezone));
       const results = suppressPush ? [] : await Promise.allSettled(attempt.user.pushSubscriptions.map((subscription) => sendWebPush(subscription, {
         title: highPriority ? "هشدار جدی همراه" : "کار فوری عقب‌افتاده",
         body: attempt.task.title,

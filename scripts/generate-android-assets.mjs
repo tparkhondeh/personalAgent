@@ -1,6 +1,8 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
+import { sharedMobileTheme } from "./shared-mobile-theme.mjs";
+import ts from "typescript";
 
 const projectRoot = process.cwd();
 const resourceRoot = path.join(projectRoot, "android", "app", "src", "main", "res");
@@ -79,13 +81,21 @@ const [indexHtml, appStyles, appScript, recoveryHtml, domainScript] = await Prom
   readFile(recoveryPath, "utf8"),
   readFile(path.join(mobileRoot, "domain.js"), "utf8"),
 ]);
+const sharedTheme = await sharedMobileTheme(projectRoot);
+await writeFile(path.join(mobileRoot, "theme.css"), sharedTheme);
+const plannerSource = await readFile(path.join(projectRoot,"src/lib/agent-planner.ts"),"utf8");
+const plannerJs = ts.transpileModule(plannerSource.replace(/^export /gm,""),{compilerOptions:{target:ts.ScriptTarget.ES2020,module:ts.ModuleKind.None}}).outputText;
+const plannerScript = `window.HamrahPlanner=(()=>{${plannerJs}\nreturn {planPersian,planInstant,inspectPlan,dateParts,planOccurrences,plannedReminderTimes};})();\n`;
+await writeFile(path.join(mobileRoot,"planner.js"),plannerScript);
 const bundledDocument = indexHtml
-  .replace('<link rel="stylesheet" href="./app.css" />', () => `<style>${appStyles}</style>`)
+  .replace('<link rel="stylesheet" href="./app.css" />', () => `<style>${appStyles}\n${sharedTheme}</style>`)
+  .replace('<link rel="stylesheet" href="./theme.css" />', "")
   .replace('<script src="./content.js"></script>', "")
   .replace('<script src="./domain.js"></script>', "")
+  .replace('<script src="./planner.js"></script>', "")
   .replace('<script src="./app.js"></script>', "");
 const serializedDocument = JSON.stringify(bundledDocument).replaceAll("</", "<\\/");
-const serializedScript = JSON.stringify(`${poemScript}\n${domainScript}\n${appScript}`).replaceAll("</", "<\\/");
+const serializedScript = JSON.stringify(`${poemScript}\n${domainScript}\n${plannerScript}\n${appScript}`).replaceAll("</", "<\\/");
 const offlineDocumentMarker = /^(\s*)const bundledDocument = .*; \/\/ generated-offline-document$/m;
 const offlineScriptMarker = /^(\s*)const bundledScript = .*; \/\/ generated-offline-script$/m;
 if (!offlineDocumentMarker.test(recoveryHtml)) {
