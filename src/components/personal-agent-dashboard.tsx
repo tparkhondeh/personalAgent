@@ -283,7 +283,7 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
     }
   }
 
-  function openComposer(item: Item | null = null, date?: string) { setEditing(item); setComposerDate(date); setComposer(true); }
+  function openComposer(item: Item | null = null, date?: string) { document.dispatchEvent(new Event("tia-cancel-voice")); setEditing(item); setComposerDate(date); setComposer(true); }
   function closeComposer() { setEditing(null); setComposerDate(undefined); setComposer(false); }
 
   async function save(event: FormEvent<HTMLFormElement>) {

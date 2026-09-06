@@ -24,7 +24,7 @@ export function AgentAssistant({ onAdd, onChanged }: { onAdd: () => void; onChan
   useEffect(()=>{const box=textbox.current;if(box){box.style.height="auto";box.style.height=`${Math.min(144,Math.max(44,box.scrollHeight))}px`;}},[input]);
   const [reply,setReply]=useState(""),[status,setStatus]=useState(""),[pending,setPending]=useState(false);
   const [draft,setDraft]=useState<Draft|null>(null),[edit,setEdit]=useState<Plan|null>(null),[conversationId,setConversationId]=useState<string>();
-  const [candidates,setCandidates]=useState<PlanningItem[]>([]),[mode,setMode]=useState("local"),[external,setExternal]=useState(false),[online,setOnline]=useState(false);
+  const [candidates,setCandidates]=useState<PlanningItem[]>([]),[mode,setMode]=useState("local"),[external,setExternal]=useState(false),[online,setOnline]=useState(false),[voiceBusy,setVoiceBusy]=useState(false);
   useEffect(()=>{if(draft)review.current?.scrollIntoView({block:"start"});},[draft]);
   const editing=Boolean(edit);
   useEffect(()=>{const viewport=window.visualViewport;let frame=0;const resize=()=>{
@@ -38,7 +38,7 @@ export function AgentAssistant({ onAdd, onChanged }: { onAdd: () => void; onChan
   };resize();viewport?.addEventListener("resize",resize);return()=>{cancelAnimationFrame(frame);viewport?.removeEventListener("resize",resize);};},[draft,editing]);
   useEffect(()=>{if(!session)return;let active=true;void fetch("/api/integrations",{cache:"no-store"}).then(r=>r.json()).then(b=>{if(active){setOnline(b.data?.llm?.mode==="configured");}}).catch(()=>{});return()=>{active=false;};},[session]);
   async function send(event:FormEvent) {
-    event.preventDefault();await sendMessage(input,external);
+    event.preventDefault();if(!voiceBusy)await sendMessage(input,external);
   }
   async function sendMessage(message:string,externalConsent=false) {
     if(!message.trim()||pending)return;if(!session){setNeedsAccount(true);return;}setNeedsAccount(false);setPending(true);setStatus("");setAttempted(false);
@@ -49,7 +49,7 @@ export function AgentAssistant({ onAdd, onChanged }: { onAdd: () => void; onChan
     }catch(error){setStatus(error instanceof Error?error.message:"ارتباط قطع شد؛ دوباره تلاش کن.");}finally{setPending(false);}
   }
   async function act(action:"edit"|"confirm"|"cancel") {
-    if(!draft||pending)return;
+    if(!draft||pending||voiceBusy)return;
     if(action==="confirm"&&draft.preview.questions.length){setAttempted(true);setEdit(structuredClone(draft.plan));setStatus(draft.preview.questions[0]);return;}
     setPending(true);setStatus("");
     try {
@@ -71,7 +71,7 @@ export function AgentAssistant({ onAdd, onChanged }: { onAdd: () => void; onChan
   const format=(value:string)=>new Intl.DateTimeFormat("fa-IR",{timeZone:p?.timezone??"Asia/Tehran",dateStyle:"medium",timeStyle:"short",hourCycle:"h23",calendar:"persian"}).format(new Date(value));
   return <section className="assistant-panel" aria-label="گفتگو با tia">
     {needsAccount && <p className="agent-notice" role="alert">حساب باز کنید. <Link href="/login?returnTo=assistant" onClick={()=>offerGuestDraft()}>ثبت‌نام / ورود</Link></p>}
-    <div className="suggestions"><button onClick={onAdd}>ثبت دستی</button><button onClick={()=>setInput("برنامه امروز من را خلاصه کن")}>خلاصه امروز</button></div>
+    <div className="suggestions"><button disabled={voiceBusy} onClick={onAdd}>ثبت دستی</button><button disabled={voiceBusy} onClick={()=>setInput("برنامه امروز من را خلاصه کن")}>خلاصه امروز</button></div>
     {reply && <p className="agent-mode">{mode==="online"?"پاسخ واقعی OpenAI":mode==="local-fallback"?"سرویس پاسخ نداد؛ پردازش محلی":mode==="local-budget-limit"?"سقف مصرف رسیده؛ پردازش محلی":"پردازش محلی؛ بدون ارسال متن به سرویس خارجی"}</p>}
     {online && <label className="agent-toggle"><input type="checkbox" checked={external} onChange={e=>setExternal(e.target.checked)} />با ارسال پیام و اطلاعات مرتبط برنامه‌ام به OpenAI موافقم.</label>}
     {reply && !draft && <div className="agent-response"><p>{reply}</p></div>}
@@ -83,7 +83,7 @@ export function AgentAssistant({ onAdd, onChanged }: { onAdd: () => void; onChan
         {p.operation==="DELETE"&&<p className="agent-question">این تأیید، مورد انتخاب‌شده را حذف و هشدارهای آن را لغو می‌کند.</p>}
         {!edit&&draft.preview.warnings.map((w,i)=><p className="approval-warning" key={i}>{w}</p>)}
       </div>
-      <div className="agent-actions approval-actions">{edit && JSON.stringify(edit)!==JSON.stringify(draft.plan)?<button disabled={pending} onClick={()=>void act("edit")}>بررسی تغییرات</button>:<><button disabled={pending} onClick={()=>void act("confirm")}>ثبت</button><button disabled={pending} onClick={()=>setEdit(edit?null:structuredClone(draft.plan))}>{edit?"بستن ویرایش":"ویرایش"}</button></>}<button disabled={pending} onClick={()=>void act("cancel")}>انصراف</button></div>
+      <div className="agent-actions approval-actions">{edit && JSON.stringify(edit)!==JSON.stringify(draft.plan)?<button disabled={pending||voiceBusy} onClick={()=>void act("edit")}>بررسی تغییرات</button>:<><button disabled={pending||voiceBusy} onClick={()=>void act("confirm")}>ثبت</button><button disabled={pending||voiceBusy} onClick={()=>setEdit(edit?null:structuredClone(draft.plan))}>{edit?"بستن ویرایش":"ویرایش"}</button></>}<button disabled={pending||voiceBusy} onClick={()=>void act("cancel")}>انصراف</button></div>
       <details className="approval-details" open={Boolean(edit)}><summary onClick={e=>{e.preventDefault();setEdit(edit?null:structuredClone(draft.plan));}}>جزئیات بیشتر</summary><div className="approval-editor">
       <fieldset disabled={!edit || pending}><div className="agent-grid">
         <label>عنوان<input value={p.title} maxLength={180} onChange={e=>change("title",e.target.value)} />{fieldError(/عنوان/)&&<small className="field-error">{fieldError(/عنوان/)}</small>}</label>
@@ -106,7 +106,7 @@ export function AgentAssistant({ onAdd, onChanged }: { onAdd: () => void; onChan
       </div></details>
     </section>}
     {status && <p role="status" className="agent-status">{status}</p>}
-    <VoiceInput disabled={pending||Boolean(edit)} onText={text=>{setInput(text);void sendMessage(text);}}/>
-    <form className="chat-box" onSubmit={send}><textarea ref={textbox} rows={1} aria-label="پیام" placeholder="بنویس یا متن صدا را ویرایش کن…" maxLength={2000} value={input} onChange={e=>setInput(e.target.value)} disabled={pending}/><button disabled={pending||Boolean(edit)}>{pending?"در حال بررسی":"ارسال"}</button></form>
+    <VoiceInput key={owner} disabled={pending||Boolean(edit)} onBusyChange={setVoiceBusy} onText={text=>{setInput(text);void sendMessage(text);}}/>
+    <form className="chat-box" onSubmit={send}><textarea ref={textbox} rows={1} aria-label="پیام" placeholder="بنویس یا متن صدا را ویرایش کن…" maxLength={2000} value={input} onChange={e=>setInput(e.target.value)} disabled={pending||voiceBusy}/><button disabled={pending||voiceBusy||Boolean(edit)}>{pending?"در حال بررسی":"ارسال"}</button></form>
   </section>;
 }

@@ -30,6 +30,7 @@
   function escapeText(value) { const span = document.createElement("span"); span.textContent = value; return span.innerHTML; }
 
   function openForm(task) {
+    cancelVoice();
     form.reset();
     $("#task-id").value = task?.id || "";
     $("#task-title").value = task?.title || "";
@@ -288,6 +289,7 @@
   }
   function cancelVoice(){voiceVersion++;speech.cancel();voiceBusy=false;voiceCapture.cancel();$("#voice-retry").hidden=true;}
   const voiceCapture=window.HamrahCapture.createVoiceCapture((state,message)=>{
+    const locked=state!=="idle";input.disabled=locked;$("#assistant-send").disabled=locked;$("#assistant-summary").disabled=locked;
     $("#voice-start").hidden=state!=="idle";$("#voice-stop").hidden=state!=="recording";$("#voice-cancel").hidden=state==="idle";
     $("#voice-status").textContent=message;$("#voice-retry").hidden=true;if(state==="ready")void convertVoice();
   },clip=>{voiceClip=clip;if(voiceUrl)URL.revokeObjectURL(voiceUrl);voiceUrl=clip?URL.createObjectURL(clip):"";if(clip)$("#voice-preview").src=voiceUrl;else{$("#voice-preview").removeAttribute("src");$("#voice-preview").load();}$("#voice-preview").hidden=!clip;});

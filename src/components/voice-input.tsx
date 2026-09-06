@@ -3,10 +3,11 @@ import { useEffect, useRef, useState } from "react";
 import { createVoiceCapture, type CaptureState } from "@/lib/voice-capture";
 import { createLocalSpeech } from "@/lib/local-speech";
 
-export function VoiceInput({ disabled, onText }: { disabled: boolean; onText: (text: string) => void }) {
+export function VoiceInput({ disabled, onText, onBusyChange }: { disabled: boolean; onText: (text: string) => void; onBusyChange: (busy:boolean)=>void }) {
   const [state,setState]=useState<CaptureState|"sending">("idle"),[status,setStatus]=useState(""),[preview,setPreview]=useState("");
   const callback=useRef(onText),start=useRef<()=>void>(()=>{}),stop=useRef<()=>void>(()=>{}),cancel=useRef<()=>void>(()=>{}),retry=useRef<()=>void>(()=>{});
   useEffect(()=>{callback.current=onText;},[onText]);
+  useEffect(()=>{onBusyChange(state==="asking"||state==="recording"||state==="sending");},[state,onBusyChange]);
   useEffect(()=>{
     let alive=true,version=0,audio:Blob|null=null,url="",busy=false;
     const speech=createLocalSpeech();
@@ -23,8 +24,8 @@ export function VoiceInput({ disabled, onText }: { disabled: boolean; onText: (t
     },clip=>{audio=clip;if(url)URL.revokeObjectURL(url);url=clip?URL.createObjectURL(clip):"";if(alive)setPreview(url);});
     start.current=()=>{if(!busy)void recorder.start();};stop.current=()=>recorder.stop();retry.current=()=>{if(audio)void convert();else void recorder.start();};
     cancel.current=()=>{version++;speech.cancel();busy=false;recorder.cancel();};
-    const hide=()=>{if(document.hidden)cancel.current();};document.addEventListener("visibilitychange",hide);
-    return()=>{alive=false;version++;speech.cancel();recorder.dispose();if(url)URL.revokeObjectURL(url);document.removeEventListener("visibilitychange",hide);};
+    const hide=()=>{if(document.hidden)cancel.current();},leave=()=>cancel.current();document.addEventListener("visibilitychange",hide);document.addEventListener("tia-cancel-voice",leave);
+    return()=>{alive=false;version++;speech.cancel();recorder.dispose();if(url)URL.revokeObjectURL(url);document.removeEventListener("visibilitychange",hide);document.removeEventListener("tia-cancel-voice",leave);};
   },[]);
   return <section className="voice-input" aria-label="دستور صوتی">
     {preview && <audio controls src={preview} aria-label="پخش صدای ضبط‌شده" />}

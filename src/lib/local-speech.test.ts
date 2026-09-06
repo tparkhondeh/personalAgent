@@ -36,6 +36,7 @@ describe('device-only Persian transcription control (engine mocked; actual decod
   it('keeps audio off the network and uses shared code in the APK',()=>{
     const source=readFileSync('src/lib/local-speech.ts','utf8');expect(/fetch\(|localStorage|sessionStorage|api\.openai|SpeechRecognition/.test(source)).toBe(false);
     const web=readFileSync('src/components/agent-assistant.tsx','utf8');expect(web.includes('void sendMessage(text);')).toBe(true);expect(web.includes('confirmed:true')).toBe(true);
+    expect(web.includes('key={owner}')).toBe(true);expect(web.includes('disabled={pending||voiceBusy}')).toBe(true);
     const mobile=readFileSync('mobile-shell/app.js','utf8');expect(mobile.includes('input.value=text;saveInput();replyToMessage();')).toBe(true);expect(mobile.includes('window.HamrahCapture.createLocalSpeech()')).toBe(true);
     const prepare=readFileSync('scripts/prepare-local-speech.mjs','utf8');expect(prepare.includes('this.worker.terminate()')).toBe(true);expect(prepare.includes('Speech model digest mismatch')).toBe(true);
   });
