@@ -24,7 +24,7 @@ export function AgentAssistant({ onAdd, onChanged }: { onAdd: () => void; onChan
   useEffect(()=>{const box=textbox.current;if(box){box.style.height="auto";box.style.height=`${Math.min(144,Math.max(44,box.scrollHeight))}px`;}},[input]);
   const [reply,setReply]=useState(""),[status,setStatus]=useState(""),[pending,setPending]=useState(false);
   const [draft,setDraft]=useState<Draft|null>(null),[edit,setEdit]=useState<Plan|null>(null),[conversationId,setConversationId]=useState<string>();
-  const [candidates,setCandidates]=useState<PlanningItem[]>([]),[mode,setMode]=useState("local"),[external,setExternal]=useState(false),[online,setOnline]=useState(false),[voice,setVoice]=useState(false);
+  const [candidates,setCandidates]=useState<PlanningItem[]>([]),[mode,setMode]=useState("local"),[external,setExternal]=useState(false),[online,setOnline]=useState(false);
   useEffect(()=>{if(draft)review.current?.scrollIntoView({block:"start"});},[draft]);
   const editing=Boolean(edit);
   useEffect(()=>{const viewport=window.visualViewport;let frame=0;const resize=()=>{
@@ -36,11 +36,14 @@ export function AgentAssistant({ onAdd, onChanged }: { onAdd: () => void; onChan
       if(editor)root.style.setProperty("--editor-available",`${Math.max(80,(viewport?.height??window.innerHeight)+(viewport?.offsetTop??0)-editor.getBoundingClientRect().top-96)}px`);
     });
   };resize();viewport?.addEventListener("resize",resize);return()=>{cancelAnimationFrame(frame);viewport?.removeEventListener("resize",resize);};},[draft,editing]);
-  useEffect(()=>{if(!session)return;let active=true;void fetch("/api/integrations",{cache:"no-store"}).then(r=>r.json()).then(b=>{if(active){setOnline(b.data?.llm?.mode==="configured");setVoice(Boolean(b.data?.voice?.enabled));}}).catch(()=>{});return()=>{active=false;};},[session]);
+  useEffect(()=>{if(!session)return;let active=true;void fetch("/api/integrations",{cache:"no-store"}).then(r=>r.json()).then(b=>{if(active){setOnline(b.data?.llm?.mode==="configured");}}).catch(()=>{});return()=>{active=false;};},[session]);
   async function send(event:FormEvent) {
-    event.preventDefault();if(!input.trim()||pending)return;if(!session){setNeedsAccount(true);return;}setNeedsAccount(false);setPending(true);setStatus("");setAttempted(false);
+    event.preventDefault();await sendMessage(input,external);
+  }
+  async function sendMessage(message:string,externalConsent=false) {
+    if(!message.trim()||pending)return;if(!session){setNeedsAccount(true);return;}setNeedsAccount(false);setPending(true);setStatus("");setAttempted(false);
     try {
-      const response=await fetch("/api/agent",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({message:input,conversationId,draftId:draft?.id,revision:draft?.revision,externalConsent:external}),signal:AbortSignal.timeout(35000)});
+      const response=await fetch("/api/agent",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({message,conversationId,draftId:draft?.id,revision:draft?.revision,externalConsent}),signal:AbortSignal.timeout(35000)});
       const body=await response.json();if(!response.ok)throw new Error(body.error);
       setReply(body.data.reply);setDraft(body.data.draft);setConversationId(body.data.conversationId);setCandidates(body.data.candidates);setMode(body.data.mode);setInput("");setEdit(null);
     }catch(error){setStatus(error instanceof Error?error.message:"ارتباط قطع شد؛ دوباره تلاش کن.");}finally{setPending(false);}
@@ -66,7 +69,7 @@ export function AgentAssistant({ onAdd, onChanged }: { onAdd: () => void; onChan
   const summary=p?approvalSummary(p):null;
   const fieldError=(pattern:RegExp)=>attempted&&draft?.preview.questions.find(q=>pattern.test(q));
   const format=(value:string)=>new Intl.DateTimeFormat("fa-IR",{timeZone:p?.timezone??"Asia/Tehran",dateStyle:"medium",timeStyle:"short",hourCycle:"h23",calendar:"persian"}).format(new Date(value));
-  return <section className="assistant-panel" aria-label="گفتگو با همراه">
+  return <section className="assistant-panel" aria-label="گفتگو با tia">
     {needsAccount && <p className="agent-notice" role="alert">حساب باز کنید. <Link href="/login?returnTo=assistant" onClick={()=>offerGuestDraft()}>ثبت‌نام / ورود</Link></p>}
     <div className="suggestions"><button onClick={onAdd}>ثبت دستی</button><button onClick={()=>setInput("برنامه امروز من را خلاصه کن")}>خلاصه امروز</button></div>
     {reply && <p className="agent-mode">{mode==="online"?"پاسخ واقعی OpenAI":mode==="local-fallback"?"سرویس پاسخ نداد؛ پردازش محلی":mode==="local-budget-limit"?"سقف مصرف رسیده؛ پردازش محلی":"پردازش محلی؛ بدون ارسال متن به سرویس خارجی"}</p>}
@@ -103,7 +106,7 @@ export function AgentAssistant({ onAdd, onChanged }: { onAdd: () => void; onChan
       </div></details>
     </section>}
     {status && <p role="status" className="agent-status">{status}</p>}
-    <VoiceInput enabled={Boolean(session)&&voice} disabled={pending} onText={setInput}/>
+    <VoiceInput disabled={pending||Boolean(edit)} onText={text=>{setInput(text);void sendMessage(text);}}/>
     <form className="chat-box" onSubmit={send}><textarea ref={textbox} rows={1} aria-label="پیام" placeholder="بنویس یا متن صدا را ویرایش کن…" maxLength={2000} value={input} onChange={e=>setInput(e.target.value)} disabled={pending}/><button disabled={pending||Boolean(edit)}>{pending?"در حال بررسی":"ارسال"}</button></form>
   </section>;
 }

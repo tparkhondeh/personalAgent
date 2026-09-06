@@ -52,7 +52,7 @@
     let permission = await localNotifications.checkPermissions();
     if (permission.display !== "granted") permission = await localNotifications.requestPermissions();
     if (permission.display !== "granted") { alarmStatus.textContent = "اجازه اعلان داده نشد؛ از تنظیمات گوشی آن را فعال کنید."; return false; }
-    await localNotifications.createChannel({ id: channelId, name: "کارهای فوری عقب‌افتاده", description: "هشدار کارهای فوری همراه", sound: "urgent_alarm.wav", importance: 5, visibility: 1, lights: true, lightColor: "#5C70B4", vibration: true });
+    await localNotifications.createChannel({ id: channelId, name: "کارهای فوری عقب‌افتاده", description: "هشدار کارهای فوری tia", sound: "urgent_alarm.wav", importance: 5, visibility: 1, lights: true, lightColor: "#5C70B4", vibration: true });
     if (openSettings && localNotifications.checkExactNotificationSetting) {
       const exact = await localNotifications.checkExactNotificationSetting();
       if (exact.exact_alarm !== "granted" && localNotifications.changeExactNotificationSetting) await localNotifications.changeExactNotificationSetting();
@@ -79,7 +79,7 @@
     task.notificationIds = times.map(() => { let id; do { id = notificationId(); } while (usedIds.has(id)); usedIds.add(id); return id; });
     // Persist IDs before scheduling so completion/retry can cancel a partial native delivery.
     if (kind !== "test") saveTasks();
-    await localNotifications.schedule({ notifications: times.map((time, index) => ({ id: task.notificationIds[index], title: kind === "test" ? "آزمایش هشدار همراه" : "یادآوری برنامه", body: task.title, largeBody: task.title, channelId:selectedChannel, ...(alarm?{sound:"urgent_alarm.wav"}:{}), smallIcon: "ic_stat_hamrah", iconColor: "#5C70B4", autoCancel: true, schedule: { at: new Date(time), allowWhileIdle: alarm }, extra: { owner: "hamrah-local", kind } })) });
+    await localNotifications.schedule({ notifications: times.map((time, index) => ({ id: task.notificationIds[index], title: kind === "test" ? "آزمایش هشدار tia" : "یادآوری برنامه", body: task.title, largeBody: task.title, channelId:selectedChannel, ...(alarm?{sound:"urgent_alarm.wav"}:{}), smallIcon: "ic_stat_hamrah", iconColor: "#5C70B4", autoCancel: true, schedule: { at: new Date(time), allowWhileIdle: alarm }, extra: { owner: "hamrah-local", kind } })) });
     return true;
   }
   async function cancelNotifications(task) {
@@ -119,7 +119,7 @@
     $("#calendar-grid").innerHTML = cells.join("");
   }
   function showPanel(name) {
-    if(panel==="assistant"&&name!==panel)voiceCapture.cancel("");
+    if(panel==="assistant"&&name!==panel)cancelVoice();
     panel = name;
     document.querySelector(".app").dataset.panel=name;
     $("#program-list-title").textContent=name==="tasks"?"فهرست برنامه‌ها":"برنامه امروز";
@@ -273,16 +273,30 @@
   try{input.value=sessionStorage.getItem(composeKey)||"";}catch{}
   function saveInput(){try{sessionStorage.setItem(composeKey,input.value);}catch{} input.style.height="auto";input.style.height=Math.min(144,Math.max(44,input.scrollHeight))+"px";}
   input.addEventListener("input",saveInput);
-  let voiceUrl="";
+  let voiceUrl="",voiceClip=null,voiceVersion=0,voiceBusy=false;
+  const speech=window.HamrahCapture.createLocalSpeech();
+  async function convertVoice(){
+    if(!voiceClip||voiceBusy)return;
+    const version=++voiceVersion;voiceBusy=true;$("#voice-retry").hidden=true;
+    try{
+      const text=await speech.transcribe(voiceClip,message=>{if(version===voiceVersion)$("#voice-status").textContent=message;});
+      if(version!==voiceVersion)return;
+      voiceCapture.cancel("");input.value=text;saveInput();replyToMessage();
+      $("#voice-status").textContent="متن قابل‌ویرایش است؛ ثبت فقط با تأیید شما انجام می‌شود.";
+    }catch(error){if(version===voiceVersion){voiceCapture.cancel("");$("#voice-status").textContent=error.message;$("#voice-retry").hidden=false;}}
+    finally{if(version===voiceVersion)voiceBusy=false;}
+  }
+  function cancelVoice(){voiceVersion++;speech.cancel();voiceBusy=false;voiceCapture.cancel();$("#voice-retry").hidden=true;}
   const voiceCapture=window.HamrahCapture.createVoiceCapture((state,message)=>{
     $("#voice-start").hidden=state!=="idle";$("#voice-stop").hidden=state!=="recording";$("#voice-cancel").hidden=state==="idle";
-    $("#voice-status").textContent=state==="ready"?"ضبط آماده است؛ تبدیل به متن در حالت محلی فعال نیست. صوتی ارسال نشده است.":message;
-  },clip=>{if(voiceUrl)URL.revokeObjectURL(voiceUrl);voiceUrl=clip?URL.createObjectURL(clip):"";if(clip)$("#voice-preview").src=voiceUrl;else{$("#voice-preview").removeAttribute("src");$("#voice-preview").load();}$("#voice-preview").hidden=!clip;});
+    $("#voice-status").textContent=message;$("#voice-retry").hidden=true;if(state==="ready")void convertVoice();
+  },clip=>{voiceClip=clip;if(voiceUrl)URL.revokeObjectURL(voiceUrl);voiceUrl=clip?URL.createObjectURL(clip):"";if(clip)$("#voice-preview").src=voiceUrl;else{$("#voice-preview").removeAttribute("src");$("#voice-preview").load();}$("#voice-preview").hidden=!clip;});
   $("#voice-start").addEventListener("click",()=>void voiceCapture.start());
   $("#voice-stop").addEventListener("click",()=>voiceCapture.stop());
-  $("#voice-cancel").addEventListener("click",()=>voiceCapture.cancel());
-  document.addEventListener("visibilitychange",()=>{if(document.hidden)voiceCapture.cancel("ضبط با خروج از صفحه متوقف شد.");});
-  window.addEventListener("pagehide",()=>voiceCapture.dispose(),{once:true});
+  $("#voice-cancel").addEventListener("click",cancelVoice);
+  $("#voice-retry").addEventListener("click",()=>{if(voiceClip)void convertVoice();else void voiceCapture.start();});
+  document.addEventListener("visibilitychange",()=>{if(document.hidden)cancelVoice();});
+  window.addEventListener("pagehide",()=>{cancelVoice();voiceCapture.dispose();},{once:true});
   window.addEventListener("resize",()=>{window.HamrahCapture.fitProgramList(list,panel==="today");saveInput();});
   $("#assistant-send").addEventListener("click", replyToMessage);
   $("#assistant-summary").addEventListener("click", () => { $("#assistant-input").value = "برنامه امروز من را خلاصه کن"; replyToMessage(); });

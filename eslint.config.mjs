@@ -14,6 +14,9 @@ const eslintConfig = defineConfig([
     "build/**",
     // Recovery archives and downloaded release evidence are not project source.
     "backups/**",
+    "public/speech/**",
+    "mobile-shell/speech/**",
+    "android/app/src/main/assets/public/speech/**",
     "artifacts/**",
     "android/**/build/**",
     "android/.gradle/**",

@@ -140,7 +140,7 @@ public class ApplicationContextTest {
             assertFalse("WebView rendered an empty document", content.equals("\"\"") || content.equals("null"));
             assertTrue(
                 "WebView did not render the Persian interface",
-                content.contains("همراه") || content.contains("ورود") || content.contains("اتصال برقرار نشد")
+                content.contains("tia") || content.contains("ورود") || content.contains("اتصال برقرار نشد")
             );
         }
     }

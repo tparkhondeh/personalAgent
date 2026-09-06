@@ -1,4 +1,4 @@
-const CACHE_NAME = "hamrah-shell-v6-explicit-appearance";
+const CACHE_NAME = "hamrah-shell-v7-tia-voice";
 const CORE_ASSETS = ["/", "/manifest.webmanifest", "/icon.svg", "/icon-192.png", "/icon-512.png"];
 const IS_LOCAL_DEVELOPMENT = self.location.hostname === "localhost" || self.location.hostname === "127.0.0.1";
 
@@ -62,7 +62,7 @@ self.addEventListener("fetch", (event) => {
 
 self.addEventListener("push", (event) => {
   const data = event.data ? event.data.json() : {};
-  event.waitUntil(self.registration.showNotification(data.title || "همراه", {
+  event.waitUntil(self.registration.showNotification(data.title || "tia", {
     body: data.body || "یک یادآوری تازه داری",
     icon: "/icon.svg",
     badge: "/icon.svg",

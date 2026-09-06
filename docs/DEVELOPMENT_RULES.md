@@ -8,3 +8,4 @@
 - Do not archive raw audio by default. Process bounded audio in memory; discard references after success/cancel/error. Never log keys, audio or user prompts.
 - Preserve source/data/history; snapshot before changes. Never change Production or incur unspecified external cost without approval.
 - An API integration, a deployed service, a released APK and a real-phone test are distinct states; report evidence separately.
+- Voice capture is not transcription. Default tia voice recognition stays on-device, shares its controller between web/APK and feeds only an editable draft. Every voice change must test actual Persian audio, stop-to-draft, cancellation and zero effects before explicit confirmation; a non-empty recording alone is insufficient.

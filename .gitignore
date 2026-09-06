@@ -22,6 +22,8 @@
 # production
 /build
 /backups/
+/public/speech/
+/mobile-shell/speech/
 
 # misc
 .DS_Store

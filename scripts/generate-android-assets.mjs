@@ -3,6 +3,7 @@ import path from "node:path";
 import sharp from "sharp";
 import { sharedMobileTheme } from "./shared-mobile-theme.mjs";
 import ts from "typescript";
+import { tiaIconSvg } from "./tia-logo.mjs";
 
 const projectRoot = process.cwd();
 const resourceRoot = path.join(projectRoot, "android", "app", "src", "main", "res");
@@ -21,22 +22,13 @@ const nativePalettes=['light','dark'].map(mode=>{
 });
 await writeFile(path.join(resourceRoot,'values','appearance.xml'),`<resources>\n${nativePalettes.join('\n')}\n</resources>\n`);
 
-function appIconSvg(background = "#F7F7FF", transparent = false) {
-  return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-    <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#AEB9EF"/><stop offset="1" stop-color="#8BC4B4"/></linearGradient></defs>
-    ${transparent ? "" : `<rect width="512" height="512" rx="150" fill="${background}"/>`}
-    <rect x="76" y="76" width="360" height="360" rx="120" fill="url(#g)"/>
-    <path d="M180 180v70c0 47 31 82 76 82 39 0 72-26 78-66m-154-16h154m-78-70v210" fill="none" stroke="#303448" stroke-width="38" stroke-linecap="round" stroke-linejoin="round"/>
-  </svg>`);
+function appIconSvg(_background = "#F7F7FF", transparent = false) {
+  void _background;
+  return Buffer.from(tiaIconSvg({transparent}));
 }
 
 function roundAppIconSvg() {
-  return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-    <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#AEB9EF"/><stop offset="1" stop-color="#8BC4B4"/></linearGradient></defs>
-    <circle cx="256" cy="256" r="252" fill="#F7F7FF"/>
-    <circle cx="256" cy="256" r="180" fill="url(#g)"/>
-    <path d="M180 180v70c0 47 31 82 76 82 39 0 72-26 78-66m-154-16h154m-78-70v210" fill="none" stroke="#303448" stroke-width="38" stroke-linecap="round" stroke-linejoin="round"/>
-  </svg>`);
+  return Buffer.from(tiaIconSvg({round:true}));
 }
 
 const densities = [
@@ -59,6 +51,9 @@ await writeFile(path.join(publicRoot, "icon.svg"), appIconSvg());
 await sharp(appIconSvg()).resize(192, 192).png().toFile(path.join(publicRoot, "icon-192.png"));
 await sharp(appIconSvg()).resize(512, 512).png().toFile(path.join(publicRoot, "icon-512.png"));
 await sharp(appIconSvg()).resize(180, 180).png().toFile(path.join(publicRoot, "apple-touch-icon.png"));
+const favicon=await sharp(appIconSvg()).resize(32,32).png().toBuffer();
+const ico=Buffer.alloc(22);ico.writeUInt16LE(1,2);ico.writeUInt16LE(1,4);ico[6]=32;ico[7]=32;ico.writeUInt16LE(1,10);ico.writeUInt16LE(32,12);ico.writeUInt32LE(favicon.length,14);ico.writeUInt32LE(22,18);
+await writeFile(path.join(projectRoot,'src/app/favicon.ico'),Buffer.concat([ico,favicon]));
 
 const sampleRate = 44_100;
 const durationSeconds = 2.4;
@@ -103,9 +98,9 @@ const inputsScript=`window.HamrahInputs=(()=>{${inputsJs}\nreturn {dateInputValu
 const inputControls=await readFile(path.join(mobileRoot,"input-controls.js"),"utf8");
 const plannerScript = `${inputsScript}\nwindow.HamrahPlanner=(()=>{${plannerJs}\nreturn {planPersian,planInstant,inspectPlan,dateParts,planOccurrences,plannedReminderTimes,normalizePlanForReview,approvalSummary};})();\n`;
 await writeFile(path.join(mobileRoot,"planner.js"),plannerScript);
-const captureSources=await Promise.all(["voice-capture","list-viewport"].map(name=>readFile(path.join(projectRoot,`src/lib/${name}.ts`),"utf8")));
+const captureSources=await Promise.all(["voice-capture","list-viewport","local-speech"].map(name=>readFile(path.join(projectRoot,`src/lib/${name}.ts`),"utf8")));
 const captureJs=ts.transpileModule(captureSources.join("\n").replace(/^export /gm,""),{compilerOptions:{target:ts.ScriptTarget.ES2020,module:ts.ModuleKind.None}}).outputText;
-const captureScript=`window.HamrahCapture=(()=>{${captureJs}\nreturn {createVoiceCapture,fitProgramList};})();`;
+const captureScript=`window.HamrahCapture=(()=>{${captureJs}\nreturn {createVoiceCapture,fitProgramList,createLocalSpeech,normalizeVoiceText};})();`;
 await writeFile(path.join(mobileRoot,"voice-capture.js"),captureScript);
 const bundledDocument = indexHtml
   .replace('<script src="./appearance.js"></script>',()=>`<script>${appearance}</script>`)

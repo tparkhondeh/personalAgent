@@ -23,8 +23,9 @@ describe("pastel brand assets", () => {
 
   it("uses the pastel icon palette in generated web assets", () => {
     const icon = readProjectFile("public/icon.svg");
-    expect(icon).toContain("#AEB9EF");
-    expect(icon).toContain("#8BC4B4");
-    expect(icon).toContain("#303448");
+    expect(icon).toContain('aria-label="tia"');
+    expect(icon).toContain("#b6c1ef");
+    expect(icon).toContain("#a3d6c8");
+    expect(icon).toContain("#344767");
   });
 });

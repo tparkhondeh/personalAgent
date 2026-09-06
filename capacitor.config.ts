@@ -20,7 +20,7 @@ if (developmentServerUrl) {
 
 const config: CapacitorConfig = {
   appId: "ir.wealthos.personalagent",
-  appName: "همراه",
+  appName: "tia",
   webDir: "mobile-shell",
   backgroundColor: "#F7F7FF",
   loggingBehavior: developmentServerUrl ? "debug" : "production",

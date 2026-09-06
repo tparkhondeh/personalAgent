@@ -12,7 +12,7 @@ export default function ErrorPage({ retry }: { retry: () => void }) {
         <p>اطلاعاتت حذف نشده است. دوباره تلاش کن؛ اگر مشکل ادامه داشت، صفحه را تازه‌سازی کن.</p>
         <div className="system-actions">
           <button className="primary-button" onClick={() => retry()}>تلاش دوباره</button>
-          <Link className="outline-button" href="/">بازگشت به همراه</Link>
+          <Link className="outline-button" href="/">بازگشت به tia</Link>
         </div>
       </section>
     </main>

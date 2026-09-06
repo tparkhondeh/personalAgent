@@ -9,10 +9,10 @@ export async function POST(request: Request) {
   for (const reminder of due) {
     const claimed = await db.reminder.updateMany({ where: { id: reminder.id, status: "PENDING" }, data: { status: "PROCESSING" } });
     if (claimed.count === 0) continue;
-    const title = reminder.task?.title ?? reminder.meeting?.title ?? "یادآوری همراه";
+    const title = reminder.task?.title ?? reminder.meeting?.title ?? "یادآوری tia";
     try {
       await db.notification.create({ data: { userId: reminder.userId, title: "یادآوری برنامه", body: title, type: "REMINDER" } });
-      const results = reminder.channel === "PUSH" ? await Promise.allSettled(reminder.user.pushSubscriptions.map((subscription) => sendWebPush(subscription, { title: "همراه", body: title, url: "/", tag: reminder.id }))) : [];
+      const results = reminder.channel === "PUSH" ? await Promise.allSettled(reminder.user.pushSubscriptions.map((subscription) => sendWebPush(subscription, { title: "tia", body: title, url: "/", tag: reminder.id }))) : [];
       const rejected = results.filter((result) => result.status === "rejected");
       await db.reminder.update({ where: { id: reminder.id }, data: { status: rejected.length ? "PARTIAL" : "SENT", sentAt: new Date(), lastError: rejected.length ? `${rejected.length} push delivery failed` : null } });
       sent++;

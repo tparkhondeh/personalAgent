@@ -10,7 +10,7 @@ export default function GlobalError({ retry }: { retry: () => void }) {
       <body style={{ margin: 0 }}>
         <main style={pageStyle}>
           <section style={cardStyle} role="alert">
-            <h1 style={{ margin: "0 0 12px", fontSize: "28px" }}>همراه نیاز به راه‌اندازی دوباره دارد</h1>
+            <h1 style={{ margin: "0 0 12px", fontSize: "28px" }}>tia نیاز به راه‌اندازی دوباره دارد</h1>
             <p style={{ margin: "0 0 22px", lineHeight: 2 }}>اطلاعات شما حذف نشده است. برای بارگذاری دوباره برنامه تلاش کنید.</p>
             <button style={buttonStyle} onClick={() => retry()}>تلاش دوباره</button>
           </section>

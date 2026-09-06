@@ -11,7 +11,7 @@ assert.equal(meta.commit,source.head_sha);
 assert(jobs.some(j=>j.name==='Build the exact APKs once'&&j.conclusion==='success'));
 const version=String(source.run_number);
 assert(/^\d+$/.test(version)&&/^[a-f0-9]{40}$/.test(meta.commit));
-assert.equal(meta.apk,`Hamrah-stable-${version}.apk`);
+assert.equal(meta.apk,Number(version)>=35?`tia-stable-${version}.apk`:`Hamrah-stable-${version}.apk`);
 assert.equal(meta.packageId,`ir.wealthos.personalagent.stable${version}`);
 assert.equal(createHash('sha256').update(readFileSync(`artifacts/build/${meta.apk}`)).digest('hex'),meta.sha256);
 const env=`APK_FILE=${meta.apk}\nAPK_PACKAGE=${meta.packageId}\nAPK_VERSION=${version}\nAPK_COMMIT=${meta.commit}\n`;

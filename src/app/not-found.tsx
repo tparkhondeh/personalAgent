@@ -8,7 +8,7 @@ export default function NotFound() {
         <p className="eyebrow">مسیر نامعتبر</p>
         <h1>این صفحه پیدا نشد</h1>
         <p>ممکن است نشانی اشتباه باشد یا این بخش جابه‌جا شده باشد.</p>
-        <Link className="primary-button" href="/">بازگشت به همراه</Link>
+        <Link className="primary-button" href="/">بازگشت به tia</Link>
       </section>
     </main>
   );

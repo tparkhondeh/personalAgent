@@ -4,10 +4,11 @@ import { dirname, resolve } from "node:path";
 import { waitUntil } from "./qa-wait-until.mjs";
 import { verifyBarAppearance } from "./android-bar-appearance.mjs";
 import { contrastRatio } from "./color-contrast.mjs";
+import { persianSpeechFixtureQa } from "./android-persian-speech-qa.mjs";
 
 const packageName = process.argv[2];
 const outputPath = resolve(process.argv[3] || "artifacts/android/webview.json");
-const requiredText = process.argv[4] || "همراه";
+const requiredText = process.argv[4] || "tia";
 const action = process.argv[5] || "";
 
 if (!packageName) throw new Error("Android package name is required.");
@@ -55,13 +56,13 @@ async function inspect() {
     pending.delete(message.id);
     resolver(message);
   });
-  const evaluate = (expression = snapshotExpression) => new Promise((resolveResponse, rejectResponse) => {
+  const evaluate = (expression = snapshotExpression, timeoutMs = 15_000) => new Promise((resolveResponse, rejectResponse) => {
     requestId += 1;
     const currentId = requestId;
     const timeout = setTimeout(() => {
       pending.delete(currentId);
       rejectResponse(new Error("WebView evaluation timed out."));
-    }, 15_000);
+    }, timeoutMs);
     pending.set(currentId, (message) => {
       clearTimeout(timeout);
       resolveResponse(message);
@@ -213,15 +214,15 @@ async function inspect() {
       document.querySelector('[data-panel="assistant"]').click();
       assert(!document.querySelector('#assistant-input').disabled,'Local typing is disabled');
       assert(document.querySelector('#assistant-input').getBoundingClientRect().height<=60,'Composer is not initially one line');
+      const originalStart=MediaRecorder.prototype.start;let capturedBytes=0,capturedType='';
+      MediaRecorder.prototype.start=function(...args){this.addEventListener('dataavailable',event=>{capturedBytes+=event.data.size;capturedType=event.data.type;});return originalStart.apply(this,args);};
       document.querySelector('#voice-start').click();
       await waitUntil(()=>!document.querySelector('#voice-stop').hidden,'Real microphone did not enter recording');
       await new Promise(resolve=>setTimeout(resolve,900));
       document.querySelector('#voice-stop').click();
-      await waitUntil(()=>!document.querySelector('#voice-preview').hidden,'Real recording did not produce a preview');
-      const voiceAudio=document.querySelector('#voice-preview');
-      assert(voiceAudio.src.startsWith('blob:'),'Recording must remain local');
-      const voiceBlob=await fetch(voiceAudio.src).then(response=>response.blob());
-      assert(voiceBlob.size>100&&voiceBlob.type.startsWith('audio/'),'Recorded audio is empty or invalid');
+      await waitUntil(()=>capturedBytes>100,'Real recording did not produce audio');
+      MediaRecorder.prototype.start=originalStart;
+      assert(capturedType.startsWith('audio/'),'Recorded audio type is invalid');
       document.querySelector('#voice-cancel').click();
       assert(document.querySelector('#voice-preview').hidden&&!document.querySelector('#voice-start').hidden,'Voice cancellation did not reset recording');
       document.querySelector('#assistant-input').value='فردا ساعت پنج عصر جلسه با تیم فروش دارم؛ یک روز قبل، سه ساعت قبل و یک ساعت قبل یادم بنداز و آلارم هم بگذار.';
@@ -274,6 +275,13 @@ async function inspect() {
     mkdirSync(dirname(outputPath), { recursive: true });
     writeFileSync(outputPath.replace(/\.json$/, "-parity.json"), JSON.stringify(parity.result.result.value, null, 2));
     process.stdout.write(`Offline parity: ${JSON.stringify(parity.result.result.value)}\n`);
+    if(outputPath.endsWith('stable-local-fallback-webview.json')) {
+      const fixture=readFileSync('tests/fixtures/fa-welcome.wav').toString('base64');
+      const speech=await evaluate(`(${persianSpeechFixtureQa.toString()})(${JSON.stringify(fixture)},${waitUntil.toString()})`,180000);
+      if(speech.result.exceptionDetails)throw new Error('Persian speech QA failed: '+JSON.stringify(speech.result.exceptionDetails));
+      writeFileSync(outputPath.replace(/\.json$/,'-speech.json'),JSON.stringify(speech.result.result.value,null,2));
+      process.stdout.write('Real Persian recognition and recording-to-assistant fixture passed.\n');
+    }
     // A real emulator keyboard, not just a resized browser viewport.
     const keyboardSetup=await evaluate(`(async()=>{
       document.querySelector('[data-panel="assistant"]').click();

@@ -64,6 +64,7 @@ jobs:
         run: |
           pnpm install --frozen-lockfile
           pnpm db:generate
+          node scripts/prepare-local-speech.mjs
           SDKMANAGER="${ANDROID_SDK_ROOT:-$ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
           "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;35.0.0"
 
@@ -113,8 +114,8 @@ jobs:
         id: identity
         run: |
           package_id="ir.wealthos.personalagent.stable${GITHUB_RUN_NUMBER}"
-          app_name="همراه پایدار ${GITHUB_RUN_NUMBER}"
-          apk_name="Hamrah-stable-${GITHUB_RUN_NUMBER}.apk"
+          app_name="tia آزمایشی ${GITHUB_RUN_NUMBER}"
+          apk_name="tia-stable-${GITHUB_RUN_NUMBER}.apk"
           artifact_name="hamrah-stable-build-${GITHUB_RUN_ID}"
           export PREVIEW_PACKAGE_ID="$package_id"
           export PREVIEW_APP_NAME="$app_name"
@@ -340,7 +341,7 @@ jobs:
             "${screenshots[@]}" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "همراه پایدار آزمایشی ${GITHUB_RUN_NUMBER}" \
+            --title "tia آزمایشی ${GITHUB_RUN_NUMBER}" \
             --notes "همان APK منتشرشده روی Android 13، 14 و 16 نصب و Cold Launch شد. متن واقعی رابط محلی فارسی، اینترنت قطع، راه‌اندازی مجدد و صفحه بازیابی در خطای DNS، خاموشی سرور و SSL بررسی شده‌اند. سلامت Staging پایدار جداگانه بررسی می‌شود؛ شبکه GitHub پورت 8443 را مسدود می‌کند. این نسخه مستقل از تونل‌های موقت و Production اصلی است." \
             --prerelease
           download_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${tag}/${APK_NAME}"

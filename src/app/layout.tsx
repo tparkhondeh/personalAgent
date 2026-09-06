@@ -4,15 +4,15 @@ import "vazirmatn/Vazirmatn-Variable-font-face.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "همراه | دستیار شخصی هوشمند",
+  title: "tia | دستیار شخصی هوشمند",
   description: "مدیریت آرام و هوشمند کارها، جلسات و برنامه روزانه",
-  applicationName: "همراه",
+  applicationName: "tia",
   manifest: "/manifest.webmanifest",
   icons: {
     icon: [{ url: "/icon-192.png", sizes: "192x192", type: "image/png" }],
     apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
   },
-  appleWebApp: { capable: true, statusBarStyle: "default", title: "همراه" },
+  appleWebApp: { capable: true, statusBarStyle: "default", title: "tia" },
 };
 
 export const viewport: Viewport = {

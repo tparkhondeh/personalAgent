@@ -49,7 +49,8 @@ describe("offline Android mobile shell", () => {
     expect(recoveryHtml).not.toContain("fetch(\"./index.html\"");
     expect(recoveryHtml).toContain("window.HamrahOpenBundledInterface = openBundledInterface");
     expect(recoveryHtml).toContain('document.querySelector("#offline").addEventListener');
-    expect(recoveryHtml).not.toMatch(/https?:\/\//);
+    // localhost is the APK's private asset origin, not a server dependency.
+    expect(recoveryHtml.replaceAll('https://localhost','')).not.toMatch(/https?:\/\//);
     expect(capacitorConfig).toContain('errorPath: "connection-error.html"');
     expect(capacitorConfig).toContain('allowNavigation: ["localhost"]');
   });

@@ -1,4 +1,5 @@
 "use client";
+import { TiaMark } from "@/components/tia-mark";
 import { PersianDateField, Time24Field } from "@/components/persian-date-time";
 import { planInstant } from "@/lib/agent-planner";
 import { validTime24, persianParts } from "@/lib/persian-inputs";
@@ -84,7 +85,7 @@ function reminderOffsetsLabel(offsets: readonly number[]) {
 
 export function PersonalAgentDashboard() {
   const { data: session, isPending } = authClient.useSession();
-  if (isPending) return <main className="session-loading" role="status">در حال آماده‌سازی همراه…</main>;
+  if (isPending) return <main className="session-loading" role="status">در حال آماده‌سازی tia…</main>;
   // A new account boundary discards private in-memory state and late responses.
   // An authenticated component must never become the guest localStorage writer.
   return <SessionDashboard key={session?.user.id ? `user:${session.user.id}` : "guest"} session={session} />;
@@ -334,8 +335,8 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
   }, [view, filter, visible.length, loading]);
   return <main className="app-shell" data-view={view}>
     <aside className="sidebar">
-      <div className="brand"><span className="brand-mark">ه</span><div><strong>همراه</strong><small>دستیار شخصی تو</small></div></div>
-      <nav aria-label="ناوبری اصلی"><Nav active={view === "today"} label="امروز" onClick={() => { setView("today"); setFilter("all"); }} /><Nav active={view === "tasks"} label="کارها" badge={open} onClick={() => setView("tasks")} /><Nav active={view === "calendar"} label="تقویم" onClick={() => setView("calendar")} /><Nav active={view === "assistant"} label="همراه" onClick={() => setView("assistant")} /><button className="nav-button sidebar-add" aria-label="برنامه جدید" title="برنامه جدید" onClick={() => openComposer()}><ActionIcon name="plus" /></button></nav>
+      <div className="brand"><TiaMark/><div><strong dir="ltr">tia</strong><small>دستیار شخصی تو</small></div></div>
+      <nav aria-label="ناوبری اصلی"><Nav active={view === "today"} label="امروز" onClick={() => { setView("today"); setFilter("all"); }} /><Nav active={view === "tasks"} label="کارها" badge={open} onClick={() => setView("tasks")} /><Nav active={view === "calendar"} label="تقویم" onClick={() => setView("calendar")} /><Nav active={view === "assistant"} label="tia" onClick={() => setView("assistant")} /><button className="nav-button sidebar-add" aria-label="برنامه جدید" title="برنامه جدید" onClick={() => openComposer()}><ActionIcon name="plus" /></button></nav>
       <div className="sidebar-section"><span className="section-label">فضاها</span>{(Object.keys(categories) as Category[]).map((key) => <button className="space-button" key={key} onClick={() => { setView("tasks"); setFilter(key); }}><i className={categories[key][1]} />{categories[key][0]}<small>{items.filter((item) => item.category === key && !item.done).length}</small></button>)}</div>
       <div className="profile"><div className="avatar">{session?.user.name?.slice(0, 1) || "ه"}</div><div><strong>{session?.user.name || "نسخه آزمایشی"}</strong><small>{signedIn ? "حساب متصل است" : "برای ذخیره دائمی وارد شو"}</small></div>{signedIn ? <button aria-label="خروج" title="خروج" onClick={() => authClient.signOut()}>خروج</button> : <Link className="login-link" href="/login">ورود</Link>}</div>
     </aside>
@@ -360,7 +361,7 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
         </section>
       </>}
     </section>
-    <nav className="mobile-nav"><Nav active={view === "today"} label="امروز" onClick={() => { setView("today"); setFilter("all"); }} /><Nav active={view === "tasks"} label="کارها" onClick={() => setView("tasks")} /><button className="mobile-add" aria-label="برنامه جدید" title="برنامه جدید" onClick={() => openComposer()}><ActionIcon name="plus" /></button><Nav active={view === "calendar"} label="تقویم" onClick={() => setView("calendar")} /><Nav active={view === "assistant"} label="همراه" onClick={() => setView("assistant")} /></nav>
+    <nav className="mobile-nav"><Nav active={view === "today"} label="امروز" onClick={() => { setView("today"); setFilter("all"); }} /><Nav active={view === "tasks"} label="کارها" onClick={() => setView("tasks")} /><button className="mobile-add" aria-label="برنامه جدید" title="برنامه جدید" onClick={() => openComposer()}><ActionIcon name="plus" /></button><Nav active={view === "calendar"} label="تقویم" onClick={() => setView("calendar")} /><Nav active={view === "assistant"} label="tia" onClick={() => setView("assistant")} /></nav>
     {composer && <Composer initial={editing} initialDate={composerDate} defaultReminderOffsets={preferences?.defaultReminderOffsets ?? defaultPreferences.defaultReminderOffsets} onClose={closeComposer} onSubmit={save} />}
     {notificationCenter && <NotificationCenter notifications={notifications} signedIn={signedIn} pushStatus={notificationStatus} onClose={() => setNotificationCenter(false)} onEnablePush={() => void enableNotifications()} onRead={(id) => void markNotificationsRead(id)} />}
   </main>;

@@ -184,7 +184,7 @@ public class MainActivity extends BridgeActivity {
 
         FrameLayout overlay = new FrameLayout(this);
         overlay.setBackgroundColor(Color.parseColor("#F7F7FF"));
-        overlay.setContentDescription("در حال آماده‌سازی همراه");
+        overlay.setContentDescription("در حال آماده‌سازی tia");
         overlay.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
 
         LinearLayout content = new LinearLayout(this);
@@ -198,7 +198,7 @@ public class MainActivity extends BridgeActivity {
 
         TextView label = new TextView(this);
         loadingLabel = label;
-        label.setText("در حال آماده‌سازی همراه");
+        label.setText("در حال آماده‌سازی tia");
         label.setTextColor(Color.parseColor("#303448"));
         label.setTextSize(16);
         label.setGravity(Gravity.CENTER);
@@ -322,6 +322,19 @@ public class MainActivity extends BridgeActivity {
 
         @Override
         public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+            // Public, fixed APK assets only. Remote documents may read these weights,
+            // never files, cookies or audio. TLS validation for remote pages is unchanged.
+            String speechPath = request.getUrl().toString().replace(bundledOrigin() + "/speech/", "");
+            if (request.getMethod().equals("GET") && request.getUrl().toString().startsWith(bundledOrigin() + "/speech/")
+                && (speechPath.equals("vosk-0.0.8.js") || speechPath.equals("fa-0.42.tar.gz"))) {
+                try {
+                    java.util.Map<String, String> headers = new java.util.HashMap<>();
+                    headers.put("Access-Control-Allow-Origin", "*");
+                    headers.put("Cache-Control", "public, max-age=31536000, immutable");
+                    return new WebResourceResponse(speechPath.endsWith(".js") ? "application/javascript" : "application/gzip",
+                        speechPath.endsWith(".js") ? "UTF-8" : null, 200, "OK", headers, getAssets().open("public/speech/" + speechPath));
+                } catch (Exception error) { Logger.warn("TiaSpeech", "Bundled speech asset unavailable."); }
+            }
             String localFontUrl = bundledOrigin() + "/Vazirmatn.woff2";
             if (request.getMethod().equals("GET") && request.getUrl().toString().equals(localFontUrl)) {
                 try {
