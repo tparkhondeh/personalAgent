@@ -89,7 +89,7 @@ const inputsSource=await readFile(path.join(projectRoot,"src/lib/persian-inputs.
 const inputsJs=ts.transpileModule(inputsSource.replace(/^export /gm,""),{compilerOptions:{target:ts.ScriptTarget.ES2020,module:ts.ModuleKind.None}}).outputText;
 const inputsScript=`window.HamrahInputs=(()=>{${inputsJs}\nreturn {dateInputValue,parsePersianInput,persianParts,persianMonths,persianMonthGrid,inputDigits,faDigits,validTime24,jalaliToIso};})();`;
 const inputControls=await readFile(path.join(mobileRoot,"input-controls.js"),"utf8");
-const plannerScript = `${inputsScript}\nwindow.HamrahPlanner=(()=>{${plannerJs}\nreturn {planPersian,planInstant,inspectPlan,dateParts,planOccurrences,plannedReminderTimes,normalizePlanForReview};})();\n`;
+const plannerScript = `${inputsScript}\nwindow.HamrahPlanner=(()=>{${plannerJs}\nreturn {planPersian,planInstant,inspectPlan,dateParts,planOccurrences,plannedReminderTimes,normalizePlanForReview,approvalSummary};})();\n`;
 await writeFile(path.join(mobileRoot,"planner.js"),plannerScript);
 const bundledDocument = indexHtml
   .replace('<link rel="stylesheet" href="./app.css" />', () => `<style>${appStyles}\n${sharedTheme}</style>`)

@@ -1,9 +1,9 @@
 "use client";
 import Link from "next/link";
 import { PersianDateField, Time24Field } from "@/components/persian-date-time";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { authClient } from "@/lib/auth-client";
-import { type Plan, type PlanningItem } from "@/lib/agent-planner";
+import { approvalSummary, type Plan, type PlanningItem } from "@/lib/agent-planner";
 import { VoiceInput } from "@/components/voice-input";
 import { syncApprovedDeviceReminders } from "@/lib/approved-device-reminders";
 
@@ -13,9 +13,21 @@ const operations = { CREATE: "ایجاد", UPDATE: "ویرایش", COMPLETE: "ت
 export function AgentAssistant({ onAdd, onChanged }: { onAdd: () => void; onChanged: () => Promise<void> }) {
   const {data:session}=authClient.useSession();
   const [attempted,setAttempted]=useState(false);
+  const review=useRef<HTMLElement>(null);
   const [input,setInput]=useState(""),[reply,setReply]=useState(""),[status,setStatus]=useState(""),[pending,setPending]=useState(false);
   const [draft,setDraft]=useState<Draft|null>(null),[edit,setEdit]=useState<Plan|null>(null),[conversationId,setConversationId]=useState<string>();
   const [candidates,setCandidates]=useState<PlanningItem[]>([]),[mode,setMode]=useState("local"),[external,setExternal]=useState(false),[online,setOnline]=useState(false),[voice,setVoice]=useState(false);
+  useEffect(()=>{if(draft)review.current?.scrollIntoView({block:"start"});},[draft]);
+  const editing=Boolean(edit);
+  useEffect(()=>{const viewport=window.visualViewport;let frame=0;const resize=()=>{
+    cancelAnimationFrame(frame);frame=requestAnimationFrame(()=>{
+      const root=review.current;if(!root)return;
+      root.style.setProperty("--review-viewport",`${viewport?.height??window.innerHeight}px`);
+      if(editing)root.scrollIntoView({block:"start"});
+      const editor=root.querySelector<HTMLElement>(".approval-editor");
+      if(editor)root.style.setProperty("--editor-available",`${Math.max(80,(viewport?.height??window.innerHeight)+(viewport?.offsetTop??0)-editor.getBoundingClientRect().top-96)}px`);
+    });
+  };resize();viewport?.addEventListener("resize",resize);return()=>{cancelAnimationFrame(frame);viewport?.removeEventListener("resize",resize);};},[draft,editing]);
   useEffect(()=>{if(!session)return;let active=true;void fetch("/api/integrations",{cache:"no-store"}).then(r=>r.json()).then(b=>{if(active){setOnline(b.data?.llm?.mode==="configured");setVoice(Boolean(b.data?.voice?.enabled));}}).catch(()=>{});return()=>{active=false;};},[session]);
   async function send(event:FormEvent) {
     event.preventDefault();if(!input.trim()||pending)return;setPending(true);setStatus("");setAttempted(false);
@@ -27,7 +39,7 @@ export function AgentAssistant({ onAdd, onChanged }: { onAdd: () => void; onChan
   }
   async function act(action:"edit"|"confirm"|"cancel") {
     if(!draft||pending)return;
-    if(action==="confirm"&&draft.preview.questions.length){setAttempted(true);setStatus(draft.preview.questions[0]);return;}
+    if(action==="confirm"&&draft.preview.questions.length){setAttempted(true);setEdit(structuredClone(draft.plan));setStatus(draft.preview.questions[0]);return;}
     setPending(true);setStatus("");
     try {
       const response=await fetch(`/api/agent/drafts/${draft.id}`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action,revision:draft.revision,...(action==="edit"?{plan:edit}:action==="confirm"?{confirmed:true}:{})}),signal:AbortSignal.timeout(20000)});
@@ -43,6 +55,7 @@ export function AgentAssistant({ onAdd, onChanged }: { onAdd: () => void; onChan
   }
   function change<K extends keyof Plan>(key:K,value:Plan[K]){if(edit)setEdit({...edit,[key]:value});}
   const p=edit??draft?.plan;
+  const summary=p?approvalSummary(p):null;
   const fieldError=(pattern:RegExp)=>attempted&&draft?.preview.questions.find(q=>pattern.test(q));
   const format=(value:string)=>new Intl.DateTimeFormat("fa-IR",{timeZone:p?.timezone??"Asia/Tehran",dateStyle:"medium",timeStyle:"short",hourCycle:"h23",calendar:"persian"}).format(new Date(value));
   return <section className="assistant-panel" aria-label="گفتگو با همراه">
@@ -50,8 +63,17 @@ export function AgentAssistant({ onAdd, onChanged }: { onAdd: () => void; onChan
     <div className="suggestions"><button onClick={onAdd}>ثبت دستی</button><button onClick={()=>setInput("برنامه امروز من را خلاصه کن")}>خلاصه امروز</button></div>
     <p className="agent-mode">{mode==="online"?"پاسخ واقعی OpenAI":mode==="local-fallback"?"سرویس پاسخ نداد؛ پردازش محلی":mode==="local-budget-limit"?"سقف مصرف رسیده؛ پردازش محلی":"پردازش محلی؛ بدون ارسال متن به سرویس خارجی"}</p>
     {online && <label className="agent-toggle"><input type="checkbox" checked={external} onChange={e=>setExternal(e.target.checked)} />با ارسال پیام و اطلاعات مرتبط برنامه‌ام به OpenAI موافقم.</label>}
-    {reply && <div className="agent-response"><p>{reply}</p></div>}
-    {draft && p && <section className="agent-review" aria-label="پیش‌نمایش تأیید"><h2>بررسی پیش از {operations[p.operation]}</h2><p>نسخه {draft.revision} — هنوز اجرا نشده</p>
+    {reply && !draft && <div className="agent-response"><p>{reply}</p></div>}
+    {draft && p && summary && <section ref={review} className="agent-review compact-review" aria-label="پیش‌نمایش تأیید"><h2>بررسی پیش از {operations[p.operation]}</h2>
+      <div className="approval-summary" aria-label="خلاصه پیشنهاد">
+        <h3>{p.title||"عنوان تعیین نشده"}</h3><p>{summary.category} · {summary.priority} · {summary.when}</p>
+        <p>یادآوری: {summary.reminders}</p><p>هشدار: {summary.channels}</p>
+        {summary.recurrence&&<p>تکرار برنامه: {summary.recurrence}</p>}{summary.followUp&&<p>{summary.followUp}</p>}
+        {p.operation==="DELETE"&&<p className="agent-question">این تأیید، مورد انتخاب‌شده را حذف و هشدارهای آن را لغو می‌کند.</p>}
+        {!edit&&draft.preview.warnings.map((w,i)=><p className="approval-warning" key={i}>{w}</p>)}
+      </div>
+      <div className="agent-actions approval-actions">{edit && JSON.stringify(edit)!==JSON.stringify(draft.plan)?<button disabled={pending} onClick={()=>void act("edit")}>بررسی تغییرات</button>:<><button disabled={pending} onClick={()=>void act("confirm")}>ثبت</button><button disabled={pending} onClick={()=>setEdit(edit?null:structuredClone(draft.plan))}>{edit?"بستن ویرایش":"ویرایش"}</button></>}<button disabled={pending} onClick={()=>void act("cancel")}>انصراف</button></div>
+      <details className="approval-details" open={Boolean(edit)}><summary onClick={e=>{e.preventDefault();setEdit(edit?null:structuredClone(draft.plan));}}>جزئیات بیشتر</summary><div className="approval-editor">
       <fieldset disabled={!edit || pending}><div className="agent-grid">
         <label>عنوان<input value={p.title} maxLength={180} onChange={e=>change("title",e.target.value)} />{fieldError(/عنوان/)&&<small className="field-error">{fieldError(/عنوان/)}</small>}</label>
         <label>دسته‌بندی<select value={p.entity==="MEETING"?"MEETING":p.category} onChange={e=>{if(edit)setEdit({...edit,entity:e.target.value==="MEETING"?"MEETING":"TASK",category:e.target.value==="MEETING"?edit.category:e.target.value as Plan["category"]});}}>{(p.operation==="CREATE"||p.entity==="TASK")&&<><option value="PERSONAL">شخصی</option><option value="WORK">شرکتی</option></>}{(p.operation==="CREATE"||p.entity==="MEETING")&&<option value="MEETING">جلسه</option>}</select></label>
@@ -69,7 +91,8 @@ export function AgentAssistant({ onAdd, onChanged }: { onAdd: () => void; onChan
       <div className="reminder-options">{Object.entries(channels).map(([value,label])=><label key={value}><input type="checkbox" checked={p.channels.includes(value as Plan["channels"][number])} onChange={e=>change("channels",e.target.checked?[...p.channels,value as Plan["channels"][number]]:p.channels.filter(c=>c!==value))}/>{label}</label>)}</div>
       <label className="agent-toggle"><input type="checkbox" checked={p.escalation} onChange={e=>change("escalation",e.target.checked)}/>تشدید هشدار فوری پس از موعد</label></fieldset>
       {!edit && <>{draft.preview.instant && <p>زمان دقیق: {format(draft.preview.instant)}</p>}<p>{p.defaults.join("؛ ")}</p>{draft.preview.questions.map((q,i)=><p className="agent-question" key={i}>{q}</p>)}{draft.preview.warnings.map((w,i)=><p key={i}>{w}</p>)}<ul className="agent-schedule">{draft.preview.schedule.map((s,i)=><li key={i}>{channels[s.channel as keyof typeof channels]}: {format(s.scheduledFor)}</li>)}</ul></>}
-      <div className="agent-actions">{edit && JSON.stringify(edit)!==JSON.stringify(draft.plan)?<button disabled={pending} onClick={()=>void act("edit")}>ذخیره و نمایش پیش‌نمایش تازه</button>:<><button disabled={pending} onClick={()=>void act("confirm")}>ثبت</button><button disabled={pending} onClick={()=>setEdit(structuredClone(draft.plan))}>ویرایش</button></>}<button disabled={pending} onClick={()=>void act("cancel")}>انصراف</button></div>
+      {edit&&draft.preview.questions.map((q,i)=><p className="agent-question" key={i}>{q}</p>)}
+      </div></details>
     </section>}
     {status && <p role="status" className="agent-status">{status}</p>}
     <VoiceInput enabled={voice} disabled={!session||pending} onText={setInput}/>

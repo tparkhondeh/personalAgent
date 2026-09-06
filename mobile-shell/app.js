@@ -174,6 +174,7 @@
   function planningItems() { return tasks.filter(t=>!t.done && !t.archived).map(t=>({id:t.id,title:t.title,entity:t.category==="meeting"?"MEETING":"TASK",category:t.category==="company"?"WORK":"PERSONAL",priority:t.priority.toUpperCase(),alertPolicy:t.approvedPlan?JSON.stringify(t.approvedPlan):null,dueAt:t.deadline,startsAt:t.category==="meeting"?t.deadline:null,endsAt:t.endsAt,updatedAt:t.updatedAt||t.id})); }
   function showAgentDraft(extraMessage = "") {
     const root=$("#assistant-result"); root.hidden=false;
+    const detailsWereOpen=Boolean(root.querySelector('.approval-details')?.open);
     if(!agentDraft){root.textContent=extraMessage;return;}
     const p=planner.normalizePlanForReview(agentDraft.plan,planningItems()), check=planner.inspectPlan(p,new Date(),planningItems());
     check.questions.push(...(agentDraft.questions||[]));
@@ -193,10 +194,24 @@
     categorySelect.value=p.entity==="MEETING"?"MEETING":p.category;categorySelect.onchange=()=>{p.entity=categorySelect.value==="MEETING"?"MEETING":"TASK";if(p.entity==="TASK")p.category=categorySelect.value;changed();};categoryLabel.append(categorySelect);grid.append(categoryLabel);
     for(const [key,label] of [["date","تاریخ شمسی"],["time","ساعت ۲۴ساعته"]]){const wrapper=document.createElement("label");wrapper.textContent=label;const control=document.createElement("span");wrapper.append(control);grid.append(wrapper);window.HamrahControls[key](control,p[key],v=>{p[key]=v;if(key==="time")p.ambiguousTime=null;changed();});}
     const actions=root.querySelector(".settings-actions"), editButton=document.createElement("button");
-    editButton.className="secondary";editButton.textContent="ویرایش";editButton.onclick=()=>root.querySelector('[data-plan="title"]').focus();actions.insertBefore(editButton,$("#local-plan-cancel"));
+    editButton.className="secondary";editButton.textContent="ویرایش";editButton.onclick=()=>{root.querySelector('.approval-details').open=true;root.scrollIntoView({block:'start'});root.querySelector('[data-plan="title"]').focus();resizeApproval();};actions.insertBefore(editButton,$("#local-plan-cancel"));
     const timeline=document.createElement("ul"), localTime=new Intl.DateTimeFormat("fa-IR",{timeZone:p.timezone,dateStyle:"medium",timeStyle:"short",hourCycle:"h23",calendar:"persian"});
     for(const entry of planner.plannedReminderTimes(p)){const line=document.createElement("li");line.textContent=entry.offset+" دقیقه قبل: "+localTime.format(new Date(entry.scheduledFor));timeline.appendChild(line);}actions.before(timeline);
     if(p.channels.some(c=>c==="PUSH"||c==="IN_APP")){const note=document.createElement("p");note.textContent="Push و مرکز اعلان حساب در حالت محلی فعال نیستند؛ Notification و Alarm به اجازه دستگاه نیاز دارند.";actions.before(note);}
+    // Keep confirmation beside the complete summary; only the editor scrolls.
+    const details=document.createElement('details');details.className='approval-details';details.open=detailsWereOpen;
+    const more=document.createElement('summary');more.textContent='جزئیات بیشتر';details.append(more);
+    const editor=document.createElement('div');editor.className='approval-editor';details.append(editor);
+    const statusNode=$('#local-plan-status');
+    for(const node of [...root.childNodes])if(node!==actions&&node!==statusNode)editor.append(node);
+    root.classList.add('compact-review');actions.classList.add('approval-actions');
+    const summary=planner.approvalSummary(p), compact=document.createElement('div');compact.className='approval-summary';compact.setAttribute('aria-label','خلاصه پیشنهاد');
+    const operationTitle=document.createElement('h3');operationTitle.textContent=({CREATE:'بررسی پیش از ایجاد',UPDATE:'بررسی پیش از ویرایش',COMPLETE:'بررسی پیش از تکمیل',DELETE:'بررسی پیش از حذف و بایگانی'})[p.operation];
+    compact.innerHTML='<h3>'+escapeText(p.title||'عنوان تعیین نشده')+'</h3><p>'+escapeText(summary.category+' · '+summary.priority+' · '+summary.when)+'</p><p>یادآوری: '+escapeText(summary.reminders)+'</p><p>هشدار: '+escapeText(summary.channels)+'</p>'+(summary.recurrence?'<p>تکرار برنامه: '+escapeText(summary.recurrence)+'</p>':'')+(summary.followUp?'<p>'+escapeText(summary.followUp)+'</p>':'');
+    for(const warning of [...check.warnings,...(p.channels.some(c=>c==='PUSH'||c==='IN_APP')?['Push و مرکز اعلان حساب در حالت محلی فعال نیستند.']:[]),...(p.operation==='DELETE'?['این تأیید، مورد انتخاب‌شده را حذف و هشدارهای آن را لغو می‌کند.']:[])]){const note=document.createElement('p');note.className='approval-warning';note.textContent=warning;compact.append(note);}
+    for(const m of p.reminderOffsets.filter(m=>![1440,180,60].includes(m))){const label=document.createElement('label');const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.checked=true;checkbox.dataset.offset=String(m);label.append(checkbox,document.createTextNode(toFa(m)+' دقیقه قبل'));editor.append(label);}
+    root.replaceChildren(operationTitle,compact,actions,details,statusNode);
+    details.addEventListener('toggle',resizeApproval);resizeApproval();
     root.querySelectorAll("[data-plan],[data-offset],[data-channel],#local-escalation").forEach(input=>input.addEventListener("change",()=>{
       if(input.dataset.plan) {const key=input.dataset.plan;p[key]=["durationMinutes","occurrenceCount","repeatCount","repeatMinutes"].includes(key)?(input.value?Number(input.value):null):input.value;}
       if(input.dataset.offset){const m=Number(input.dataset.offset);p.reminderOffsets=input.checked?[...new Set([...p.reminderOffsets,m])].sort((a,b)=>b-a):p.reminderOffsets.filter(v=>v!==m);}
@@ -212,6 +227,7 @@
         if(!stored||stored.id!==agentDraft.id||stored.revision!==agentDraft.revision||stored.status!=="PENDING")throw new Error("نسخه پیشنهاد تغییر کرده است.");
         const errors=[...planner.inspectPlan(p,new Date(),planningItems()).questions,...(agentDraft.questions||[])];
         if(errors.length){
+          details.open=true;
           root.querySelectorAll("[data-approval-error]").forEach(e=>e.remove());
           for(const [selector,pattern] of [['[data-plan="title"]',/عنوان/],['input[aria-label="تاریخ شمسی"]',/تاریخ|روز/],['input[aria-label="ساعت ۲۴ساعته"]',/ساعت|زمان/],['[data-plan="repeatCount"]',/تعداد هشدار/],['[data-plan="repeatMinutes"]',/فاصله هشدار/],['[data-plan="occurrenceCount"]',/نوبت/]]){
             const message=errors.find(e=>pattern.test(e)),field=root.querySelector(selector);
@@ -244,7 +260,10 @@
     if(!result.plan){agentDraft=null;showAgentDraft(result.reply);return;}
     agentDraft={id:agentDraft?.status==="PENDING"?agentDraft.id:crypto.randomUUID(),revision:(agentDraft?.revision||0)+1,status:"PENDING",plan:result.plan,questions:result.questions.filter(q=>/چند درخواست|تاریخ شمسی/.test(q))};
     localStorage.setItem(draftKey,JSON.stringify(agentDraft));$("#assistant-input").value="";showAgentDraft(result.reply);
+    $("#assistant-input").blur();requestAnimationFrame(()=>$("#assistant-result").scrollIntoView({block:"start"}));
   }
+  function resizeApproval(){requestAnimationFrame(()=>{const root=$('#assistant-result'),v=window.visualViewport;root.style.setProperty('--review-viewport',`${v?.height||window.innerHeight}px`);const editor=root.querySelector('.approval-editor');if(root.querySelector('.approval-details')?.open){root.scrollIntoView({block:'start'});root.style.setProperty('--editor-available',`${Math.max(80,(v?.height||window.innerHeight)+(v?.offsetTop||0)-editor.getBoundingClientRect().top-96)}px`);}});}
+  window.visualViewport?.addEventListener('resize',resizeApproval);
   $("#assistant-send").addEventListener("click", replyToMessage);
   $("#assistant-summary").addEventListener("click", () => { $("#assistant-input").value = "برنامه امروز من را خلاصه کن"; replyToMessage(); });
   $("#assistant-free-time").addEventListener("click", () => { $("#assistant-input").value = "برای زمان آزاد پیشنهاد بده"; replyToMessage(); });

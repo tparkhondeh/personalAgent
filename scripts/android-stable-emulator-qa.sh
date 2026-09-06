@@ -22,6 +22,12 @@ collect_evidence() {
 }
 trap collect_evidence EXIT
 
+capture_verified() {
+  local label="$1"
+  adb exec-out screencap -p > "$evidence_dir/android-${api_level}-${label}.png"
+  node scripts/android-system-ui-check.mjs "$evidence_dir/${label}-system-ui"
+}
+
 launch_and_verify() {
   local label="$1"
   local expected="$2"
@@ -31,7 +37,7 @@ launch_and_verify() {
   adb shell am start -W -n "$activity_name" | tee "$evidence_dir/${label}-launch.txt"
   sleep 6
   node scripts/android-webview-inspect.mjs "$package_name" "$evidence_dir/${label}-webview.json" "$expected" "$action"
-  adb exec-out screencap -p > "$evidence_dir/android-${api_level}-${label}.png"
+  capture_verified "$label"
   adb logcat -d > "$evidence_dir/${label}-logcat.txt"
   if grep -E "FATAL EXCEPTION|Fatal signal|SIGSEGV|Uncaught (TypeError|ReferenceError|SyntaxError)|SSL.*proceed" "$evidence_dir/${label}-logcat.txt"; then
     echo "A fatal Android, JavaScript, renderer or unsafe SSL error was found in $label." >&2
@@ -56,7 +62,7 @@ else
   launch_and_verify "stable-runner-network-recovery" "اتصال برقرار نشد"
   node scripts/android-webview-inspect.mjs \
     "$package_name" "$evidence_dir/stable-runner-local-fallback-webview.json" "برنامه‌های من" "open-offline"
-  adb exec-out screencap -p > "$evidence_dir/android-${api_level}-stable-runner-local-fallback.png"
+  capture_verified stable-runner-local-fallback
 fi
 
 adb install -r "$test_apk"
@@ -67,12 +73,12 @@ grep -Fq "OK (" "$evidence_dir/instrumented-tests.txt"
 adb shell settings put global http_proxy 127.0.0.1:9
 launch_and_verify "stable-offline" "اتصال برقرار نشد"
 node scripts/android-webview-inspect.mjs "$package_name" "$evidence_dir/stable-local-fallback-webview.json" "برنامه‌های من" "open-offline"
-adb exec-out screencap -p > "$evidence_dir/android-${api_level}-stable-local-fallback.png"
+capture_verified stable-local-fallback
 launch_and_verify "stable-offline-relaunch" "اتصال برقرار نشد"
 adb shell cmd uimode night yes
 launch_and_verify "stable-dark-offline" "اتصال برقرار نشد"
 node scripts/android-webview-inspect.mjs "$package_name" "$evidence_dir/stable-dark-local-webview.json" "برنامه‌های من" "open-offline"
-adb exec-out screencap -p > "$evidence_dir/android-${api_level}-stable-dark-local.png"
+capture_verified stable-dark-local
 adb shell cmd uimode night no
 
 adb shell settings put global http_proxy :0 || true
@@ -102,7 +108,7 @@ else
   launch_and_verify "stable-restored-recovery" "اتصال برقرار نشد"
   node scripts/android-webview-inspect.mjs \
     "$package_name" "$evidence_dir/stable-restored-local-webview.json" "برنامه‌های من" "open-offline"
-  adb exec-out screencap -p > "$evidence_dir/android-${api_level}-stable-restored-local.png"
+  capture_verified stable-restored-local
 fi
 
 printf 'Android %s passed: real Persian UI, offline relaunch, DNS, server-down and SSL recovery.\n' "$api_level" \

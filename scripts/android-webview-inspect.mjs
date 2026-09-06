@@ -164,6 +164,14 @@ async function inspect() {
       assert(window.HamrahInputs.inputDigits(document.querySelector('#assistant-result input[aria-label="ساعت ۲۴ساعته"]').value)==='17:00','Afternoon time extraction failed');
       assert(!document.querySelector('[data-plan="durationMinutes"],[data-plan="quietStart"],[data-plan="quietEnd"],[data-plan="operation"],[data-plan="entity"]'),'Removed controls remain');
       assert(!document.querySelector('#local-plan-confirm').disabled,'Unchanged proposal must be confirmable');
+      const review=document.querySelector('#assistant-result');
+      assert(!review.querySelector('.approval-details').open,'Long editor must start collapsed');
+      assert(review.querySelector('.approval-summary').textContent.includes('۳ ساعت قبل'),'Selected reminders missing from compact summary');
+      assert(review.querySelector('.approval-summary').textContent.includes('Alarm'),'Selected alarm hidden before confirmation');
+      await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+      const submitRect=document.querySelector('#local-plan-confirm').getBoundingClientRect();
+      assert(submitRect.top>=0&&submitRect.bottom<innerHeight-65,'Confirmation button is outside the usable viewport');
+      review.querySelector('.approval-details').open=true;
       const titleInput=document.querySelector('[data-plan="title"]');titleInput.value='جلسه با تیم فروش تهران';titleInput.dispatchEvent(new Event('change',{bubbles:true}));
       assert(document.querySelector('[data-plan="title"]').value==='جلسه با تیم فروش تهران','Title edit was lost');
       document.querySelector('#local-plan-cancel').click();
@@ -193,12 +201,48 @@ async function inspect() {
       document.querySelector('#local-plan-cancel').click();
       document.querySelector('[data-panel="today"]').click();
       await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
-      return { poem: true, gregorianDate: true, persianFont: true, nativeReminders: 3, cancellation: true, sharedPalette:true, persianPlanner:true, editableApproval:true, noEffectsBeforeConfirmation:true, approvedChannelIsolation:true, jalaliPicker:true, clock24:true, simplifiedApproval:true };
+      return { poem: true, gregorianDate: true, persianFont: true, nativeReminders: 3, cancellation: true, sharedPalette:true, persianPlanner:true, editableApproval:true, noEffectsBeforeConfirmation:true, approvedChannelIsolation:true, jalaliPicker:true, clock24:true, simplifiedApproval:true, compactApproval:true };
     })()`);
     if (parity?.result?.exceptionDetails) throw new Error(`Offline feature QA failed: ${JSON.stringify(parity.result.exceptionDetails)}`);
     mkdirSync(dirname(outputPath), { recursive: true });
     writeFileSync(outputPath.replace(/\.json$/, "-parity.json"), JSON.stringify(parity.result.result.value, null, 2));
     process.stdout.write(`Offline parity: ${JSON.stringify(parity.result.result.value)}\n`);
+    // A real emulator keyboard, not just a resized browser viewport.
+    const keyboardSetup=await evaluate(`(async()=>{
+      document.querySelector('[data-panel="assistant"]').click();
+      document.querySelector('#assistant-input').value='پس فردا ساعت 17 بررسی کیبورد بساز';
+      document.querySelector('#assistant-send').click();
+      const review=document.querySelector('#assistant-result');review.querySelector('.approval-details').open=true;
+      await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+      const field=review.querySelector('[data-plan="title"]');field.scrollIntoView({block:'nearest'});
+      const b=field.getBoundingClientRect();return {x:b.x+b.width/2,y:b.y+b.height/2,w:innerWidth,h:innerHeight};
+    })()`);
+    if(keyboardSetup.result.exceptionDetails)throw new Error('Keyboard setup failed');
+    const point=keyboardSetup.result.result.value;
+    adb('shell','uiautomator','dump','/sdcard/hamrah-keyboard-window.xml');
+    const tree=adb('exec-out','cat','/sdcard/hamrah-keyboard-window.xml');
+    writeFileSync(outputPath.replace(/\.json$/,'-keyboard-before.xml'),tree);
+    const webNode=[...tree.matchAll(/<node\s[^>]+/g)].map(m=>m[0]).find(n=>n.includes('class="android.webkit.WebView"'));
+    const bounds=webNode?.match(/bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/);
+    if(!bounds)throw new Error('Cannot locate real WebView bounds for keyboard tap');
+    const x=Math.round(+bounds[1]+point.x*(+bounds[3]- +bounds[1])/point.w),y=Math.round(+bounds[2]+point.y*(+bounds[4]- +bounds[2])/point.h);
+    adb('shell','input','tap',String(x),String(y));
+    let ime='';for(let attempt=0;attempt<5;attempt++){await delay(1000);ime=adb('shell','dumpsys','input_method');if(/(?:mInputShown|mIsInputViewShown|isInputViewShown)=true/.test(ime))break;}
+    writeFileSync(outputPath.replace(/\.json$/,'-keyboard-ime.txt'),ime);
+    if(!/(?:mInputShown|mIsInputViewShown|isInputViewShown)=true/.test(ime))throw new Error('Real Android keyboard did not open');
+    const keyboardCheck=await evaluate(`(()=>{
+      const button=document.querySelector('#local-plan-confirm'),field=document.querySelector('[data-plan="title"]');
+      const b=button.getBoundingClientRect(),f=field.getBoundingClientRect(),nav=document.querySelector('.bottom-nav').getBoundingClientRect();
+      const bottom=Math.min(visualViewport?.height||innerHeight,nav.top);
+      return {keyboard:true,active:document.activeElement===field,buttonVisible:b.top>=0&&b.bottom<bottom,inputVisible:f.top>=0&&f.bottom<bottom,bottom,buttonBottom:b.bottom,inputBottom:f.bottom};
+    })()`);
+    const keyboard=keyboardCheck.result.result.value;
+    writeFileSync(outputPath.replace(/\.json$/,'-keyboard.json'),JSON.stringify(keyboard));
+    writeFileSync(outputPath.replace(/\.json$/,'-keyboard.png'),execFileSync('adb',['exec-out','screencap','-p']));
+    execFileSync(process.execPath,['scripts/android-system-ui-check.mjs',outputPath.replace(/\.json$/,'-keyboard-system-ui')],{stdio:'inherit'});
+    if(!keyboard?.active||!keyboard.buttonVisible||!keyboard.inputVisible)throw new Error(`Keyboard obscures confirmation or input: ${JSON.stringify(keyboard)}`);
+    adb('shell','input','keyevent','KEYCODE_BACK');
+    await evaluate(`document.querySelector('#local-plan-cancel').click();document.querySelector('[data-panel="today"]').click();`);
   }
   socket.close();
 

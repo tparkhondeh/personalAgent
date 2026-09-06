@@ -71,21 +71,41 @@ function extractPersianTitle(message) {
         return named[1].trim().slice(0, 180);
     const n = "(?:[0-9۰-۹٠-٩]+|بیست(?:\\s+و\\s+(?:یک|دو|سه))?|دوازده|یازده|سیزده|چهارده|پانزده|شانزده|هفده|هجده|نوزده|ده|نه|هشت|هفت|شش|پنج|چهار|سه|دو|یک|صفر)";
     const clock = new RegExp("ساعت\\s*" + n + "(?::[0-9۰-۹٠-٩]{1,2}|\\s+و\\s+(?:نیم|ربع|" + n + ")(?:\\s+دقیقه)?)?(?:\\s*(?:بعد از ظهر|بعدازظهر|بامداد|عصر|صبح|ظهر|شب))?", "g");
-    // A leading reminder verb introduces the subject; only a later reminder clause ends it.
-    text = withoutLeadingReminder(text);
-    text = text.split(/[؛;\n]/)[0].split(/(?:یادم|یادآور|یادآوری|آلارم|الارم|هشدار|اعلان|alarm|notification)/i)[0]
-        .replace(clock, " ")
-        .replace(/[0-9۰-۹٠-٩]{4}[/-][0-9۰-۹٠-٩]{1,2}[/-][0-9۰-۹٠-٩]{1,2}/g, " ")
-        .replace(/(?:پس فردا|پسفردا|فردا|امروز|(?:یک|دو|سه|چهار|پنج)\s*شنبه|شنبه|جمعه)(?:\s+(?:بعد|آینده))?/g, " ")
+    // Protect quoted subjects (book names, event names, numbers) from metadata parsing.
+    const protectedSubjects = [];
+    text = text.replace(/[«"“]([^»"”]+)[»"”]/g, (_, subject) => { protectedSubjects.push(subject); return `SUBJECTTOKEN${protectedSubjects.length - 1}END`; });
+    text = text.replace(clock, (match, offset, source) => /(?:خرید|تعمیر|فروش|تعویض)\s*$/.test(source.slice(0, offset)) ? match : " ")
+        .replace(/(?:برای\s+|تا\s+|در\s+|روز\s+)?[0-9۰-۹٠-٩]{4}[/-][0-9۰-۹٠-٩]{1,2}[/-][0-9۰-۹٠-٩]{1,2}/g, " ")
+        .replace(/(^|[\s،])(?:(?:برای|تا|در|روز)\s+)?(?:پس فردا|پسفردا|فردا|امروز|(?:یک|دو|سه|چهار|پنج)\s*شنبه|شنبه|جمعه)(?:\s+(?:بعد|آینده))?(?=$|[\s،؛])/g, "$1 ");
+    // Remove the reminder introducer AFTER its scheduling prefix, not the subject after it.
+    text = withoutLeadingReminder(text.trim());
+    text = text.split(/[؛;\n]/)[0]
         .replace(new RegExp(n + "\\s*(?:روز|ساعت|دقیقه)\\s*قبل.*$"), " ")
+        .replace(/(?:،?\s+و?\s*)(?:یادم\s*بنداز|یادآوری\s*کن|(?:آلارم|الارم|هشدار|اعلان|alarm|notification)\s+(?:هم\s+)?(?:بگذار|بذار|بزن|فعال|تنظیم)).*$/i, " ")
         .replace(/(?:به مدت|مدت|طول جلسه)\s*[^،؛]+/g, " ")
         .replace(/(?:هر هفته|هر روز|هفتگی|روزانه)(?:\s+برای\s+[0-9۰-۹٠-٩]+\s*نوبت)?/g, " ")
-        .replace(/(?:عنوان|تیتر|اسم)(?:ش)?\s*(?:را|رو)?\s*/g, " ")
+        .replace(/^(?:نه[،\s]+)?(?:عنوان|تیتر|اسم|نام)(?:ش)?\s*(?:را|رو)?\s*/, " ")
         .replace(/(?:ثبت کن|اضافه کن|بساز|بذار|بگذار|بشه|باشد|باشه|تغییر بده|تغییر کن|عوض کن|حذف کن|پاک کن|تکمیل کن|انجام شد|دارم|لطفاً|لطفا)/g, " ")
         .replace(/(^|[\s،])(?:را|رو|برای من|برام|صبح|عصر|شب|بامداد|فوری|مهم|عادی|شخصی|شرکتی)(?=$|[\s،])/g, " ")
         .replace(/^\s*(?:یک|یه)\s+(?=جلسه|قرار|کار)/, "")
         .replace(/^\s*کار\s+(?=\S)/, "")
         .replace(/^[\s،:«"]+|[\s،.!؟»"]+$/g, "").replace(/\s+و\s*$/, "").replace(/\s+/g, " ").trim();
+    text = text.replace(/^نه[،\s]+/, "").replace(/^(?:که|تا)\s+/, "");
+    const call = text.match(/^(?:به|با)\s+(.+?)\s+(?:زنگ بزنم|زنگ بزن|تماس بگیرم|تماس بگیر)$/);
+    if (call)
+        text = "تماس با " + call[1].replace(/\s+بابت\s+/, " درباره ");
+    const prepare = text.match(/^(.+?)\s+(?:آماده کنم|آماده کن|تهیه کنم|تهیه کن)$/);
+    if (prepare)
+        text = "آماده‌سازی " + prepare[1];
+    const buy = text.match(/^(.+?)\s+(?:بخرم|بخر)$/);
+    if (buy)
+        text = "خرید " + buy[1];
+    const pay = text.match(/^(.+?)\s+(?:پرداخت کنم|پرداخت کن)$/);
+    if (pay)
+        text = "پرداخت " + pay[1];
+    text = text.replace(/SUBJECTTOKEN(\d+)END/g, (_, index) => protectedSubjects[Number(index)]);
+    if (/^(?:این|اینو|آن|اونو|همون|اون کار|این کار|یه کار|یادم بنداز)$/.test(text))
+        return "";
     return text.slice(0, 180);
 }
 // Only newly presented/edited proposals adopt the retired quiet-hours policy.
@@ -104,6 +124,23 @@ function dateParts(date, timezone) {
     const parts = new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(date);
     const p = (type) => parts.find(x => x.type === type)?.value ?? "";
     return { date: `${p("year")}-${p("month")}-${p("day")}`, time: `${p("hour")}:${p("minute")}` };
+}
+// Shared, effect-free summary used before confirmation in web and bundled Android.
+function approvalSummary(plan) {
+    const fa = (n) => new Intl.NumberFormat("fa-IR", { useGrouping: false }).format(n);
+    const instant = planInstant(plan.date, plan.time, plan.timezone);
+    const dateValue = new Date(`${plan.date}T12:00:00Z`);
+    const date = plan.date ? (Number.isFinite(dateValue.getTime()) ? new Intl.DateTimeFormat("fa-IR", { calendar: "persian", timeZone: "UTC", dateStyle: "medium" }).format(dateValue) : "تاریخ نامعتبر") : "بدون تاریخ";
+    const channelNames = { IN_APP: "داخل برنامه", PUSH: "Push", NATIVE: "Notification", ALARM: "Alarm گوشی" };
+    return {
+        category: plan.entity === "MEETING" ? "جلسه" : plan.category === "WORK" ? "شرکتی" : "شخصی",
+        priority: ({ NORMAL: "عادی", IMPORTANT: "مهم", URGENT: "فوری" })[plan.priority],
+        when: instant ? new Intl.DateTimeFormat("fa-IR", { calendar: "persian", timeZone: plan.timezone, dateStyle: "medium", timeStyle: "short", hourCycle: "h23" }).format(instant) : `${date}${plan.time ? `، ${plan.time}` : "، ساعت تعیین نشده"}`,
+        reminders: plan.reminderOffsets.map(m => m === 0 ? "زمان موعد" : m % 1440 === 0 ? `${fa(m / 1440)} روز قبل` : m % 60 === 0 ? `${fa(m / 60)} ساعت قبل` : `${fa(m)} دقیقه قبل`).join("، ") || "ندارد",
+        channels: plan.channels.map(c => channelNames[c]).join("، ") || "بدون هشدار",
+        recurrence: plan.recurrence === "NONE" ? "" : `${plan.recurrence === "DAILY" ? "روزانه" : "هفتگی"}، ${plan.occurrenceCount ? fa(plan.occurrenceCount) : "تعداد نامشخص"} نوبت`,
+        followUp: plan.escalation ? `${fa(plan.repeatCount)} هشدار پس از موعد با فاصله ${fa(plan.repeatMinutes)} دقیقه` : "",
+    };
 }
 function planInstant(date, time, timezone) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time))
@@ -236,11 +273,18 @@ function inspectPlan(plan, now = new Date(), items = []) {
 }
 function planPersian(message, context = {}) {
     const now = context.now ?? new Date(), timezone = context.timezone ?? "Asia/Tehran";
-    const original = message.replace(/\u200c/g, " "), text = normalizePersian(message);
+    const original = message.replace(/\u200c/g, " "), metadata = original.replace(/[«"“][^»"”]+[»"”]/g, " "), text = normalizePersian(metadata);
+    // A title-only correction must not reinterpret dates/numbers in the new title
+    // as scheduling instructions, or change operation/identity of the pending draft.
+    if (context.previous && /^(?:نه[،\s]+)?(?:عنوان|تیتر|اسمش|نامش)(?:ش)?\s*(?:را|رو)?/.test(original.trim())) {
+        const plan = normalizePlanForReview({ ...context.previous, title: extractPersianTitle(message), defaults: [...context.previous.defaults] }, context.items);
+        const checked = inspectPlan(plan, now, context.items);
+        return { plan, ...checked, candidates: [], reply: checked.questions[0] ?? "عنوان همین پیشنهاد اصلاح شد؛ بررسی و ثبت کن." };
+    }
     const fresh = /(?:کار|جلسه|قرار).*(?:جدید|دیگر)|(?:جدید|دیگر).*(?:کار|جلسه|قرار)/.test(text);
     const previous = fresh ? null : context.previous;
     const plan = previous ? JSON.parse(JSON.stringify(previous)) : {
-        operation: "CREATE", entity: /جلسه|قرار/.test(text) ? "MEETING" : "TASK", targetId: null, targetUpdatedAt: null,
+        operation: "CREATE", entity: /(^|[\s،])(?:جلسه|قرار)(?=$|[\s،؛])/.test(text) ? "MEETING" : "TASK", targetId: null, targetUpdatedAt: null,
         title: "", category: "PERSONAL", priority: "NORMAL", date: "", time: "", ambiguousTime: null, timezone,
         durationMinutes: null, recurrence: "NONE", occurrenceCount: null, reminderOffsets: [], channels: ["IN_APP"], repeatCount: 1, repeatMinutes: 15,
         quietStart: "00:00", quietEnd: "00:00", escalation: false, defaults: ["دسته شخصی، اولویت عادی و تنظیمات پیش‌فرض"],
@@ -248,7 +292,7 @@ function planPersian(message, context = {}) {
     const summary = !previous && /خلاصه|زمان آزاد|برنامه امروز/.test(text) && !/ثبت|بساز|دارم/.test(text);
     if (summary)
         return { plan: null, reply: `${context.items?.length ?? 0} کار باز؛ ${(context.items ?? []).slice(0, 4).map(i => i.title).join("، ") || "موردی ثبت نشده است."}`, questions: [], warnings: [], candidates: [], instant: null };
-    const command = withoutLeadingReminder(text).split(/[؛;]/)[0].split(/(?:یادم|یادآور|یادآوری|آلارم|الارم|اعلان)/)[0];
+    const command = withoutLeadingReminder(text).replace(/یادم\s*بنداز|یادآوری\s*کن/g, " ").split(/[؛;]/)[0].split(/(?:آلارم|الارم|اعلان)/)[0];
     if (/حذف کن|پاک کن/.test(command))
         plan.operation = "DELETE";
     else if (/انجام شد|انجام دادم|تمام شد|تکمیل کن/.test(command))
@@ -278,7 +322,7 @@ function planPersian(message, context = {}) {
     if (explicit)
         plan.date = Number(explicit[1]) < 1700 ? jalaliDate(...explicit.slice(1).map(Number)) : `${explicit[1]}-${explicit[2].padStart(2, "0")}-${explicit[3].padStart(2, "0")}`;
     const weekdays = ["یکشنبه", "دوشنبه", "سه شنبه", "چهارشنبه", "پنجشنبه", "جمعه", "شنبه"];
-    const weekdayText = original.replace(/یک شنبه/g, "یکشنبه").replace(/دو شنبه/g, "دوشنبه").replace(/چهار شنبه/g, "چهارشنبه").replace(/پنج شنبه/g, "پنجشنبه");
+    const weekdayText = metadata.replace(/یک شنبه/g, "یکشنبه").replace(/دو شنبه/g, "دوشنبه").replace(/چهار شنبه/g, "چهارشنبه").replace(/پنج شنبه/g, "پنجشنبه");
     const weekday = weekdays.findIndex(day => new RegExp(`(^|[\\s،])${day}(?=$|[\\s،])`).test(weekdayText));
     if (weekday >= 0 && !explicit) {
         const current = new Date(`${today}T12:00:00Z`).getUTCDay();
@@ -393,4 +437,4 @@ function planPersian(message, context = {}) {
     return { plan, ...checked, candidates, reply: checked.questions[0] ?? "جزئیات را بررسی کن؛ فقط پس از تأیید اجرا می‌کنم." };
 }
 
-return {planPersian,planInstant,inspectPlan,dateParts,planOccurrences,plannedReminderTimes,normalizePlanForReview};})();
+return {planPersian,planInstant,inspectPlan,dateParts,planOccurrences,plannedReminderTimes,normalizePlanForReview,approvalSummary};})();

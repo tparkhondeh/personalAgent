@@ -23,6 +23,7 @@ while (( elapsed < 600 )); do
   if (( elapsed >= 300 && stable >= 120 )); then
     adb logcat -d > "$evidence/emulator-settle-logcat.txt"
     adb shell dumpsys webviewupdate > "$evidence/webview-provider.txt"
+    node scripts/android-system-ui-check.mjs "$evidence/pre-install-system-ui" settle-launcher
     exit 0
   fi
   previous="$pid"
