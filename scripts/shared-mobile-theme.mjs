@@ -9,7 +9,7 @@ export async function sharedMobileTheme(root = process.cwd()) {
     if (start < 0) throw new Error(`Missing canonical theme rule: ${selector}`);
     return source.slice(source.indexOf("{", start) + 1, source.indexOf("}", start));
   };
-  const palette = (body) => body.split(";").filter(part => /^\s*(background(?:-attachment)?|color|border-color|box-shadow)\s*:/.test(part)).join(";") + ";";
+  const palette = (body) => body.split(";").filter(part => /^\s*(background(?:-attachment)?|color|border(?:-color)?|box-shadow)\s*:/.test(part)).join(";") + ";";
   const mapped = (source, from, to) => `${to}{${palette(rule(source, from))}}`;
   const darkSelector = selector => selector.split(',').map(s=>`:root[data-theme="dark"] ${s.trim()}`).join(', ');
   const darkMapped = (from,to) => mapped(dark,darkSelector(from),darkSelector(to));
@@ -17,13 +17,17 @@ export async function sharedMobileTheme(root = process.cwd()) {
   return `/* Generated from src/app/globals.css; do not edit. */
 :root{${rule(light, ":root")}color-scheme:light;--text:var(--ink);--soft:var(--surface-soft);--lav:var(--lavender);--blue:var(--sky);--primary2:var(--primary);--shadow:var(--shadow-sm)}
 body{${palette(rule(light, "body"))}font-family:Vazirmatn,Tahoma,Arial,sans-serif;font-feature-settings:"ss01" 1,"tnum" 1;text-rendering:optimizeLegibility}
-${mapped(light, ".primary-button, .submit-button", ".primary")}
+${mapped(light, ".primary-button, .submit-button", ".primary,.top-actions [data-open-form]")}
+${mapped(light, ".settings-button, .icon-button", ".round-button:not([data-open-form])")}
+${mapped(light, ".composer input, .composer select, .auth-card input, .preferences-card input, .preferences-card select", "input,select,textarea")}
 ${mapped(light, ".content-card, .calendar-card, .preferences-card", ".card,.item")}
 ${mapped(light, ".focus-card", ".stat:nth-child(2)")}
 ${mapped(light, ".summary-card.peach", ".stat:nth-child(3)")}
 ${mapped(light, ".summary-card.lavender", ".stat:nth-child(1)")}
-.nav-button.active{background:var(--primary-soft);color:var(--primary-strong)}
-.round-button,.bottom-nav{background:var(--surface)}.chip.active{background:var(--primary-soft);color:var(--primary-strong)}
+${mapped(light, ".nav-button.active", ".nav-button.active")}
+${mapped(light, ".mobile-nav", ".bottom-nav")}
+${mapped(light, ".mobile-add", ".nav-button.new")}
+.chip.active{background:var(--primary-soft);color:var(--primary-strong)}
 :root[data-theme="dark"]{${rule(dark, ':root[data-theme="dark"]')}color-scheme:dark}
 ${darkMapped("body", "body")}
 ${darkMapped(".sidebar, .mobile-nav", ".bottom-nav")}
@@ -31,6 +35,11 @@ ${darkMapped(".focus-card", ".stat:nth-child(2)")}
 ${darkMapped(".summary-card.peach", ".stat:nth-child(3)")}
 ${darkMapped(".summary-card.lavender", ".stat:nth-child(1)")}
 ${darkSelector('.card,.item,.round-button')}{background:var(--surface-solid)}:root[data-theme="dark"] .primary{color:#fff}
+${mapped(light, ".primary-button, .submit-button", ':root[data-theme="dark"] .top-actions [data-open-form]')}
+${mapped(light, ".mobile-add", ':root[data-theme="dark"] .nav-button.new')}
+${darkMapped(".nav-button.active, .working-days label.selected, .preferences-card .reminder-options label.selected", ".nav-button.active")}
+${darkSelector('.round-button:not([data-open-form])')}{color:var(--ink);border-color:var(--line)}
+${darkMapped(".composer input, .composer select, .auth-card input, .preferences-card input, .preferences-card select, .working-days label, .preferences-card .reminder-options label, .composer-reminder-summary", "input,select,textarea")}
 ${controls.trim()}
 .appearance-setting{margin-bottom:12px}.daily-poem{font-size:15px;line-height:1.9;margin-top:6px;gap:4px;font-weight:640}
 .daily-poem .poem-couplet{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;direction:rtl;align-items:start}

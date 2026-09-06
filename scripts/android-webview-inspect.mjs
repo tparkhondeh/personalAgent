@@ -185,6 +185,10 @@ async function inspect() {
       assert(leadingReminder.plan.title==='جلسه با تیم فروش'&&leadingReminder.plan.time==='17:00'&&leadingReminder.questions.length===0,'Leading reminder lost its subject or time');
       const expectedBg=window.HamrahAppearance.get()==='dark'?'#13151f':'#f7f7ff';
       assert(getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()===expectedBg,'Canonical web palette mismatch');
+      const navPaint=getComputedStyle(document.querySelector('.nav-button.new')).backgroundImage;
+      const topPaint=getComputedStyle(document.querySelector('.top-actions [data-open-form]')).backgroundImage;
+      assert(navPaint.includes('145deg')&&navPaint.includes('rgb(91, 112, 181)')&&navPaint.includes('rgb(79, 123, 114)'),'Navigation action lost canonical web gradient');
+      assert(topPaint.includes('135deg')&&topPaint.includes('rgb(91, 112, 181)')&&topPaint.includes('rgb(79, 123, 114)'),'Top action lost canonical web gradient');
       document.querySelector('[data-panel="assistant"]').click();
       document.querySelector('#assistant-input').value='فردا ساعت پنج عصر جلسه با تیم فروش دارم؛ یک روز قبل، سه ساعت قبل و یک ساعت قبل یادم بنداز و آلارم هم بگذار.';
       document.querySelector('#assistant-send').click();
