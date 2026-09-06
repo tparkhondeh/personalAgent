@@ -15,8 +15,12 @@ export async function POST(request: Request) {
   const reader = request.body?.getReader();
   if(!reader) return jsonError("فایل صدا دریافت نشد",422);
   const chunks: Uint8Array[] = []; let size = 0;
+  const uploadSignal=AbortSignal.any([request.signal,AbortSignal.timeout(15000)]);
+  const cancelUpload=()=>{void reader.cancel().catch(()=>{});};
+  uploadSignal.addEventListener("abort",cancelUpload,{once:true});
   try {
     while(true) { const {value,done}=await reader.read(); if(done)break; size+=value.length; if(size>MAX_VOICE_BYTES) {await reader.cancel(); return jsonError("فایل صدا بزرگ است",413);} chunks.push(value); }
+    if(uploadSignal.aborted)return jsonError("دریافت صدا متوقف شد؛ دوباره تلاش کن",408);
     const audio = new Uint8Array(size); let offset=0; for(const chunk of chunks){audio.set(chunk,offset);offset+=chunk.length;}
     if(!validateVoiceWav(audio)) return jsonError("فایل صدا معتبر نیست؛ دوباره ضبط کن",422);
     if(!voiceHasSignal(audio))return jsonError("صدای واضحی شنیده نشد؛ دوباره ضبط کن",422);
@@ -28,5 +32,5 @@ export async function POST(request: Request) {
     if(typeof result.text!=="string" || !result.text.trim()) return jsonError("صدای قابل‌تشخیص دریافت نشد؛ دوباره ضبط کن",422);
     return Response.json({data:{text:result.text.trim().slice(0,2000),mode:"online",provider:"OpenAI"}},{headers:{"Cache-Control":"no-store"}});
   } catch { return jsonError("ارتباط تبدیل صدا قطع شد؛ دوباره تلاش کن",503); }
-  finally { chunks.length=0; reader.releaseLock(); }
+  finally { uploadSignal.removeEventListener("abort",cancelUpload); chunks.length=0; reader.releaseLock(); }
 }

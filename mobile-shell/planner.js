@@ -36,7 +36,7 @@ function shiftDay(day, count) {
 }
 function planOccurrences(plan) {
     const count = plan.recurrence === "NONE" ? 1 : plan.occurrenceCount ?? 0;
-    if (!Number.isInteger(count) || count < 1 || count > 12 || !plan.date)
+    if (!Number.isInteger(count) || count < 1 || count > 12 || !plan.date || !Number.isFinite(Date.parse(`${plan.date}T12:00:00Z`)))
         return [];
     return Array.from({ length: count }, (_, index) => ({ index, date: shiftDay(plan.date, index * (plan.recurrence === "WEEKLY" ? 7 : 1)) }))
         .map(item => ({ ...item, instant: planInstant(item.date, plan.time, plan.timezone)?.toISOString() ?? null }));
@@ -108,7 +108,7 @@ function inspectPlan(plan, now = new Date(), items = []) {
     const active = plan.operation === "CREATE" || plan.operation === "UPDATE";
     if (active) {
         if (plan.date && !plan.time)
-            questions.push("دقیقاً چه ساعتی؟ ساعت را از ۰ تا ۲۳ مشخص کن.");
+            questions.push(plan.ambiguousTime ? "این ساعت صبح است یا عصر؟ می‌توانی ساعت ۲۴ساعته را هم مشخص کنی." : "دقیقاً چه ساعتی؟ ساعت را از ۰ تا ۲۳ مشخص کن.");
         if (plan.time && !plan.date)
             questions.push("برای چه تاریخی؟");
         if (plan.entity === "MEETING" && !plan.date)
@@ -141,7 +141,7 @@ function inspectPlan(plan, now = new Date(), items = []) {
     if (plan.channels.includes("ALARM"))
         warnings.push("Alarm به اپ اندروید و مجوز گوشی نیاز دارد؛ تضمین اجرای دقیق وابسته به سیستم‌عامل است.");
     if (plan.channels.includes("NATIVE"))
-        warnings.push("اعلان گوشی فقط روی دستگاهی که این پیشنهاد را تأیید می‌کند تنظیم می‌شود.");
+        warnings.push("اعلان گوشی پس از همگام‌سازی اپ اندروید با همین حساب و اجازه دستگاه تنظیم می‌شود.");
     if (plan.channels.includes("PUSH"))
         warnings.push("Push فقط روی دستگاه دارای اشتراک و مجوز اعلان ارسال می‌شود.");
     return { questions: [...new Set(questions)], warnings, instant: instant?.toISOString() ?? null };
@@ -153,7 +153,7 @@ function planPersian(message, context = {}) {
     const previous = fresh ? null : context.previous;
     const plan = previous ? JSON.parse(JSON.stringify(previous)) : {
         operation: "CREATE", entity: /جلسه|قرار/.test(text) ? "MEETING" : "TASK", targetId: null, targetUpdatedAt: null,
-        title: "", category: "PERSONAL", priority: "NORMAL", date: "", time: "", timezone,
+        title: "", category: "PERSONAL", priority: "NORMAL", date: "", time: "", ambiguousTime: null, timezone,
         durationMinutes: null, recurrence: "NONE", occurrenceCount: null, reminderOffsets: [], channels: ["IN_APP"], repeatCount: 1, repeatMinutes: 15,
         quietStart: context.quietStart ?? "22:00", quietEnd: context.quietEnd ?? "08:00", escalation: false, defaults: ["دسته شخصی، اولویت عادی و ساعات سکوت از تنظیمات"],
     };
@@ -197,14 +197,20 @@ function planPersian(message, context = {}) {
         plan.date = shiftDay(today, (weekday - current + 7) % 7 || 7);
     }
     const clock = command.match(/ساعت\s+(\d{1,2})(?::(\d{1,2})|\s+و\s+(نیم|ربع|\d{1,2})(?:\s+دقیقه)?)?/);
-    if (clock) {
-        let hour = Number(clock[1]);
-        if (/عصر|بعد از ظهر|بعدازظهر|شب/.test(command) && hour < 12)
+    if (clock || (plan.ambiguousTime && /عصر|صبح|ظهر|شب|بامداد/.test(command))) {
+        let hour = Number(clock?.[1] ?? plan.ambiguousTime.split(":")[0]);
+        const minute = clock ? clock[2] ?? (clock[3] === "نیم" ? "30" : clock[3] === "ربع" ? "15" : clock[3] ?? "00") : plan.ambiguousTime.split(":")[1];
+        const period = /عصر|صبح|ظهر|شب|بامداد/.test(command);
+        if (/عصر|ظهر|شب/.test(command) && hour < 12)
             hour += 12;
-        if (/صبح|بامداد/.test(command) && hour === 12)
+        if (/صبح|بامداد|شب/.test(command) && hour === 12)
             hour = 0;
-        const minute = clock[2] ?? (clock[3] === "نیم" ? "30" : clock[3] === "ربع" ? "15" : clock[3] ?? "00");
         plan.time = `${String(hour).padStart(2, "0")}:${minute.padStart(2, "0")}`;
+        plan.ambiguousTime = null;
+        if (!period && hour >= 1 && hour <= 12 && !clock?.[1].startsWith("0")) {
+            plan.ambiguousTime = plan.time;
+            plan.time = "";
+        }
     }
     else if (/عصر|صبح|شب/.test(command) && !previous)
         plan.time = "";

@@ -4,7 +4,7 @@ import { getLanguageModel, agentSystemPrompt } from "@/lib/agent";
 import { jsonError, requireApiSession } from "@/lib/api";
 import { db } from "@/lib/db";
 import { planPersian, type Plan } from "@/lib/agent-planner";
-import { planSchema } from "@/lib/agent-plan-schema";
+import { planSchema, modelPlanSchema } from "@/lib/agent-plan-schema";
 import { DraftError, ownedPlanningItems, saveDraft } from "@/lib/agent-drafts";
 import { guardUserRateLimit } from "@/lib/rate-limit";
 import { parseStoredReminderOffsets } from "@/lib/reminder-offsets";
@@ -12,7 +12,7 @@ import { aiReadiness, reserveAiRequest } from "@/lib/ai-budget";
 import { validAgentOrigin } from "@/lib/agent-origin";
 
 const input = z.object({ message: z.string().trim().min(1).max(2000), conversationId: z.string().max(150).optional(), draftId: z.string().max(150).optional(), revision: z.number().int().positive().optional(), externalConsent: z.boolean().default(false), localOnly: z.boolean().default(false) });
-const outputSchema = z.object({ reply: z.string().max(1000), plan: planSchema.nullable(), questions: z.array(z.string().max(200)).max(10) });
+const outputSchema = z.object({ reply: z.string().max(1000), plan: modelPlanSchema.nullable(), questions: z.array(z.string().max(200)).max(10) });
 
 export async function POST(request: Request) {
   if(!validAgentOrigin(request))return jsonError("مبدأ درخواست مجاز نیست",403);

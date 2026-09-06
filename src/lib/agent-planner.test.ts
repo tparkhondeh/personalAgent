@@ -32,7 +32,11 @@ describe("Persian planning acceptance corpus",()=>{
     expect(third.plan).toMatchObject({title:first.plan?.title,time:"16:00",category:"WORK",durationMinutes:45});
   });
   it("keeps reminder time separate from meeting start",()=>{
-    expect(planPersian("فردا ساعت 10 جلسه فروش دارم؛ 3 ساعت قبل یادآوری کن",context).plan).toMatchObject({time:"10:00",reminderOffsets:[180]});
+    expect(planPersian("فردا ساعت 10 صبح جلسه فروش دارم؛ 3 ساعت قبل یادآوری کن",context).plan).toMatchObject({time:"10:00",reminderOffsets:[180]});
+  });
+  it("clarifies morning/evening and understands the short follow-up",()=>{
+    const first=planPersian("فردا ساعت پنج جلسه فروش دارم",context);expect(first.plan?.time).toBe("");expect(first.questions.join(" ")).toContain("صبح");
+    const second=planPersian("عصر",{...context,previous:first.plan});expect(second.plan?.time).toBe("17:00");expect(second.plan?.ambiguousTime).toBeNull();
   });
   it("requires selection for identical existing titles",()=>{
     const result=planPersian("گزارش را حذف کن",{...context,items:[{id:"a",title:"گزارش"},{id:"b",title:"گزارش"}]});

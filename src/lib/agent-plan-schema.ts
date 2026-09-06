@@ -4,6 +4,7 @@ export const planSchema = z.object({
   targetId: z.string().max(150).nullable(), targetUpdatedAt: z.iso.datetime().nullable(),
   title: z.string().trim().max(180), category: z.enum(["PERSONAL", "WORK"]), priority: z.enum(["NORMAL", "IMPORTANT", "URGENT"]),
   date: z.string().max(10), time: z.string().max(5), timezone: z.string().max(100).refine(value => { try { new Intl.DateTimeFormat("en", { timeZone: value }); return true; } catch { return false; } }),
+  ambiguousTime: z.string().max(5).nullable().default(null),
   durationMinutes: z.number().int().min(5).max(1440).nullable(), recurrence: z.enum(["NONE", "DAILY", "WEEKLY"]),
   occurrenceCount: z.number().int().min(2).max(12).nullable().default(null),
   reminderOffsets: z.array(z.number().int().min(0).max(10080)).max(8).refine(v => new Set(v).size === v.length),
@@ -12,3 +13,11 @@ export const planSchema = z.object({
   quietStart: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/), quietEnd: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
   escalation: z.boolean(), defaults: z.array(z.string().max(200)).max(10),
 }).strict();
+
+// Persistence accepts older drafts; the model contract must require every field.
+// Defaults make fields optional in the SDK's input JSON Schema, which is not
+// accepted by OpenAI strict structured output.
+export const modelPlanSchema = planSchema.extend({
+  ambiguousTime: z.string().max(5).nullable(),
+  occurrenceCount: z.number().int().min(2).max(12).nullable(),
+});

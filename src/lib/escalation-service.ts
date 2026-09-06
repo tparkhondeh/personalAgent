@@ -107,7 +107,7 @@ async function processDueAttempts(userId: string, now: Date, quietHours: QuietHo
         },
       });
       const approved = readAlertPolicy(attempt.task.alertPolicy);
-      const suppressPush = (approved && !approved.channels.includes("PUSH")) || (attempt.level === "IN_APP_PUSH" && isInsideQuietHours(now, approved?.quietStart ?? quietHours.quietHoursStartsAt, approved?.quietEnd ?? quietHours.quietHoursEndsAt, quietHours.timezone));
+      const suppressPush = (approved && !approved.channels.includes("PUSH")) || (attempt.level === "IN_APP_PUSH" && isInsideQuietHours(now, approved?.quietStart ?? quietHours.quietHoursStartsAt, approved?.quietEnd ?? quietHours.quietHoursEndsAt, approved?.timezone ?? quietHours.timezone));
       const results = suppressPush ? [] : await Promise.allSettled(attempt.user.pushSubscriptions.map((subscription) => sendWebPush(subscription, {
         title: highPriority ? "هشدار جدی همراه" : "کار فوری عقب‌افتاده",
         body: attempt.task.title,

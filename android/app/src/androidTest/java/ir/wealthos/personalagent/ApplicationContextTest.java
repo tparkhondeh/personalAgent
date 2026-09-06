@@ -52,6 +52,16 @@ public class ApplicationContextTest {
     }
 
     @Test
+    public void startupDoesNotDependOnDownloadableEmojiFonts() throws Exception {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        android.content.pm.ProviderInfo provider = context.getPackageManager().getProviderInfo(
+            new android.content.ComponentName(context, "androidx.startup.InitializationProvider"),
+            PackageManager.GET_META_DATA
+        );
+        assertTrue(provider.metaData == null || !provider.metaData.containsKey("androidx.emoji2.text.EmojiCompatInitializer"));
+    }
+
+    @Test
     public void manifestKeepsAlarmInfrastructureAndPrivateBackupPolicy() throws Exception {
         Context appContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
         PackageInfo packageInfo = appContext.getPackageManager().getPackageInfo(

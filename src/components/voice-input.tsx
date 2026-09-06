@@ -1,14 +1,16 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { encodeVoiceWav } from "@/lib/voice-audio";
 
 export function VoiceInput({ enabled, disabled, onText }: { enabled: boolean; disabled: boolean; onText: (text: string) => void }) {
-  const [state, setState] = useState<"idle"|"recording"|"ready"|"sending">("idle");
+  const [state, setState] = useState<"idle"|"asking"|"recording"|"ready"|"sending">("idle");
   const [status, setStatus] = useState(""); const [consent, setConsent] = useState(false);
   const recorder = useRef<MediaRecorder | null>(null), stream = useRef<MediaStream | null>(null), audio = useRef<Blob | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null), cancelled = useRef(false), request = useRef<AbortController | null>(null), mounted = useRef(true);
+  const captureVersion=useRef(0);
+  const invalidateCapture=useCallback(()=>{captureVersion.current++;},[]);
   function cancel() {
-    cancelled.current = true; request.current?.abort();
+    captureVersion.current++; cancelled.current = true; request.current?.abort();
     if (recorder.current?.state === "recording") recorder.current.stop();
     stream.current?.getTracks().forEach(t => t.stop());
     if(timer.current) clearTimeout(timer.current);
@@ -16,23 +18,25 @@ export function VoiceInput({ enabled, disabled, onText }: { enabled: boolean; di
   }
   useEffect(() => {
     mounted.current = true;
-    const hide = () => { if(document.hidden) { cancelled.current = true; request.current?.abort(); if(recorder.current?.state === "recording")recorder.current.stop(); stream.current?.getTracks().forEach(t=>t.stop()); audio.current=null; setState("idle"); setStatus("ضبط با خروج از صفحه متوقف شد."); } };
+    const hide = () => { if(document.hidden) { captureVersion.current++; cancelled.current = true; request.current?.abort(); if(timer.current)clearTimeout(timer.current); if(recorder.current?.state === "recording")recorder.current.stop(); stream.current?.getTracks().forEach(t=>t.stop()); audio.current=null; setState("idle"); setStatus("ضبط با خروج از صفحه متوقف شد."); } };
     document.addEventListener("visibilitychange",hide);
-    return () => { mounted.current=false; cancelled.current=true; request.current?.abort(); if(timer.current)clearTimeout(timer.current); if(recorder.current?.state==="recording")recorder.current.stop(); stream.current?.getTracks().forEach(t=>t.stop()); audio.current=null; document.removeEventListener("visibilitychange",hide); };
-  },[]);
+    return () => { invalidateCapture(); mounted.current=false; cancelled.current=true; request.current?.abort(); if(timer.current)clearTimeout(timer.current); if(recorder.current?.state==="recording")recorder.current.stop(); stream.current?.getTracks().forEach(t=>t.stop()); audio.current=null; document.removeEventListener("visibilitychange",hide); };
+  },[invalidateCapture]);
   async function start() {
     if(!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") { setStatus("ضبط صدا در این مرورگر در دسترس نیست؛ می‌توانی تایپ کنی."); return; }
-    cancelled.current=false; setStatus(""); audio.current=null;
+    if(state!=="idle")return;
+    const version=++captureVersion.current;
+    cancelled.current=false; setState("asking"); setConsent(false); setStatus("در انتظار اجازه میکروفون..."); audio.current=null;
     try {
       const input = await navigator.mediaDevices.getUserMedia({audio:true});
-      if(cancelled.current || !mounted.current) {input.getTracks().forEach(t=>t.stop());return;}
+      if(version!==captureVersion.current || cancelled.current || !mounted.current) {input.getTracks().forEach(t=>t.stop());return;}
       stream.current=input; const record=new MediaRecorder(input); recorder.current=record;
       const chunks:Blob[]=[];
-      record.ondataavailable=e=>{if(e.data.size && !cancelled.current)chunks.push(e.data);};
-      record.onstop=()=>{input.getTracks().forEach(t=>t.stop());if(timer.current)clearTimeout(timer.current);if(cancelled.current || !mounted.current){chunks.length=0;return;} audio.current=new Blob(chunks,{type:record.mimeType});chunks.length=0;setState("ready");setStatus("ضبط تمام شد. فقط با زدن تبدیل، صدا به OpenAI ارسال می‌شود.");};
+      record.ondataavailable=e=>{if(e.data.size && !cancelled.current && version===captureVersion.current)chunks.push(e.data);};
+      record.onstop=()=>{input.getTracks().forEach(t=>t.stop());if(version!==captureVersion.current || cancelled.current || !mounted.current){chunks.length=0;return;}if(timer.current)clearTimeout(timer.current); audio.current=new Blob(chunks,{type:record.mimeType});chunks.length=0;setState("ready");setStatus("ضبط تمام شد. فقط با زدن تبدیل، صدا به OpenAI ارسال می‌شود.");};
       record.onerror=()=>{cancelled.current=true;input.getTracks().forEach(t=>t.stop());audio.current=null;setState("idle");setStatus("ضبط انجام نشد؛ دوباره تلاش کن.");};
       record.start();setState("recording");timer.current=setTimeout(()=>{if(record.state==="recording")record.stop();},60000);
-    } catch {setState("idle");setStatus("اجازه میکروفون داده نشد یا میکروفون در دسترس نیست؛ تایپ کن یا دوباره تلاش کن.");}
+    } catch {if(version===captureVersion.current && mounted.current){stream.current?.getTracks().forEach(t=>t.stop());setState("idle");setStatus("اجازه میکروفون داده نشد یا میکروفون در دسترس نیست؛ تایپ کن یا دوباره تلاش کن.");}}
   }
   async function transcribe() {
     if(!audio.current || !consent || !enabled)return;
