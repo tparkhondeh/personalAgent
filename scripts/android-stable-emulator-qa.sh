@@ -24,8 +24,7 @@ trap collect_evidence EXIT
 
 capture_verified() {
   local label="$1"
-  adb exec-out screencap -p > "$evidence_dir/android-${api_level}-${label}.png"
-  node scripts/android-system-ui-check.mjs "$evidence_dir/${label}-system-ui"
+  node scripts/android-system-ui-check.mjs "$evidence_dir/${label}-system-ui" inspect "$evidence_dir/android-${api_level}-${label}.png"
 }
 
 launch_and_verify() {

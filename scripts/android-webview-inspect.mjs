@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { waitUntil } from "./qa-wait-until.mjs";
 
@@ -225,8 +225,9 @@ async function inspect() {
     })()`);
     if(keyboardSetup.result.exceptionDetails)throw new Error('Keyboard setup failed');
     const point=keyboardSetup.result.result.value;
-    adb('shell','uiautomator','dump','/sdcard/hamrah-keyboard-window.xml');
-    const tree=adb('exec-out','cat','/sdcard/hamrah-keyboard-window.xml');
+    const beforeKeyboardPrefix=outputPath.replace(/\.json$/,'-keyboard-before-system-ui');
+    execFileSync(process.execPath,['scripts/android-system-ui-check.mjs',beforeKeyboardPrefix],{stdio:'inherit'});
+    const tree=readFileSync(`${beforeKeyboardPrefix}-before.xml`,'utf8');
     writeFileSync(outputPath.replace(/\.json$/,'-keyboard-before.xml'),tree);
     const webNode=[...tree.matchAll(/<node\s[^>]+/g)].map(m=>m[0]).find(n=>n.includes('class="android.webkit.WebView"'));
     const bounds=webNode?.match(/bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/);
@@ -244,8 +245,7 @@ async function inspect() {
     })()`);
     const keyboard=keyboardCheck.result.result.value;
     writeFileSync(outputPath.replace(/\.json$/,'-keyboard.json'),JSON.stringify(keyboard));
-    writeFileSync(outputPath.replace(/\.json$/,'-keyboard.png'),execFileSync('adb',['exec-out','screencap','-p']));
-    execFileSync(process.execPath,['scripts/android-system-ui-check.mjs',outputPath.replace(/\.json$/,'-keyboard-system-ui')],{stdio:'inherit'});
+    execFileSync(process.execPath,['scripts/android-system-ui-check.mjs',outputPath.replace(/\.json$/,'-keyboard-system-ui'),'inspect',outputPath.replace(/\.json$/,'-keyboard.png')],{stdio:'inherit'});
     if(!keyboard?.active||!keyboard.buttonVisible||!keyboard.inputVisible)throw new Error(`Keyboard obscures confirmation or input: ${JSON.stringify(keyboard)}`);
     adb('shell','input','keyevent','KEYCODE_BACK');
     const cleanup=await evaluate(`(async()=>{
