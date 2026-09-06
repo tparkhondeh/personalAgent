@@ -71,3 +71,13 @@ export function nativeNotificationId(value: string) {
 export function isUrgentOverdueTask(task: { priority: string; status: string; dueAt: Date | string | null }, now = new Date()) {
   return task.priority === "URGENT" && (task.status === "TODO" || task.status === "IN_PROGRESS") && Boolean(task.dueAt) && new Date(task.dueAt!).getTime() <= now.getTime();
 }
+
+// Legacy pending attempts retain their approved quiet-hour handling. Fresh attempts opt out.
+export function preservesLegacyQuietHours(metadata:string|null|undefined) {
+  try { return JSON.parse(metadata || "{}").quietHoursRetired !== true; } catch { return true; }
+}
+export function escalationPreferencesChanged(before:Partial<EscalationPolicy> & {emergencyPhone?:string|null} | null, after:Partial<EscalationPolicy> & {emergencyPhone?:string|null}) {
+  if(!before)return false;
+  const keys=[...Object.keys(defaultEscalationPolicy),"emergencyPhone"] as (keyof typeof after)[];
+  return keys.some(key=>before[key]!==after[key]);
+}

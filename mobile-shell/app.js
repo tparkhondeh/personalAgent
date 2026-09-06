@@ -11,7 +11,7 @@
   const modal = $("#task-modal");
   const alarmStatus = $("#alarm-status");
   const localNotifications = window.Capacitor?.Plugins?.LocalNotifications;
-  const dateTime = new Intl.DateTimeFormat("fa-IR", { dateStyle: "medium", timeStyle: "short" });
+  const dateTime = new Intl.DateTimeFormat("fa-IR", { dateStyle: "medium", timeStyle: "short", hourCycle:"h23",calendar:"persian" });
   const domain = window.HamrahOffline;
   const preferenceKey = "hamrah-local-reminders-v1";
   let filter = "all";
@@ -36,6 +36,10 @@
     $("#task-category").value = task?.category || "personal";
     $("#task-priority").value = task?.priority || "normal";
     $("#task-deadline").value = task?.deadline ? domain.localDateInput(task.deadline) : "";
+    let [formDate,formTime]=($("#task-deadline").value||"T").split("T");
+    const updateDeadline=()=>{$("#task-deadline").value=formDate||formTime?`${formDate}T${formTime}`:"";};
+    window.HamrahControls.date($("#task-date-control"),formDate,v=>{formDate=v;updateDeadline();});
+    window.HamrahControls.time($("#task-time-control"),formTime,v=>{formTime=v;updateDeadline();});
     $("#form-reminders").textContent = `یادآوری‌ها: ${domain.normalizeOffsets(task?.reminderOffsets || reminderOffsets).map((offset) => offsetLabels[offset]).join("، ")}`;
     $("#form-title").textContent = task ? "ویرایش برنامه" : "برنامه جدید";
     modal.classList.add("open");
@@ -129,8 +133,10 @@
     if (!title) return;
     const existing = tasks.find((task) => task.id === data.get("id"));
     const deadlineValue = String(data.get("deadline") || "");
+    if(deadlineValue && (!window.HamrahInputs.persianParts(deadlineValue.split("T")[0])||!window.HamrahInputs.validTime24(deadlineValue.split("T")[1]||""))){$("#form-reminders").textContent="تاریخ شمسی و ساعت ۲۴ساعته معتبر وارد کن.";return;}
     if (existing) { try { await cancelNotifications(existing); } catch { $("#form-reminders").textContent = "لغو یادآوری قبلی کامل نشد؛ دوباره تلاش کن."; return; } }
     const task = { ...existing, id: existing?.id || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())), title, category: String(data.get("category") || "personal"), priority: String(data.get("priority") || "normal"), deadline: deadlineValue ? new Date(deadlineValue).toISOString() : null, reminderOffsets: existing?.approvedPlan ? existing.approvedPlan.reminderOffsets : domain.normalizeOffsets(existing?.reminderOffsets || reminderOffsets), notificationIds: [], done: existing?.done || false, updatedAt:new Date().toISOString() };
+    if(task.approvedPlan){task.approvedPlan={...task.approvedPlan,quietStart:"00:00",quietEnd:"00:00"};}
     if(task.approvedPlan?.durationMinutes && task.deadline)task.endsAt=new Date(Date.parse(task.deadline)+task.approvedPlan.durationMinutes*60000).toISOString();
     tasks = existing ? tasks.map((item) => item.id === task.id ? task : item) : [task, ...tasks];
     saveTasks(); render(); closeForm();
@@ -169,19 +175,26 @@
   function showAgentDraft(extraMessage = "") {
     const root=$("#assistant-result"); root.hidden=false;
     if(!agentDraft){root.textContent=extraMessage;return;}
-    const p=agentDraft.plan, check=planner.inspectPlan(p,new Date(),planningItems());
+    const p=planner.normalizePlanForReview(agentDraft.plan,planningItems()), check=planner.inspectPlan(p,new Date(),planningItems());
     check.questions.push(...(agentDraft.questions||[]));
     const fields=[
-      ["عنوان","title","text",p.title],["تاریخ میلادی","date","date",p.date],["ساعت ۲۴ساعته","time","time",p.time],
-      ["مدت جلسه، دقیقه","durationMinutes","number",p.durationMinutes??""],["تعداد نوبت تکرار، ۲ تا ۱۲","occurrenceCount","number",p.occurrenceCount??""],
+      ["عنوان","title","text",p.title],
+      ["تعداد نوبت تکرار، ۲ تا ۱۲","occurrenceCount","number",p.occurrenceCount??""],
       ["تعداد هشدار","repeatCount","number",p.repeatCount],["فاصله هشدار، دقیقه","repeatMinutes","number",p.repeatMinutes],
-      ["شروع سکوت","quietStart","time",p.quietStart],["پایان سکوت","quietEnd","time",p.quietEnd],
+
     ];
-    const choices=(key,values)=>'<label>'+({category:"دسته",priority:"اولویت",operation:"عملیات",entity:"نوع",recurrence:"تکرار"}[key])+'<select data-plan="'+key+'">'+Object.entries(values).map(([v,label])=>'<option value="'+v+'"'+(p[key]===v?' selected':'')+'>'+label+'</option>').join("")+'</select></label>';
-    root.innerHTML='<h3>پیش‌نمایش تأیید — نسخه '+toFa(agentDraft.revision)+'</h3><p>پردازش محلی؛ بدون ارسال اطلاعات. منطقه زمانی: '+escapeText(p.timezone)+'</p><p>'+escapeText(extraMessage)+'</p><div class="form-grid">'+fields.map(([label,key,type,value])=>'<label class="field">'+label+'<input data-plan="'+key+'" type="'+type+'" value="'+escapeText(String(value))+'"/></label>').join("")+choices("operation",{CREATE:"ایجاد",UPDATE:"ویرایش",COMPLETE:"تکمیل",DELETE:"حذف و بایگانی"})+choices("entity",{TASK:"کار",MEETING:"جلسه"})+choices("category",{PERSONAL:"شخصی",WORK:"شرکتی"})+choices("priority",{NORMAL:"عادی",IMPORTANT:"مهم",URGENT:"فوری"})+choices("recurrence",{NONE:"ندارد",DAILY:"روزانه",WEEKLY:"هفتگی"})+'</div><div class="reminder-options">'+[1440,180,60].map(m=>'<label><input type="checkbox" data-offset="'+m+'" '+(p.reminderOffsets.includes(m)?"checked":"")+'>'+offsetLabels[m]+'</label>').join("")+'</div><div class="reminder-options">'+Object.entries({IN_APP:"داخل برنامه",PUSH:"Push؛ نیازمند اتصال",NATIVE:"اعلان گوشی",ALARM:"Alarm گوشی"}).map(([v,label])=>'<label><input type="checkbox" data-channel="'+v+'" '+(p.channels.includes(v)?"checked":"")+'>'+label+'</label>').join("")+'</div><label><input type="checkbox" id="local-escalation" '+(p.escalation?"checked":"")+'>تشدید هشدار فوری</label><p>'+p.defaults.map(escapeText).join("؛ ")+'</p>'+[...check.questions,...check.warnings].map(t=>'<p>'+escapeText(t)+'</p>').join("")+'<p>تبدیل صوت آفلاین در دسترس نیست. برای وویس از نسخه متصل استفاده کن. تماس و پیامک واقعی غیرفعال‌اند.</p><div class="settings-actions"><button id="local-plan-confirm" class="primary" '+(check.questions.length?"disabled":"")+'>تأیید و اجرا</button><button id="local-plan-cancel" class="secondary">انصراف</button></div><p id="local-plan-status" role="status"></p>';
+    const choices=(key,values)=>'<label>'+({category:"دسته",priority:"اولویت",recurrence:"تکرار"}[key])+'<select data-plan="'+key+'">'+Object.entries(values).map(([v,label])=>'<option value="'+v+'"'+(p[key]===v?' selected':'')+'>'+label+'</option>').join("")+'</select></label>';
+    root.innerHTML='<h3>پیش‌نمایش تأیید — نسخه '+toFa(agentDraft.revision)+'</h3><p>پردازش محلی؛ بدون ارسال اطلاعات. </p><p>'+escapeText(extraMessage)+'</p><div class="form-grid">'+fields.map(([label,key,type,value])=>'<label class="field">'+label+'<input data-plan="'+key+'" type="'+type+'" value="'+escapeText(String(value))+'"/></label>').join("")+choices("priority",{NORMAL:"عادی",IMPORTANT:"مهم",URGENT:"فوری"})+choices("recurrence",{NONE:"ندارد",DAILY:"روزانه",WEEKLY:"هفتگی"})+'</div><div class="reminder-options">'+[1440,180,60].map(m=>'<label><input type="checkbox" data-offset="'+m+'" '+(p.reminderOffsets.includes(m)?"checked":"")+'>'+offsetLabels[m]+'</label>').join("")+'</div><div class="reminder-options">'+Object.entries({IN_APP:"داخل برنامه",PUSH:"Push؛ نیازمند اتصال",NATIVE:"اعلان گوشی",ALARM:"Alarm گوشی"}).map(([v,label])=>'<label><input type="checkbox" data-channel="'+v+'" '+(p.channels.includes(v)?"checked":"")+'>'+label+'</label>').join("")+'</div><label><input type="checkbox" id="local-escalation" '+(p.escalation?"checked":"")+'>تشدید هشدار فوری</label><p>'+p.defaults.map(escapeText).join("؛ ")+'</p>'+[...check.questions,...check.warnings].map(t=>'<p>'+escapeText(t)+'</p>').join("")+'<p>تبدیل صوت آفلاین در دسترس نیست. برای وویس از نسخه متصل استفاده کن. تماس و پیامک واقعی غیرفعال‌اند.</p><div class="settings-actions"><button id="local-plan-confirm" class="primary" '+''+'>ثبت</button><button id="local-plan-cancel" class="secondary">انصراف</button></div><p id="local-plan-status" role="status"></p>';
+    const grid=root.querySelector(".form-grid");
+    const operation=document.createElement("p");operation.textContent=({CREATE:"ثبت مورد جدید",UPDATE:"ویرایش مورد انتخاب‌شده",COMPLETE:"تکمیل مورد انتخاب‌شده",DELETE:"حذف و بایگانی مورد انتخاب‌شده"})[p.operation];grid.before(operation);
+    const changed=()=>{agentDraft.revision++;agentDraft.questions=[];localStorage.setItem(draftKey,JSON.stringify(agentDraft));showAgentDraft("جزئیات تغییر کرد؛ نسخه تازه را بررسی و ثبت کن.");};
+    const categoryLabel=document.createElement("label");categoryLabel.textContent="دسته‌بندی";const categorySelect=document.createElement("select");
+    for(const [v,label] of Object.entries({PERSONAL:"شخصی",WORK:"شرکتی",MEETING:"جلسه"})){if(p.operation!=="CREATE"&&((p.entity==="MEETING")!==(v==="MEETING")))continue;categorySelect.add(new Option(label,v));}
+    categorySelect.value=p.entity==="MEETING"?"MEETING":p.category;categorySelect.onchange=()=>{p.entity=categorySelect.value==="MEETING"?"MEETING":"TASK";if(p.entity==="TASK")p.category=categorySelect.value;changed();};categoryLabel.append(categorySelect);grid.append(categoryLabel);
+    for(const [key,label] of [["date","تاریخ شمسی"],["time","ساعت ۲۴ساعته"]]){const wrapper=document.createElement("label");wrapper.textContent=label;const control=document.createElement("span");wrapper.append(control);grid.append(wrapper);window.HamrahControls[key](control,p[key],v=>{p[key]=v;if(key==="time")p.ambiguousTime=null;changed();});}
     const actions=root.querySelector(".settings-actions"), editButton=document.createElement("button");
     editButton.className="secondary";editButton.textContent="ویرایش";editButton.onclick=()=>root.querySelector('[data-plan="title"]').focus();actions.insertBefore(editButton,$("#local-plan-cancel"));
-    const timeline=document.createElement("ul"), localTime=new Intl.DateTimeFormat("fa-IR",{timeZone:p.timezone,dateStyle:"medium",timeStyle:"short"});
+    const timeline=document.createElement("ul"), localTime=new Intl.DateTimeFormat("fa-IR",{timeZone:p.timezone,dateStyle:"medium",timeStyle:"short",hourCycle:"h23",calendar:"persian"});
     for(const entry of planner.plannedReminderTimes(p)){const line=document.createElement("li");line.textContent=entry.offset+" دقیقه قبل: "+localTime.format(new Date(entry.scheduledFor));timeline.appendChild(line);}actions.before(timeline);
     if(p.channels.some(c=>c==="PUSH"||c==="IN_APP")){const note=document.createElement("p");note.textContent="Push و مرکز اعلان حساب در حالت محلی فعال نیستند؛ اعلان گوشی و Alarm به اجازه دستگاه نیاز دارند.";actions.before(note);}
     root.querySelectorAll("[data-plan],[data-offset],[data-channel],#local-escalation").forEach(input=>input.addEventListener("change",()=>{
@@ -193,7 +206,7 @@
     }));
     $("#local-plan-cancel").onclick=()=>{agentDraft.status="CANCELLED";localStorage.setItem(draftKey,JSON.stringify(agentDraft));agentDraft=null;showAgentDraft("لغو شد؛ چیزی ثبت یا زمان‌بندی نشد.");};
     $("#local-plan-confirm").onclick=async()=>{
-      if(agentBusy)return;agentBusy=true;
+      if(agentBusy)return;agentBusy=true;$("#local-plan-confirm").disabled=true;
       try{
         const stored=JSON.parse(localStorage.getItem(draftKey)||"null");
         if(!stored||stored.id!==agentDraft.id||stored.revision!==agentDraft.revision||stored.status!=="PENDING")throw new Error("نسخه پیشنهاد تغییر کرده است.");
@@ -214,7 +227,7 @@
           try{if(p.channels.some(c=>c==="ALARM"||c==="NATIVE")){let scheduled=0;for(const item of series){if(await scheduleNotification(item))scheduled++;}result+=scheduled===series.length?" اعلان گوشی تنظیم شد.":" برخی اعلان‌ها تنظیم نشدند؛ زمان آینده و اجازه گوشی لازم است.";}}catch{result+=" ثبت انجام شد، اما اعلان گوشی کامل تنظیم نشد.";}
         }
         showAgentDraft(result);render();
-      }catch(error){$("#local-plan-status").textContent=error.message||"ثبت انجام نشد؛ دوباره بررسی کن.";}finally{agentBusy=false;}
+      }catch(error){$("#local-plan-status").textContent=error.message||"ثبت انجام نشد؛ دوباره بررسی کن.";}finally{agentBusy=false;if($("#local-plan-confirm"))$("#local-plan-confirm").disabled=false;}
     };
   }
   function replyToMessage() {

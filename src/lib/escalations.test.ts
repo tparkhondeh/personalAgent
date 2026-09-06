@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildEscalationPlan, defaultEscalationPolicy, escalationIdempotencyKey, isUrgentOverdueTask, nativeNotificationId } from "./escalations";
+import { preservesLegacyQuietHours, escalationPreferencesChanged, buildEscalationPlan, defaultEscalationPolicy, escalationIdempotencyKey, isUrgentOverdueTask, nativeNotificationId } from "./escalations";
 
 describe("urgent escalation planning", () => {
   const anchor = new Date("2026-08-31T10:00:00.000Z");
@@ -27,5 +27,18 @@ describe("urgent escalation planning", () => {
     expect(isUrgentOverdueTask({ priority: "URGENT", status: "TODO", dueAt: "2026-08-31T09:59:00.000Z" }, anchor)).toBe(true);
     expect(isUrgentOverdueTask({ priority: "IMPORTANT", status: "TODO", dueAt: "2026-08-31T09:59:00.000Z" }, anchor)).toBe(false);
     expect(isUrgentOverdueTask({ priority: "URGENT", status: "DONE", dueAt: "2026-08-31T09:59:00.000Z" }, anchor)).toBe(false);
+  });
+});
+
+describe("retired quiet-hour safeguards",()=>{
+  it("opts out only for explicitly new attempts",()=>{
+    expect(preservesLegacyQuietHours(null)).toBe(true);
+    expect(preservesLegacyQuietHours('invalid')).toBe(true);
+    expect(preservesLegacyQuietHours('{"quietHoursRetired": true}')).toBe(false);
+    expect(preservesLegacyQuietHours('{"quietHoursRetired": false}')).toBe(true);
+  });
+  it("does not invalidate pending alarms for unrelated preferences",()=>{
+    expect(escalationPreferencesChanged(defaultEscalationPolicy,{...defaultEscalationPolicy})).toBe(false);
+    expect(escalationPreferencesChanged(defaultEscalationPolicy,{...defaultEscalationPolicy,urgentRepeatMinutes:30})).toBe(true);
   });
 });

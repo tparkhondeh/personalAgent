@@ -1,9 +1,9 @@
 import "server-only";
 
 import { db } from "@/lib/db";
-import { buildEscalationPlan, defaultEscalationPolicy, escalationIdempotencyKey, type EscalationPolicy } from "@/lib/escalations";
+import { buildEscalationPlan, preservesLegacyQuietHours, defaultEscalationPolicy, escalationIdempotencyKey, type EscalationPolicy } from "@/lib/escalations";
 import { sendWebPush } from "@/lib/push";
-import { isInsideQuietHours, moveOutsideQuietHours } from "@/lib/reminders";
+import { isInsideQuietHours } from "@/lib/reminders";
 import { sendUrgentVoiceCall } from "@/lib/outbound-calls";
 import { readAlertPolicy } from "@/lib/alert-policy";
 
@@ -24,7 +24,7 @@ async function cancelStaleAttempts(userId: string, now: Date) {
 
 type QuietHours = { timezone: string; quietHoursStartsAt: string; quietHoursEndsAt: string };
 
-async function seedPlans(userId: string, now: Date, policy: EscalationPolicy, quietHours: QuietHours, policyVersion?: Date) {
+async function seedPlans(userId: string, now: Date, policy: EscalationPolicy, policyVersion?: Date) {
   if (!policy.urgentEscalationEnabled) return;
   const tasks = await db.task.findMany({
     where: { userId, priority: "URGENT", status: { in: ["TODO", "IN_PROGRESS"] }, dueAt: { lte: now } },
@@ -34,7 +34,6 @@ async function seedPlans(userId: string, now: Date, policy: EscalationPolicy, qu
     const approved = readAlertPolicy(task.alertPolicy);
     if(approved && !approved.escalation)continue;
     const taskPolicy = approved ? { ...policy, urgentRepeatMinutes: approved.repeatMinutes, urgentMaxRepeats: approved.repeatCount, androidAlarmEnabled: approved.channels.includes("ALARM"), highPriorityEnabled: approved.channels.includes("PUSH"), smsEscalationEnabled: false, callEscalationEnabled: false } : policy;
-    const taskQuiet = approved ? { timezone: approved.timezone, quietHoursStartsAt: approved.quietStart, quietHoursEndsAt: approved.quietEnd } : quietHours;
     const active = await db.escalationAttempt.findFirst({ where: { taskId: task.id, status: { in: activeStatuses } }, select: { id: true } });
     if (active) continue;
     let previousAlertAt = now;
@@ -42,7 +41,7 @@ async function seedPlans(userId: string, now: Date, policy: EscalationPolicy, qu
     const plan = buildEscalationPlan(now, taskPolicy).filter(entry => !approved || entry.level !== "IN_APP_PUSH" || approved.channels.some(c=>c==="IN_APP"||c==="PUSH")).map((entry) => {
       if (entry.level === "IN_APP_PUSH") return entry;
       const spaced = new Date(Math.max(entry.scheduledFor.getTime(), previousAlertAt.getTime() + spacing));
-      const scheduledFor = moveOutsideQuietHours(spaced, taskQuiet.quietHoursStartsAt, taskQuiet.quietHoursEndsAt, taskQuiet.timezone);
+      const scheduledFor = spaced; // Newly created attempts never shift for retired quiet hours.
       previousAlertAt = scheduledFor;
       return { ...entry, scheduledFor };
     });
@@ -61,6 +60,7 @@ async function seedPlans(userId: string, now: Date, policy: EscalationPolicy, qu
           provider: entry.provider,
           status: entry.level === "ANDROID_ALARM" ? "READY_FOR_DEVICE" : "PENDING",
           idempotencyKey,
+          metadata: JSON.stringify({ quietHoursRetired: true }),
         },
       });
     }));
@@ -107,7 +107,8 @@ async function processDueAttempts(userId: string, now: Date, quietHours: QuietHo
         },
       });
       const approved = readAlertPolicy(attempt.task.alertPolicy);
-      const suppressPush = (approved && !approved.channels.includes("PUSH")) || (attempt.level === "IN_APP_PUSH" && isInsideQuietHours(now, approved?.quietStart ?? quietHours.quietHoursStartsAt, approved?.quietEnd ?? quietHours.quietHoursEndsAt, approved?.timezone ?? quietHours.timezone));
+      const preservesLegacyQuiet = preservesLegacyQuietHours(attempt.metadata);
+      const suppressPush = (approved && !approved.channels.includes("PUSH")) || (preservesLegacyQuiet && attempt.level === "IN_APP_PUSH" && isInsideQuietHours(now, approved?.quietStart ?? quietHours.quietHoursStartsAt, approved?.quietEnd ?? quietHours.quietHoursEndsAt, approved?.timezone ?? quietHours.timezone));
       const results = suppressPush ? [] : await Promise.allSettled(attempt.user.pushSubscriptions.map((subscription) => sendWebPush(subscription, {
         title: highPriority ? "هشدار جدی همراه" : "کار فوری عقب‌افتاده",
         body: attempt.task.title,
@@ -147,7 +148,7 @@ export async function syncUserEscalations(userId: string) {
     await db.escalationAttempt.updateMany({ where: { userId, status: { in: activeStatuses } }, data: { status: "CANCELLED" } });
     return { alarms: [], policy };
   }
-  await seedPlans(userId, now, policy, quietHours, preference?.updatedAt);
+  await seedPlans(userId, now, policy, preference?.updatedAt);
   await processDueAttempts(userId, now, quietHours, preference?.emergencyPhone);
   return { alarms: await listNativeEscalationAlarms(userId), policy };
 }

@@ -29,18 +29,18 @@ export async function POST(request: Request) {
   if (data.draftId && !prior) return jsonError("پیشنهاد جاری تغییر کرده؛ دوباره بررسی کن.", 409);
   const [preference, items] = await Promise.all([db.userPreference.findUnique({ where: { userId } }), ownedPlanningItems(userId)]);
   const timezone = preference?.timezone ?? "Asia/Tehran";
-  const local = planPersian(data.message, { timezone, previous: prior ? planSchema.parse(JSON.parse(prior.payload)) : null, items, offsets: parseStoredReminderOffsets(preference?.defaultReminderOffsets, preference?.defaultReminderMins), quietStart: preference?.quietHoursStartsAt, quietEnd: preference?.quietHoursEndsAt });
+  const local = planPersian(data.message, { timezone, previous: prior ? planSchema.parse(JSON.parse(prior.payload)) : null, items, offsets: parseStoredReminderOffsets(preference?.defaultReminderOffsets, preference?.defaultReminderMins) });
   let reply = local.reply, plan: Plan | null = local.plan, questions = local.questions;
   let mode = "local";
   if (data.externalConsent && !data.localOnly && aiReadiness().enabled) {
     if (await reserveAiRequest(userId, "text")) {
       try {
         const result = await generateText({
-          model: getLanguageModel(), system: agentSystemPrompt + "\nهیچ ابزار اجرایی نداری. زمان نامشخص را خالی بگذار و سؤال بپرس. مدت جلسه را حدس نزن. تکرار روزانه یا هفتگی فقط با occurrenceCount مشخص از 2 تا 12 نوبت؛ تعداد نامشخص را null بگذار و سؤال بپرس. اصلاح ادامه گفتگو همان پیش‌نویس را تغییر می‌دهد. حداکثر یک عملیات در هر پیشنهاد. برای پیام چندعملیاتی سؤال بپرس. ساعت 24 ساعته و date میلادی YYYY-MM-DD است؛ تاریخ شمسی را دقیق تبدیل کن. حالا: " + new Date().toISOString() + "؛ منطقه زمانی: " + timezone,
-          prompt: JSON.stringify({ message: data.message, draft: prior ? JSON.parse(prior.payload) : null, localCandidate: local.plan, preferences: { timezone, offsets: local.plan?.reminderOffsets, quietStart: preference?.quietHoursStartsAt, quietEnd: preference?.quietHoursEndsAt }, relevantItems: items.filter(i => data.message.includes(i.title) || /خلاصه|برنامه/.test(data.message)).slice(0, 12).map(i => ({ id: i.id, entity: i.entity, title: i.title, startsAt: i.startsAt, dueAt: i.dueAt, endsAt: i.endsAt })), history: conversation?.messages.slice().reverse().map(m => ({ role: m.role, text: m.content.slice(0, 600) })) }),
+          model: getLanguageModel(), system: agentSystemPrompt + "\nهیچ ابزار اجرایی نداری. زمان نامشخص را خالی بگذار و سؤال بپرس. مدت جلسه نامشخص را null بگذار، درباره آن سؤال نپرس؛ برنامه مقدار پیش‌فرض داخلی را تعیین می‌کند. quietStart و quietEnd همیشه 00:00 باشند؛ ساعات سکوت حذف شده است و درباره آن یا منطقه زمانی سؤال نپرس. عنوان کوتاه و طبیعی فقط شامل موضوع، فرد یا تیم باشد؛ زمان و دستور ثبت یا هشدار وارد عنوان نشوند. تکرار روزانه یا هفتگی فقط با occurrenceCount مشخص از 2 تا 12 نوبت؛ تعداد نامشخص را null بگذار و سؤال بپرس. اصلاح ادامه گفتگو همان پیش‌نویس را تغییر می‌دهد. حداکثر یک عملیات در هر پیشنهاد. برای پیام چندعملیاتی سؤال بپرس. ساعت 24 ساعته و date میلادی YYYY-MM-DD است؛ تاریخ شمسی را دقیق تبدیل کن. حالا: " + new Date().toISOString() + "؛ منطقه زمانی: " + timezone,
+          prompt: JSON.stringify({ message: data.message, draft: prior ? JSON.parse(prior.payload) : null, localCandidate: local.plan, preferences: { timezone, offsets: local.plan?.reminderOffsets }, relevantItems: items.filter(i => data.message.includes(i.title) || /خلاصه|برنامه/.test(data.message)).slice(0, 12).map(i => ({ id: i.id, entity: i.entity, title: i.title, startsAt: i.startsAt, dueAt: i.dueAt, endsAt: i.endsAt })), history: conversation?.messages.slice().reverse().map(m => ({ role: m.role, text: m.content.slice(0, 600) })) }),
           output: Output.object({ schema: outputSchema }), maxOutputTokens: 2200, maxRetries: 0, abortSignal: AbortSignal.timeout(25000),
         });
-        reply = result.output.reply; plan = result.output.plan; questions = result.output.questions; mode = "online";
+        reply = result.output.reply; plan = result.output.plan; questions = result.output.questions.filter(q=>!/مدت|سکوت|منطقه زمانی/.test(q)); mode = "online";
       } catch { mode = "local-fallback"; }
     } else mode = "local-budget-limit";
   }

@@ -123,7 +123,14 @@ async function inspect() {
       document.querySelector('#reminder-form').requestSubmit();
       document.querySelector('[data-open-form]').click();
       document.querySelector('#task-title').value = 'کنترل سه یادآوری اندروید';
-      document.querySelector('#task-deadline').value = window.HamrahOffline.localDateInput(new Date(Date.now() + 2 * 86400000));
+      assert(!document.querySelector('input[type="date"],input[type="time"],input[type="datetime-local"]'),'Native locale-dependent date/time picker remains');
+      const wall=window.HamrahOffline.localDateInput(new Date(Date.now()+2*86400000)).split('T');
+      const dateInput=document.querySelector('#task-date-control input');dateInput.value=window.HamrahInputs.dateInputValue(wall[0]);dateInput.dispatchEvent(new Event('change',{bubbles:true}));
+      const timeInput=document.querySelector('#task-time-control input');timeInput.value=wall[1];timeInput.dispatchEvent(new Event('change',{bubbles:true}));
+      document.querySelector('#task-date-control details').open=true;
+      assert(document.querySelectorAll('#task-date-control .picker-days button').length>=29,'Jalali month picker missing');
+      const clockSelect=document.querySelector('#task-time-control select');assert(clockSelect.options.length===25,'24-hour picker missing');
+      document.querySelector('#task-date-control details').open=false;
       document.querySelector('#task-form').requestSubmit();
       let task;
       for (let attempt = 0; attempt < 40; attempt++) {
@@ -152,10 +159,11 @@ async function inspect() {
       document.querySelector('#assistant-input').value='فردا ساعت پنج عصر جلسه با تیم فروش دارم؛ یک روز قبل، سه ساعت قبل و یک ساعت قبل یادم بنداز و آلارم هم بگذار.';
       document.querySelector('#assistant-send').click();
       assert(document.querySelector('[data-plan="title"]').value==='جلسه با تیم فروش','Persian title extraction failed');
-      assert(document.querySelector('[data-plan="time"]').value==='17:00','Afternoon time extraction failed');
-      assert(document.querySelector('#local-plan-confirm').disabled,'Unknown duration did not block approval');
-      const duration=document.querySelector('[data-plan="durationMinutes"]');duration.value='45';duration.dispatchEvent(new Event('change',{bubbles:true}));
-      assert(!document.querySelector('#local-plan-confirm').disabled,'Edited duration did not produce a confirmable revision');
+      assert(window.HamrahInputs.inputDigits(document.querySelector('#assistant-result input[aria-label="ساعت ۲۴ساعته"]').value)==='17:00','Afternoon time extraction failed');
+      assert(!document.querySelector('[data-plan="durationMinutes"],[data-plan="quietStart"],[data-plan="quietEnd"],[data-plan="operation"],[data-plan="entity"]'),'Removed controls remain');
+      assert(!document.querySelector('#local-plan-confirm').disabled,'Unchanged proposal must be confirmable');
+      const titleInput=document.querySelector('[data-plan="title"]');titleInput.value='جلسه با تیم فروش تهران';titleInput.dispatchEvent(new Event('change',{bubbles:true}));
+      assert(document.querySelector('[data-plan="title"]').value==='جلسه با تیم فروش تهران','Title edit was lost');
       document.querySelector('#local-plan-cancel').click();
       assert(document.querySelector('#assistant-result').textContent.includes('لغو شد'),'Cancel result missing');
       assert(JSON.parse(localStorage.getItem('hamrah-local-v2')||'[]').length===beforeAssistant,'Unapproved draft created an item');
@@ -177,7 +185,7 @@ async function inspect() {
       await new Promise(resolve=>setTimeout(resolve,200));
       document.querySelector('[data-panel="today"]').click();
       await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
-      return { poem: true, gregorianDate: true, persianFont: true, nativeReminders: 3, cancellation: true, sharedPalette:true, persianPlanner:true, editableApproval:true, noEffectsBeforeConfirmation:true, approvedChannelIsolation:true };
+      return { poem: true, gregorianDate: true, persianFont: true, nativeReminders: 3, cancellation: true, sharedPalette:true, persianPlanner:true, editableApproval:true, noEffectsBeforeConfirmation:true, approvedChannelIsolation:true, jalaliPicker:true, clock24:true, simplifiedApproval:true };
     })()`);
     if (parity?.result?.exceptionDetails) throw new Error(`Offline feature QA failed: ${JSON.stringify(parity.result.exceptionDetails)}`);
     mkdirSync(dirname(outputPath), { recursive: true });

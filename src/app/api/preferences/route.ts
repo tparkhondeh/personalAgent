@@ -1,3 +1,4 @@
+import { escalationPreferencesChanged } from "@/lib/escalations";
 import { db } from "@/lib/db";
 import { jsonError, requireApiSession } from "@/lib/api";
 import { userPreferenceInputSchema } from "@/lib/validation";
@@ -26,12 +27,13 @@ export async function PUT(request: Request) {
   const reminderOffsets = normalizeReminderOffsets(defaultReminderOffsets, defaultReminderMins);
   const legacyReminderMinutes = Math.min(...reminderOffsets);
   const preference = await db.$transaction(async (tx) => {
+    const previous = await tx.userPreference.findUnique({where:{userId:session.user.id}});
     const saved = await tx.userPreference.upsert({
       where: { userId: session.user.id },
       update: { ...values, workingDays: workingDays.join(","), defaultReminderMins: legacyReminderMinutes, defaultReminderOffsets: serializeReminderOffsets(reminderOffsets) },
       create: { ...values, workingDays: workingDays.join(","), defaultReminderMins: legacyReminderMinutes, defaultReminderOffsets: serializeReminderOffsets(reminderOffsets), userId: session.user.id },
     });
-    await tx.escalationAttempt.updateMany({ where: { userId: session.user.id, status: { in: ["PENDING", "PROCESSING", "READY_FOR_DEVICE", "SCHEDULED"] } }, data: { status: "CANCELLED" } });
+    if(escalationPreferencesChanged(previous, saved)) await tx.escalationAttempt.updateMany({ where: { userId: session.user.id, status: { in: ["PENDING", "PROCESSING", "READY_FOR_DEVICE", "SCHEDULED"] } }, data: { status: "CANCELLED" } });
     const { emergencyPhone, ...auditSafeInput } = parsed.data;
     await tx.auditLog.create({ data: { userId: session.user.id, action: "PREFERENCES_UPDATED", entityType: "UserPreference", entityId: saved.id, input: JSON.stringify({ ...auditSafeInput, emergencyPhone: emergencyPhone ? "[REDACTED]" : null }) } });
     return saved;

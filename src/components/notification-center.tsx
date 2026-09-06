@@ -5,7 +5,7 @@ import { useEffect } from "react";
 
 export type AppNotification = { id: string; title: string; body: string; type: string; readAt: string | null; createdAt: string };
 
-const notificationDate = new Intl.DateTimeFormat("fa-IR-u-ca-persian", { timeZone: "Asia/Tehran", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+const notificationDate = new Intl.DateTimeFormat("fa-IR-u-ca-persian", { timeZone: "Asia/Tehran", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 
 export function NotificationCenter({ notifications, signedIn, pushStatus, onClose, onEnablePush, onRead }: { notifications: AppNotification[]; signedIn: boolean; pushStatus: string; onClose: () => void; onEnablePush: () => void; onRead: (id?: string) => void }) {
   const unread = notifications.filter((notification) => !notification.readAt).length;

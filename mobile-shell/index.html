@@ -66,7 +66,7 @@
           <div class="field full"><label for="task-title">عنوان کار یا جلسه</label><input id="task-title" name="title" maxlength="120" required autocomplete="off" placeholder="مثلاً تماس با حسابداری" /></div>
           <div class="field"><label for="task-category">دسته‌بندی</label><select id="task-category" name="category"><option value="personal">شخصی</option><option value="company">شرکتی</option><option value="meeting">جلسه</option></select></div>
           <div class="field"><label for="task-priority">اولویت</label><select id="task-priority" name="priority"><option value="normal">عادی</option><option value="important">مهم</option><option value="urgent">فوری</option></select></div>
-          <div class="field full"><label for="task-deadline">زمان کار یا جلسه (اختیاری)</label><input id="task-deadline" name="deadline" type="datetime-local" /></div>
+          <div class="field full"><label for="task-deadline">زمان کار یا جلسه (اختیاری)</label><input id="task-deadline" name="deadline" type="hidden" /><div id="task-date-control"></div><div id="task-time-control"></div></div>
           <p id="form-reminders" class="helper field full"></p>
           <button class="primary full-button field full" type="submit">ذخیره برنامه</button>
         </form>
@@ -75,6 +75,7 @@
     <script src="./content.js"></script>
     <script src="./domain.js"></script>
     <script src="./planner.js"></script>
+  <script src="./input-controls.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>

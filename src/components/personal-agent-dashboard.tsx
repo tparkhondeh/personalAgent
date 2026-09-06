@@ -1,4 +1,7 @@
 "use client";
+import { PersianDateField, Time24Field } from "@/components/persian-date-time";
+import { planInstant } from "@/lib/agent-planner";
+import { validTime24, persianParts } from "@/lib/persian-inputs";
 
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
@@ -16,9 +19,9 @@ import { clearApprovedDeviceReminders, syncApprovedDeviceReminders } from "@/lib
 type Category = "personal" | "work" | "meeting";
 type Priority = "urgent" | "important" | "normal";
 type View = "today" | "tasks" | "calendar" | "assistant" | "settings";
-type Item = { id: string; title: string; category: Category; priority: Priority; source: "task" | "meeting"; startsAt?: string; endsAt?: string; dueAt?: string; done: boolean };
+type Item = { id: string; title: string; category: Category; priority: Priority; source: "task" | "meeting"; startsAt?: string; endsAt?: string; timezone?: string; dueAt?: string; done: boolean };
 type ApiTask = { id: string; title: string; category: "PERSONAL" | "WORK"; priority: "URGENT" | "IMPORTANT" | "NORMAL"; status: string; startAt?: string | null; dueAt?: string | null };
-type ApiMeeting = { id: string; title: string; startsAt: string; endsAt: string; status?: string };
+type ApiMeeting = { id: string; title: string; startsAt: string; endsAt: string; timezone?: string; status?: string };
 
 const categories: Record<Category, [string, string]> = { personal: ["شخصی", "mint"], work: ["شرکتی", "lavender"], meeting: ["جلسه", "peach"] };
 const priorities: Record<Priority, [string, string]> = { urgent: ["فوری", "rose"], important: ["مهم", "amber"], normal: ["عادی", "sage"] };
@@ -30,14 +33,14 @@ const demoItems: Item[] = [
 const tehranDate = new Intl.DateTimeFormat("fa-IR-u-ca-persian", { timeZone: "Asia/Tehran", weekday: "long", day: "numeric", month: "long" });
 const tehranGregorianDate = new Intl.DateTimeFormat("fa-IR-u-ca-gregory", { timeZone: "Asia/Tehran", day: "numeric", month: "long", year: "numeric" });
 const tehranShortDate = new Intl.DateTimeFormat("fa-IR-u-ca-persian", { timeZone: "Asia/Tehran", month: "short", day: "numeric" });
-const tehranTime = new Intl.DateTimeFormat("fa-IR", { timeZone: "Asia/Tehran", hour: "2-digit", minute: "2-digit" });
+const tehranTime = new Intl.DateTimeFormat("fa-IR", { timeZone: "Asia/Tehran", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 
 function taskToItem(task: ApiTask): Item {
   return { id: task.id, title: task.title, category: task.category === "WORK" ? "work" : "personal", priority: task.priority.toLowerCase() as Priority, source: "task", startsAt: task.startAt || undefined, dueAt: task.dueAt || undefined, done: task.status === "DONE" };
 }
 
 function meetingToItem(meeting: ApiMeeting): Item {
-  return { id: meeting.id, title: meeting.title, category: "meeting", priority: "important", source: "meeting", startsAt: meeting.startsAt, endsAt: meeting.endsAt, done: meeting.status === "DONE" };
+  return { id: meeting.id, title: meeting.title, category: "meeting", priority: "important", source: "meeting", startsAt: meeting.startsAt, endsAt: meeting.endsAt, timezone: meeting.timezone, done: meeting.status === "DONE" };
 }
 
 function itemMoment(item: Item) { return item.startsAt || item.dueAt; }
@@ -71,7 +74,7 @@ function localTimeInput(value?: string) {
   return new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Tehran", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(value));
 }
 
-function tehranIso(date: string, time: string) { return new Date(`${date}T${time || "09:00"}:00+03:30`).toISOString(); }
+function tehranIso(date: string, time: string) { return planInstant(date, time || "09:00", "Asia/Tehran")!.toISOString(); }
 
 function reminderOffsetsLabel(offsets: readonly number[]) {
   return offsets.map((minutes) => REMINDER_OFFSET_OPTIONS.find((option) => option.minutes === minutes)?.label).filter(Boolean).join("، ");
@@ -290,21 +293,22 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
     const date = String(data.get("date") || "");
     const time = String(data.get("time") || "09:00");
     if (category === "meeting" && !date) { setMessage("تاریخ جلسه الزامی است."); return; }
+    if(date && (!persianParts(date)||!validTime24(time))){setMessage("تاریخ شمسی و ساعت ۲۴ساعته معتبر وارد کن.");return;}
     const startsAt = date ? tehranIso(date, time) : undefined;
     if (!title) return;
     setMessage("");
     if (!signedIn) {
-      const duration = Number(data.get("duration") || 60);
+      const duration = editing?.source === "meeting" && editing.startsAt && editing.endsAt ? (Date.parse(editing.endsAt)-Date.parse(editing.startsAt))/60000 : 60;
       const nextItem: Item = { id: editing?.id || crypto.randomUUID(), title, category, priority, source: category === "meeting" ? "meeting" : "task", startsAt: category === "meeting" ? startsAt : undefined, endsAt: category === "meeting" && startsAt ? new Date(new Date(startsAt).getTime() + duration * 60_000).toISOString() : undefined, dueAt: category === "meeting" ? undefined : startsAt, done: editing?.done || false };
       setItems((all) => editing ? all.map((item) => item.id === editing.id && item.source === editing.source ? nextItem : item) : [nextItem, ...all]);
       form.reset(); closeComposer(); return;
     }
     const isMeeting = category === "meeting";
-    const duration = Number(data.get("duration") || 60);
+    const duration = editing?.source === "meeting" && editing.startsAt && editing.endsAt ? (Date.parse(editing.endsAt)-Date.parse(editing.startsAt))/60000 : 60;
     if (isMeeting && !startsAt) { setMessage("تاریخ جلسه الزامی است."); return; }
     const endpoint = isMeeting ? editing ? `/api/meetings/${editing.id}` : "/api/meetings" : editing ? `/api/tasks/${editing.id}` : "/api/tasks";
     const body = isMeeting
-      ? { title, startsAt: startsAt!, endsAt: new Date(new Date(startsAt!).getTime() + duration * 60_000).toISOString(), timezone: "Asia/Tehran", ...(editing ? {} : { attendees: [] }) }
+      ? { title, startsAt: startsAt!, endsAt: new Date(new Date(startsAt!).getTime() + duration * 60_000).toISOString(), timezone: editing?.timezone || preferences?.timezone || "Asia/Tehran", ...(editing ? {} : { attendees: [] }) }
       : { title, category: category === "work" ? "WORK" : "PERSONAL", priority: priority.toUpperCase(), dueAt: startsAt ?? null };
     try {
       const response = await fetch(endpoint, { method: editing ? "PATCH" : "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
@@ -353,14 +357,13 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
 function Composer({ initial, initialDate, defaultReminderOffsets, onClose, onSubmit }: { initial: Item | null; initialDate?: string; defaultReminderOffsets: number[]; onClose: () => void; onSubmit: (event: FormEvent<HTMLFormElement>) => void }) {
   const [category, setCategory] = useState<Category>(initial?.category || "personal");
   const moment = initial ? itemMoment(initial) : undefined;
-  const duration = initial?.source === "meeting" && initial.startsAt && initial.endsAt ? String(Math.round((new Date(initial.endsAt).getTime() - new Date(initial.startsAt).getTime()) / 60_000)) : "60";
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [onClose]);
   const titleId = "composer-title";
-  return <div className="modal-backdrop" onMouseDown={onClose}><form className="composer" role="dialog" aria-modal="true" aria-labelledby={titleId} onSubmit={onSubmit} onMouseDown={(event) => event.stopPropagation()}><div className="composer-heading"><div><small>{initial ? "به‌روزرسانی برنامه" : "یک قدم تازه"}</small><h2 id={titleId}>{initial ? category === "meeting" ? "ویرایش جلسه" : "ویرایش کار" : category === "meeting" ? "جلسه جدید" : "کار جدید"}</h2></div><button type="button" onClick={onClose}>بستن</button></div><label>عنوان<input name="title" autoFocus required defaultValue={initial?.title} placeholder={category === "meeting" ? "مثلاً جلسه با تیم فروش" : "مثلاً تماس با تیم فروش"} /></label><div className="field-grid"><label>دسته‌بندی<select name="category" value={category} onChange={(event) => setCategory(event.target.value as Category)}>{initial?.source === "meeting" ? <option value="meeting">جلسه</option> : <><option value="personal">شخصی</option><option value="work">شرکتی</option>{!initial && <option value="meeting">جلسه</option>}</>}</select></label><label>اولویت<select name="priority" disabled={category === "meeting"} defaultValue={initial?.priority || "normal"}><option value="normal">عادی</option><option value="important">مهم</option><option value="urgent">فوری</option></select></label></div><div className="field-grid"><label>{category === "meeting" ? "تاریخ" : "تاریخ (اختیاری)"}<input name="date" type="date" defaultValue={moment ? dateKey(moment) : initialDate || (initial ? "" : localDateInput())} required={category === "meeting"} /></label><label>ساعت<input name="time" type="time" defaultValue={localTimeInput(moment)} required={category === "meeting"} /></label></div>{category === "meeting" && <div className="field-grid"><label>مدت جلسه<select name="duration" defaultValue={duration}><option value="30">۳۰ دقیقه</option><option value="60">۱ ساعت</option><option value="90">۱.۵ ساعت</option><option value="120">۲ ساعت</option></select></label><span /></div>}<div className="composer-reminder-summary"><strong>یادآوری‌های فعال</strong><span>{reminderOffsetsLabel(defaultReminderOffsets)}</span><small>از بخش تنظیمات برنامه‌ریزی قابل تغییر است.</small></div><button className="submit-button">{initial ? "ذخیره تغییرات" : "ثبت در برنامه"}</button></form></div>;
+  return <div className="modal-backdrop" onMouseDown={onClose}><form className="composer" role="dialog" aria-modal="true" aria-labelledby={titleId} onSubmit={onSubmit} onMouseDown={(event) => event.stopPropagation()}><div className="composer-heading"><div><small>{initial ? "به‌روزرسانی برنامه" : "یک قدم تازه"}</small><h2 id={titleId}>{initial ? category === "meeting" ? "ویرایش جلسه" : "ویرایش کار" : category === "meeting" ? "جلسه جدید" : "کار جدید"}</h2></div><button type="button" onClick={onClose}>بستن</button></div><label>عنوان<input name="title" autoFocus required defaultValue={initial?.title} placeholder={category === "meeting" ? "مثلاً جلسه با تیم فروش" : "مثلاً تماس با تیم فروش"} /></label><div className="field-grid"><label>دسته‌بندی<select name="category" value={category} onChange={(event) => setCategory(event.target.value as Category)}>{initial?.source === "meeting" ? <option value="meeting">جلسه</option> : <><option value="personal">شخصی</option><option value="work">شرکتی</option>{!initial && <option value="meeting">جلسه</option>}</>}</select></label><label>اولویت<select name="priority" disabled={category === "meeting"} defaultValue={initial?.priority || "normal"}><option value="normal">عادی</option><option value="important">مهم</option><option value="urgent">فوری</option></select></label></div><div className="field-grid"><label>{category === "meeting" ? "تاریخ" : "تاریخ (اختیاری)"}<PersianDateField name="date" defaultValue={moment ? dateKey(moment) : initialDate || (initial ? "" : localDateInput())} required={category === "meeting"} /></label><label>ساعت<Time24Field name="time" defaultValue={localTimeInput(moment)} required={category === "meeting"} /></label></div><div className="composer-reminder-summary"><strong>یادآوری‌های فعال</strong><span>{reminderOffsetsLabel(defaultReminderOffsets)}</span><small>از بخش تنظیمات برنامه‌ریزی قابل تغییر است.</small></div><button className="submit-button">{initial ? "ذخیره تغییرات" : "ثبت در برنامه"}</button></form></div>;
 }
 
 function Nav({ active, label, badge, onClick }: { active: boolean; label: string; badge?: number; onClick: () => void }) { return <button className={`nav-button ${active ? "active" : ""}`} onClick={onClick}>{label}{badge !== undefined && <small>{badge}</small>}</button>; }

@@ -1,4 +1,5 @@
 // Pure planner shared with the bundled Android shell. Never performs effects.
+export const DEFAULT_MEETING_MINUTES = 60;
 export type Plan = {
   operation: "CREATE" | "UPDATE" | "COMPLETE" | "DELETE";
   entity: "TASK" | "MEETING";
@@ -33,6 +34,40 @@ export function normalizePersian(text: string) {
   for (const [word, value] of Object.entries(words)) result = result.replace(new RegExp(`(^|[\\s،؛])${word}(?=$|[\\s،؛])`, "g"), `$1${value}`);
   result = result.replace(/\b(20|30|40|50) و ([1-9])\b/g, (_, a, b) => String(Number(a) + Number(b)));
   return result;
+}
+
+export function extractPersianTitle(message:string) {
+  let text=message.replace(/\u200c/g," ").replace(/ي/g,"ی").replace(/ك/g,"ک");
+  const named=text.match(/(?:عنوان|تیتر|اسمش|اسم|نام)(?:ش)?\s*(?:را|رو)?\s*(?:بگذار|بذار|باشد|باشه|بشه|بکن)?\s*[«"“]([^»"”]+)[»"”]/);
+  if(named)return named[1].trim().slice(0,180);
+  const n="(?:[0-9۰-۹٠-٩]+|بیست(?:\\s+و\\s+(?:یک|دو|سه))?|دوازده|یازده|سیزده|چهارده|پانزده|شانزده|هفده|هجده|نوزده|ده|نه|هشت|هفت|شش|پنج|چهار|سه|دو|یک|صفر)";
+  const clock=new RegExp("ساعت\\s*"+n+"(?::[0-9۰-۹٠-٩]{1,2}|\\s+و\\s+(?:نیم|ربع|"+n+")(?:\\s+دقیقه)?)?(?:\\s*(?:بعد از ظهر|بعدازظهر|بامداد|عصر|صبح|ظهر|شب))?","g");
+  text=text.split(/[؛;\n]/)[0].split(/(?:یادم|یادآور|یادآوری|آلارم|الارم|هشدار|اعلان|alarm|notification)/i)[0]
+    .replace(clock," ")
+    .replace(/[0-9۰-۹٠-٩]{4}[/-][0-9۰-۹٠-٩]{1,2}[/-][0-9۰-۹٠-٩]{1,2}/g," ")
+    .replace(/(?:پس فردا|پسفردا|فردا|امروز|(?:یک|دو|سه|چهار|پنج)\s*شنبه|شنبه|جمعه)(?:\s+(?:بعد|آینده))?/g," ")
+    .replace(new RegExp(n+"\\s*(?:روز|ساعت|دقیقه)\\s*قبل.*$")," ")
+    .replace(/(?:به مدت|مدت|طول جلسه)\s*[^،؛]+/g," ")
+    .replace(/(?:هر هفته|هر روز|هفتگی|روزانه)(?:\s+برای\s+[0-9۰-۹٠-٩]+\s*نوبت)?/g," ")
+    .replace(/(?:عنوان|تیتر|اسم)(?:ش)?\s*(?:را|رو)?\s*/g," ")
+    .replace(/(?:ثبت کن|اضافه کن|بساز|بذار|بگذار|بشه|باشد|باشه|تغییر بده|تغییر کن|عوض کن|حذف کن|پاک کن|تکمیل کن|انجام شد|دارم|لطفاً|لطفا)/g," ")
+    .replace(/(^|[\s،])(?:را|رو|برای من|برام|صبح|عصر|شب|بامداد|فوری|مهم|عادی|شخصی|شرکتی)(?=$|[\s،])/g," ")
+    .replace(/^\s*(?:یک|یه)\s+(?=جلسه|قرار|کار)/,"")
+    .replace(/^\s*کار\s+(?=\S)/,"")
+    .replace(/^[\s،:«"]+|[\s،.!؟»"]+$/g,"").replace(/\s+و\s*$/,"").replace(/\s+/g," ").trim();
+  return text.slice(0,180);
+}
+
+// Only newly presented/edited proposals adopt the retired quiet-hours policy.
+// Existing stored reminders and already-approved plans are not rewritten.
+export function normalizePlanForReview(plan:Plan, items:PlanningItem[]=[]):Plan {
+  plan.quietStart="00:00";plan.quietEnd="00:00";
+  plan.defaults=plan.defaults.filter(d=>!d.includes("سکوت"));
+  if(plan.entity==="MEETING"&&!plan.durationMinutes){
+    const item=items.find(i=>i.id===plan.targetId);
+    plan.durationMinutes=item?.startsAt&&item.endsAt?(new Date(item.endsAt).getTime()-new Date(item.startsAt).getTime())/60000:DEFAULT_MEETING_MINUTES;
+  }
+  return plan;
 }
 
 export function dateParts(date: Date, timezone: string) {
@@ -119,15 +154,12 @@ export function inspectPlan(plan: Plan, now = new Date(), items: PlanningItem[] 
     if (plan.date && !plan.time) questions.push(plan.ambiguousTime ? "این ساعت صبح است یا عصر؟ می‌توانی ساعت ۲۴ساعته را هم مشخص کنی." : "دقیقاً چه ساعتی؟ ساعت را از ۰ تا ۲۳ مشخص کن.");
     if (plan.time && !plan.date) questions.push("برای چه تاریخی؟");
     if (plan.entity === "MEETING" && !plan.date) questions.push("جلسه چه روزی است؟");
-    if ((plan.date || plan.time) && plan.date && plan.time && !instant) questions.push("این تاریخ یا ساعت در منطقه زمانی انتخابی معتبر نیست.");
-    if (plan.entity === "MEETING" && !plan.durationMinutes) questions.push("مدت جلسه چند دقیقه است؟");
+    if ((plan.date || plan.time) && plan.date && plan.time && !instant) questions.push("این تاریخ یا ساعت معتبر نیست.");
     if (plan.reminderOffsets.length && !instant) questions.push("برای یادآوری، تاریخ و ساعت دقیق لازم است.");
     if (instant && instant.getTime() <= now.getTime()) questions.push("زمان انتخاب‌شده گذشته است؛ زمان آینده را مشخص کن.");
     if (instant) {
       const past = plan.reminderOffsets.filter(m => instant.getTime() - m * 60000 <= now.getTime());
       if (past.length) warnings.push(`${past.length} یادآوری گذشته است و زمان‌بندی نمی‌شود.`);
-      const quiet = (time: string) => plan.quietStart > plan.quietEnd ? time >= plan.quietStart || time < plan.quietEnd : time >= plan.quietStart && time < plan.quietEnd;
-      if (plan.reminderOffsets.some(m => quiet(dateParts(new Date(instant.getTime() - m * 60000), plan.timezone).time))) warnings.push("یادآوری در ساعات سکوت جابه‌جا می‌شود؛ زمان نهایی پیش از تأیید نمایش داده می‌شود.");
       if (plan.entity === "MEETING" && plan.durationMinutes && items.some(item => item.id !== plan.targetId && item.startsAt && item.endsAt && new Date(item.startsAt).getTime() < instant.getTime() + plan.durationMinutes! * 60000 && new Date(item.endsAt).getTime() > instant.getTime())) warnings.push("این جلسه با جلسه دیگری تداخل دارد.");
     }
     if (plan.recurrence !== "NONE" && !plan.occurrenceCount) questions.push("چند نوبت تکرار شود؟ از ۲ تا ۱۲ نوبت انتخاب کن.");
@@ -149,7 +181,7 @@ export function planPersian(message: string, context: PlanningContext = {}) {
     operation: "CREATE", entity: /جلسه|قرار/.test(text) ? "MEETING" : "TASK", targetId: null, targetUpdatedAt: null,
     title: "", category: "PERSONAL", priority: "NORMAL", date: "", time: "", ambiguousTime: null, timezone,
     durationMinutes: null, recurrence: "NONE", occurrenceCount: null, reminderOffsets: [], channels: ["IN_APP"], repeatCount: 1, repeatMinutes: 15,
-    quietStart: context.quietStart ?? "22:00", quietEnd: context.quietEnd ?? "08:00", escalation: false, defaults: ["دسته شخصی، اولویت عادی و ساعات سکوت از تنظیمات"],
+    quietStart: "00:00", quietEnd: "00:00", escalation: false, defaults: ["دسته شخصی، اولویت عادی و تنظیمات پیش‌فرض"],
   };
   const summary = !previous && /خلاصه|زمان آزاد|برنامه امروز/.test(text) && !/ثبت|بساز|دارم/.test(text);
   if (summary) return { plan: null, reply: `${context.items?.length ?? 0} کار باز؛ ${(context.items ?? []).slice(0, 4).map(i => i.title).join("، ") || "موردی ثبت نشده است."}`, questions: [], warnings: [], candidates: [] as PlanningItem[], instant: null };
@@ -206,15 +238,7 @@ export function planPersian(message: string, context: PlanningContext = {}) {
   if (repeats) plan.repeatCount = Number(repeats[1]);
   if (interval) plan.repeatMinutes = Number(interval[1]);
   if (!previous || /عنوان|تیتر/.test(command)) {
-    plan.title = original.split(/[؛;]/)[0].split(/(?:یادم|یادآور|یادآوری)/)[0]
-      .replace(/(?:عنوان|تیتر)(?:ش)?\s*(?:را|رو)?\s*/g, "")
-      .replace(/(?:پس فردا|فردا|امروز|(?:یک|دو|سه|چهار|پنج)?\s*شنبه|جمعه)(?:\s+بعد)?/g, "")
-      .replace(/ساعت\s+[\d۰-۹\w:]+(?:\s+و\s+(?:نیم|ربع))?/g," ")
-      .replace(/ساعت\s+(?:دوازده|یازده|بیست|ده|نه|هشت|هفت|شش|پنج|چهار|سه|دو|یک)(?:\s+و\s+(?:نیم|ربع))?/g," ")
-      .replace(/(?:به مدت|مدت)\s*[^،؛]+/g, " ")
-      .replace(/(?:صبح|عصر|شب|بعد از ظهر|بعدازظهر|ثبت کن|اضافه کن|بساز|بذار|بگذار|دارم|لطفاً|لطفا|تغییر بده|حذف کن|تکمیل کن|انجام شد|هر هفته|هر روز)/g," ")
-      .replace(/(^|\s)(را|رو)(?=\s|$)/g," ")
-      .replace(/\b\d{4}[/-]\d{1,2}[/-]\d{1,2}\b/g," ").replace(/[،.!؟]+$/g,"").replace(/\s+/g," ").trim().slice(0,180);
+    plan.title = extractPersianTitle(message);
   }
   let candidates: PlanningItem[] = [];
   if (plan.operation !== "CREATE" && !plan.targetId) {
@@ -229,6 +253,7 @@ export function planPersian(message: string, context: PlanningContext = {}) {
       if (!plan.durationMinutes && item.startsAt && item.endsAt) plan.durationMinutes = (new Date(item.endsAt).getTime()-new Date(item.startsAt).getTime())/60000;
     }
   }
+  normalizePlanForReview(plan, context.items);
   const checked = inspectPlan(plan, now, context.items);
   if (/همچنین|(?:کار|جلسه) دوم|\n/.test(message) || (message.match(/بساز|ثبت کن|دارم|تکمیل کن|حذف کن|انجام شد/g)?.length ?? 0)>1) checked.questions.push("چند درخواست دیده شد؛ هر مورد را جداگانه بررسی و تأیید کنیم.");
   if (/پیامک|تماس/.test(message)) checked.warnings.push("تماس و پیامک واقعی غیرفعال‌اند و در این پیشنهاد اجرا نمی‌شوند.");

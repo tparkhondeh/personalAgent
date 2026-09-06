@@ -11,6 +11,7 @@ export async function sharedMobileTheme(root = process.cwd()) {
   };
   const palette = (body) => body.split(";").filter(part => /^\s*(background(?:-attachment)?|color|border-color|box-shadow)\s*:/.test(part)).join(";") + ";";
   const mapped = (source, from, to) => `${to}{${palette(rule(source, from))}}`;
+  const controls=css.slice(css.indexOf("/* Shared explicit 24-hour"));
   return `/* Generated from src/app/globals.css; do not edit. */
 :root{${rule(light, ":root")}color-scheme:light;--text:var(--ink);--soft:var(--surface-soft);--lav:var(--lavender);--blue:var(--sky);--primary2:var(--primary);--shadow:var(--shadow-sm)}
 body{${palette(rule(light, "body"))}font-family:Vazirmatn,Tahoma,Arial,sans-serif;font-feature-settings:"ss01" 1,"tnum" 1;text-rendering:optimizeLegibility}
@@ -28,5 +29,6 @@ ${mapped(dark, ".focus-card", ".stat:nth-child(2)")}
 ${mapped(dark, ".summary-card.peach", ".stat:nth-child(3)")}
 ${mapped(dark, ".summary-card.lavender", ".stat:nth-child(1)")}
 .card,.item,.round-button{background:var(--surface-solid)}.primary{color:#fff}}
+${controls.trim()}
 `;
 }

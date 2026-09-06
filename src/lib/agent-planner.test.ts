@@ -5,10 +5,10 @@ const now=new Date("2026-09-06T08:00:00Z");
 const context={now,timezone:"Asia/Tehran"};
 const acceptance="فردا ساعت پنج عصر جلسه با تیم فروش دارم؛ یک روز قبل، سه ساعت قبل و یک ساعت قبل یادم بنداز و آلارم هم بگذار.";
 describe("Persian planning acceptance corpus",()=>{
-  it("extracts the full acceptance example without inventing duration",()=>{
+  it("extracts the full acceptance example with the documented internal duration",()=>{
     const result=planPersian(acceptance,context);
-    expect(result.plan).toMatchObject({entity:"MEETING",title:"جلسه با تیم فروش",category:"WORK",date:"2026-09-07",time:"17:00",durationMinutes:null,reminderOffsets:[1440,180,60],channels:["IN_APP","ALARM"]});
-    expect(result.questions.join(" ")).toContain("مدت جلسه");
+    expect(result.plan).toMatchObject({entity:"MEETING",title:"جلسه با تیم فروش",category:"WORK",date:"2026-09-07",time:"17:00",durationMinutes:60,reminderOffsets:[1440,180,60],channels:["IN_APP","ALARM"]});
+    expect(result.questions).toEqual([]);
   });
   it.each(["۵","5","٥","پنج"])("understands numeral %s",word=>{
     expect(planPersian(`فردا ساعت ${word} عصر گزارش را ثبت کن`,context).plan?.time).toBe("17:00");
@@ -18,7 +18,7 @@ describe("Persian planning acceptance corpus",()=>{
   });
   it.each([["۱۴۰۵/۰۶/۱۶","2026-09-07"],["2026/09/07","2026-09-07"]])("converts date %s",(date,expected)=>expect(planPersian(`${date} ساعت 17 گزارش بساز`,context).plan?.date).toBe(expected));
   it.each(["فردا عصر جلسه با تیم دارم","فردا جلسه با تیم دارم"])("asks instead of guessing: %s",message=>{
-    const result=planPersian(message,context);expect(result.plan?.time).toBe("");expect(result.plan?.durationMinutes).toBeNull();expect(result.questions.length).toBeGreaterThan(0);
+    const result=planPersian(message,context);expect(result.plan?.time).toBe("");expect(result.plan?.durationMinutes).toBe(60);expect(result.questions.length).toBeGreaterThan(0);
   });
   it("adds rather than duplicates reminders in the same proposal",()=>{
     const first=planPersian("فردا ساعت 17 گزارش بساز؛ سه ساعت قبل یادم بنداز",context);
@@ -73,6 +73,6 @@ describe("Persian planning acceptance corpus",()=>{
     const after=planPersian(acceptance,context);
     expect(before.proposal.startsAt).not.toBe("2026-09-07T13:30:00.000Z");
     expect(after.instant).toBe("2026-09-07T13:30:00.000Z");
-    expect(before.proposal.endsAt).toBeTruthy();expect(after.plan?.durationMinutes).toBeNull();
+    expect(before.proposal.endsAt).toBeTruthy();expect(after.plan?.durationMinutes).toBe(60);
   });
 });

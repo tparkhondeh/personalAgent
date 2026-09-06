@@ -68,3 +68,21 @@ body{ background: radial-gradient(circle at 88% 4%, rgba(51, 59, 91, 0.7), trans
 .stat:nth-child(3){ border-color: #503a35; background: linear-gradient(138deg, #372824, #2b2528) !important; color: var(--ink) !important;}
 .stat:nth-child(1){ border-color: #45405c; background: linear-gradient(138deg, #302b40, #272632) !important; color: var(--ink) !important;}
 .card,.item,.round-button{background:var(--surface-solid)}.primary{color:#fff}}
+/* Shared explicit 24-hour clock and Jalali calendar; never native date/time pickers. */
+.date-time-control { display: grid; gap: .45rem; min-width: 0; }
+.date-time-control input { min-width: 0; width: 100%; }
+.date-picker summary,.time-picker summary { cursor: pointer; color: var(--primary); font-size: 12px; padding: 8px 0; }
+.calendar-picker { display: grid; gap: 12px; border: 1px solid var(--line); border-radius: 16px; padding: 10px; background: var(--surface); }
+.picker-header { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.picker-header button { font-size: 12px; padding: 8px; min-height: 44px; }
+.picker-days { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); gap: 2px; text-align: center; }
+.picker-days button { min-height: 44px; min-width: 0; padding: 0; border: 1px solid transparent; border-radius: 10px; background: var(--surface-solid); color: var(--ink); }
+.picker-days button[aria-pressed=true] { background: var(--primary); color: white; }
+.clock-picker { display: flex; align-items: center; gap: 10px; }
+.clock-picker select { min-width: 0; flex: 1; }
+.field-error { display: block; color: #a33749; font-size: 12px; }
+.agent-actions, .assistant-result .settings-actions { position: static; padding: 12px 0; border-radius: 12px; flex-wrap: wrap; }
+.assistant-result .settings-actions { grid-template-columns: repeat(3,minmax(0,1fr)); }
+.assistant-result .settings-actions button { padding-inline: 8px; }
+.picker-header button { border: 1px solid var(--line); background: var(--surface); color: var(--text); border-radius: 10px; padding: 8px; }
+.agent-review { padding-bottom: 20px; }

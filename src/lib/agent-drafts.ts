@@ -1,6 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
-import { inspectPlan, planInstant, planOccurrences, plannedReminderTimes, type Plan, type PlanningItem } from "@/lib/agent-planner";
+import { normalizePlanForReview, inspectPlan, planInstant, planOccurrences, plannedReminderTimes, type Plan, type PlanningItem } from "@/lib/agent-planner";
 import { planSchema } from "@/lib/agent-plan-schema";
 
 export class DraftError extends Error { constructor(message: string, public status = 409) { super(message); } }
@@ -33,6 +33,7 @@ export async function saveDraft(userId: string, conversationId: string, plan: Pl
     // Never accept a client/model-supplied concurrency precondition.
     plan.targetUpdatedAt = target.updatedAt ?? null;
   }
+  normalizePlanForReview(plan, items);
   const preview = previewPlan(plan, items);
   preview.questions = [...new Set([...preview.questions, ...extraQuestions])];
   return db.$transaction(async tx => {

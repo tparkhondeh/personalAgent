@@ -85,7 +85,11 @@ const sharedTheme = await sharedMobileTheme(projectRoot);
 await writeFile(path.join(mobileRoot, "theme.css"), sharedTheme);
 const plannerSource = await readFile(path.join(projectRoot,"src/lib/agent-planner.ts"),"utf8");
 const plannerJs = ts.transpileModule(plannerSource.replace(/^export /gm,""),{compilerOptions:{target:ts.ScriptTarget.ES2020,module:ts.ModuleKind.None}}).outputText;
-const plannerScript = `window.HamrahPlanner=(()=>{${plannerJs}\nreturn {planPersian,planInstant,inspectPlan,dateParts,planOccurrences,plannedReminderTimes};})();\n`;
+const inputsSource=await readFile(path.join(projectRoot,"src/lib/persian-inputs.ts"),"utf8");
+const inputsJs=ts.transpileModule(inputsSource.replace(/^export /gm,""),{compilerOptions:{target:ts.ScriptTarget.ES2020,module:ts.ModuleKind.None}}).outputText;
+const inputsScript=`window.HamrahInputs=(()=>{${inputsJs}\nreturn {dateInputValue,parsePersianInput,persianParts,persianMonths,persianMonthGrid,inputDigits,faDigits,validTime24,jalaliToIso};})();`;
+const inputControls=await readFile(path.join(mobileRoot,"input-controls.js"),"utf8");
+const plannerScript = `${inputsScript}\nwindow.HamrahPlanner=(()=>{${plannerJs}\nreturn {planPersian,planInstant,inspectPlan,dateParts,planOccurrences,plannedReminderTimes,normalizePlanForReview};})();\n`;
 await writeFile(path.join(mobileRoot,"planner.js"),plannerScript);
 const bundledDocument = indexHtml
   .replace('<link rel="stylesheet" href="./app.css" />', () => `<style>${appStyles}\n${sharedTheme}</style>`)
@@ -93,9 +97,10 @@ const bundledDocument = indexHtml
   .replace('<script src="./content.js"></script>', "")
   .replace('<script src="./domain.js"></script>', "")
   .replace('<script src="./planner.js"></script>', "")
+  .replace('<script src="./input-controls.js"></script>', "")
   .replace('<script src="./app.js"></script>', "");
 const serializedDocument = JSON.stringify(bundledDocument).replaceAll("</", "<\\/");
-const serializedScript = JSON.stringify(`${poemScript}\n${domainScript}\n${plannerScript}\n${appScript}`).replaceAll("</", "<\\/");
+const serializedScript = JSON.stringify(`${poemScript}\n${domainScript}\n${plannerScript}\n${inputControls}\n${appScript}`).replaceAll("</", "<\\/");
 const offlineDocumentMarker = /^(\s*)const bundledDocument = .*; \/\/ generated-offline-document$/m;
 const offlineScriptMarker = /^(\s*)const bundledScript = .*; \/\/ generated-offline-script$/m;
 if (!offlineDocumentMarker.test(recoveryHtml)) {
