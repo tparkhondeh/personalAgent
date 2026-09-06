@@ -173,7 +173,7 @@ export function inspectPlan(plan: Plan, now = new Date(), items: PlanningItem[] 
     if(plan.recurrence!=="NONE" && plan.occurrenceCount && planOccurrences(plan).some(o=>!o.instant))questions.push("یکی از ساعت‌های تکرار با تغییر ساعت رسمی نامعتبر می‌شود؛ ساعت دیگری انتخاب کن.");
   }
   if (plan.channels.includes("ALARM")) warnings.push("Alarm به اپ اندروید و مجوز گوشی نیاز دارد؛ تضمین اجرای دقیق وابسته به سیستم‌عامل است.");
-  if (plan.channels.includes("NATIVE")) warnings.push("اعلان گوشی پس از همگام‌سازی اپ اندروید با همین حساب و اجازه دستگاه تنظیم می‌شود.");
+  if (plan.channels.includes("NATIVE")) warnings.push("Notification پس از همگام‌سازی اپ اندروید با همین حساب و اجازه دستگاه تنظیم می‌شود.");
   if (plan.channels.includes("PUSH")) warnings.push("Push فقط روی دستگاه دارای اشتراک و مجوز اعلان ارسال می‌شود.");
   return { questions: [...new Set(questions)], warnings, instant: instant?.toISOString() ?? null };
 }

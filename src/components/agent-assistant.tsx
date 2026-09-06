@@ -8,7 +8,7 @@ import { VoiceInput } from "@/components/voice-input";
 import { syncApprovedDeviceReminders } from "@/lib/approved-device-reminders";
 
 type Draft = { id: string; revision: number; plan: Plan; preview: { instant: string | null; questions: string[]; warnings: string[]; schedule: { channel: string; scheduledFor: string; offset: number }[] } };
-const channels = { IN_APP: "داخل برنامه", PUSH: "Push", NATIVE: "اعلان گوشی", ALARM: "Alarm گوشی" } as const;
+const channels = { IN_APP: "داخل برنامه", PUSH: "Push", NATIVE: "Notification", ALARM: "Alarm گوشی" } as const;
 const operations = { CREATE: "ایجاد", UPDATE: "ویرایش", COMPLETE: "تکمیل", DELETE: "حذف و بایگانی" };
 export function AgentAssistant({ onAdd, onChanged }: { onAdd: () => void; onChanged: () => Promise<void> }) {
   const {data:session}=authClient.useSession();
@@ -36,7 +36,7 @@ export function AgentAssistant({ onAdd, onChanged }: { onAdd: () => void; onChan
       else if(action==="cancel"){setDraft(null);setEdit(null);setStatus("پیشنهاد لغو شد؛ چیزی ثبت یا زمان‌بندی نشد.");}
       else {
         setDraft(null);setEdit(null);let native="";
-        try{native=await syncApprovedDeviceReminders();}catch{native="ثبت انجام شد، اما تنظیم اعلان گوشی انجام نشد؛ دوباره بررسی کن.";}
+        try{native=await syncApprovedDeviceReminders();}catch{native="ثبت انجام شد، اما تنظیم Notification انجام نشد؛ دوباره بررسی کن.";}
         setStatus(`${body.data.message} ${body.data.remindersScheduled} یادآوری سرور زمان‌بندی شد. ${body.data.devicePending?native:""}`);await onChanged();
       }
     }catch(error){setStatus(error instanceof Error?error.message:"پاسخ دریافت نشد؛ تأیید دوباره مورد تکراری نمی‌سازد.");}finally{setPending(false);}
@@ -58,10 +58,10 @@ export function AgentAssistant({ onAdd, onChanged }: { onAdd: () => void; onChan
         <label>اولویت<select value={p.priority} onChange={e=>change("priority",e.target.value as Plan["priority"])}><option value="NORMAL">عادی</option><option value="IMPORTANT">مهم</option><option value="URGENT">فوری</option></select></label>
         <label>تاریخ شمسی<PersianDateField value={p.date} onChange={v=>change("date",v)}/>{fieldError(/تاریخ|روز/)&&<small className="field-error">{fieldError(/تاریخ|روز/)}</small>}</label>
         <label>ساعت ۲۴ساعته<Time24Field value={p.time} onChange={v=>{if(edit)setEdit({...edit,time:v,ambiguousTime:null});}}/>{fieldError(/ساعت|زمان/)&&<small className="field-error">{fieldError(/ساعت|زمان/)}</small>}</label>
-        <label>تکرار<select value={p.recurrence} onChange={e=>change("recurrence",e.target.value as Plan["recurrence"])}><option value="NONE">ندارد</option><option value="DAILY">روزانه</option><option value="WEEKLY">هفتگی</option></select></label>
+        <label>تکرار برنامه<select value={p.recurrence} onChange={e=>change("recurrence",e.target.value as Plan["recurrence"])}><option value="NONE">ندارد</option><option value="DAILY">روزانه</option><option value="WEEKLY">هفتگی</option></select></label>
         {p.recurrence!=="NONE" && <label>تعداد نوبت‌ها، با احتساب اولین نوبت<input type="number" min={2} max={12} value={p.occurrenceCount??""} onChange={e=>change("occurrenceCount",e.target.value?Number(e.target.value):null)}/></label>}
-        <label>تعداد هشدار فوری<input type="number" min={1} max={6} value={p.repeatCount} onChange={e=>change("repeatCount",Number(e.target.value))}/></label>
-        <label>فاصله هشدار، دقیقه<input type="number" min={10} max={1440} value={p.repeatMinutes} onChange={e=>change("repeatMinutes",Number(e.target.value))}/></label>
+        {p.escalation && <><label>تعداد هشدار پس از موعد<input type="number" min={1} max={6} value={p.repeatCount} onChange={e=>change("repeatCount",Number(e.target.value))}/></label>
+        <label>فاصله پیگیری هشدار (دقیقه)<input type="number" min={10} max={1440} value={p.repeatMinutes} onChange={e=>change("repeatMinutes",Number(e.target.value))}/></label></>}
         {candidates.length>1 && <label>مورد موردنظر<select value={p.targetId??""} onChange={e=>{const item=candidates.find(i=>i.id===e.target.value);if(edit&&item)setEdit({...edit,targetId:item.id!,title:item.title,entity:item.entity??"TASK"});}}><option value="">انتخاب کن</option>{candidates.map(i=><option key={i.id} value={i.id}>{i.title}</option>)}</select></label>}
       </div>
       <div className="reminder-options">{[1440,180,60].map((minutes,i)=><label key={minutes}><input type="checkbox" checked={p.reminderOffsets.includes(minutes)} onChange={e=>change("reminderOffsets",e.target.checked?[...p.reminderOffsets,minutes].sort((a,b)=>b-a):p.reminderOffsets.filter(m=>m!==minutes))}/>{["یک روز قبل","سه ساعت قبل","یک ساعت قبل"][i]}</label>)}</div>

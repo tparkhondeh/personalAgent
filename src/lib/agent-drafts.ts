@@ -12,7 +12,7 @@ export function previewPlan(plan: Plan, items: PlanningItem[], now = new Date())
   if (active && plan.escalation && plan.priority !== "URGENT") inspection.questions.push("برای تشدید هشدار، اولویت را فوری انتخاب کن.");
   if (active && plan.entity === "MEETING" && plan.escalation) inspection.questions.push("تشدید هشدار فعلاً فقط برای کار فوری است؛ آن را برای جلسه خاموش کن.");
   if(plan.recurrence!=="NONE" && plan.occurrenceCount)inspection.warnings.push(`${plan.occurrenceCount} نوبت جدا ساخته می‌شود؛ ویرایش یا تکمیل هر نوبت فقط همان نوبت را تغییر می‌دهد.`);
-  if(plan.channels.includes("NATIVE")&&plan.channels.includes("ALARM"))inspection.warnings.push("Alarm شامل اعلان گوشی است؛ برای هر زمان فقط یک هشدار گوشی ساخته می‌شود.");
+  if(plan.channels.includes("NATIVE")&&plan.channels.includes("ALARM"))inspection.warnings.push("Alarm شامل Notification است؛ برای هر زمان فقط یک هشدار گوشی ساخته می‌شود.");
   return { ...inspection, schedule, occurrences: planOccurrences(plan), policy: { timezone: plan.timezone, quietStart: plan.quietStart, quietEnd: plan.quietEnd, repeatCount: plan.repeatCount, repeatMinutes: plan.repeatMinutes, escalation: plan.escalation, channels: plan.channels, reminderOffsets: plan.reminderOffsets }, checkedAt: now.toISOString() };
 }
 
