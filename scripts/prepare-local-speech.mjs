@@ -36,6 +36,8 @@ for(const dir of ['public/speech','mobile-shell/speech']) {
   await copyFile(archive,path.join(root,dir,'fa-0.42.tar.gz'));
   await writeFile(path.join(root,dir,'vosk-0.0.8.js'),safeEngine);
   await copyFile(path.join(root,'docs/licenses/VOSK-APACHE-2.0.txt'),path.join(root,dir,'LICENSE.txt'));
-  await writeFile(path.join(root,dir,'NOTICE.txt'),'Vosk / Kaldi - Alpha Cephei and contributors. vosk-browser - Ciaran O\'Reilly and contributors. Persian model vosk-model-small-fa-0.42 - Alpha Cephei. Apache-2.0. Engine termination patched for immediate cancellation. Sources: https://alphacephei.com/vosk/models and https://github.com/ccoreilly/vosk-browser .');
+  const notice=await readFile(path.join(root,'docs/licenses/VOSK-THIRD-PARTY-NOTICE.txt'),'utf8');
+  await writeFile(path.join(root,dir,'NOTICE.txt'),notice+'\n\ntia modification: engine termination patched for immediate cancellation. Persian model vosk-model-small-fa-0.42: Alpha Cephei, Apache-2.0.');
+  await copyFile(path.join(root,'docs/licenses/UUID-MIT.txt'),path.join(root,dir,'UUID-MIT.txt'));
 }
 console.log('Verified Persian model and browser engine prepared for web and bundled Android.');

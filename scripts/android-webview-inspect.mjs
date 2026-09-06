@@ -276,6 +276,18 @@ async function inspect() {
     writeFileSync(outputPath.replace(/\.json$/, "-parity.json"), JSON.stringify(parity.result.result.value, null, 2));
     process.stdout.write(`Offline parity: ${JSON.stringify(parity.result.result.value)}\n`);
     if(outputPath.endsWith('stable-local-fallback-webview.json')) {
+      // Supply the same real user activation as tapping the voice UI. Programmatic
+      // clicks alone can leave fixture audio suspended by WebView's autoplay policy.
+      const activation=await evaluate(`(()=>{const b=document.querySelector('[data-panel="assistant"]').getBoundingClientRect();return{x:b.x+b.width/2,y:b.y+b.height/2,w:innerWidth,h:innerHeight};})()`);
+      if(activation.result.exceptionDetails)throw new Error('Cannot locate assistant activation');
+      const prefix=outputPath.replace(/\.json$/,'-speech-system-ui');
+      execFileSync(process.execPath,['scripts/android-system-ui-check.mjs',prefix],{stdio:'inherit'});
+      const tree=readFileSync(prefix+'-before.xml','utf8');
+      const node=[...tree.matchAll(/<node\s[^>]+/g)].map(m=>m[0]).find(n=>n.includes('class="android.webkit.WebView"'));
+      const bounds=node?.match(/bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/);
+      if(!bounds)throw new Error('No WebView bounds for real speech activation');
+      const p=activation.result.result.value;
+      adb('shell','input','tap',String(Math.round(+bounds[1]+p.x*(+bounds[3]- +bounds[1])/p.w)),String(Math.round(+bounds[2]+p.y*(+bounds[4]- +bounds[2])/p.h)));
       const fixture=readFileSync('tests/fixtures/fa-welcome.wav').toString('base64');
       const speech=await evaluate(`(${persianSpeechFixtureQa.toString()})(${JSON.stringify(fixture)},${waitUntil.toString()})`,180000);
       if(speech.result.exceptionDetails)throw new Error('Persian speech QA failed: '+JSON.stringify(speech.result.exceptionDetails));

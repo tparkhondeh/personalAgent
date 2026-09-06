@@ -16,7 +16,7 @@ Run `pnpm speech:prepare` before packaging web/Android. The optional `TIA_MODEL_
 
 - [Vosk small Persian 0.42](https://alphacephei.com/vosk/models): Apache-2.0; Alpha Cephei. [Source ZIP](https://alphacephei.com/vosk/models/vosk-model-small-fa-0.42.zip).
 - [vosk-browser 0.0.8](https://github.com/ccoreilly/vosk-browser): Apache-2.0; Ciaran O'Reilly. Exact dependency pinned in lockfile. Its queued termination is changed at asset preparation to immediate Worker.terminate; a strict source match fails closed if upstream changes. This releases audio memory during cancellation/timeouts rather than waiting for inference.
-- Vosk/Kaldi third-party notices and Apache license must accompany distributed engine/model assets. Full license is in docs/licenses/VOSK-APACHE-2.0.txt.
+- Vosk/Kaldi third-party notices, UUID MIT and Apache license accompany distributed engine/model assets. Full upstream notices are in docs/licenses/VOSK-THIRD-PARTY-NOTICE.txt and are copied alongside the model in the APK/server, plus Release attachments. Copyright notices in the prebuilt engine remain intact.
 - The dependency edge `vosk-browser > uuid` is constrained to 11.1.1 to fix GHSA-w5hq-g745-h8pq. The browser distribution only uses UUID v4; affected v3/v5/v6 buffer APIs are not exposed by tia.
 - Public MIT Persian test audio and expected transcript are documented in tests/fixtures/README.md.
 
@@ -27,3 +27,5 @@ The display name is `tia`. The pastel vector mark is authored in scripts/tia-log
 ## Required evidence
 
 Unit/regression tests, typecheck, lint, web build, real browser decoding of the public Persian sample; same APK on Android 13/14/16, actual Persian ASR result, cancellation/no side effects, real screenshots/logcat and the standing recovery checks. Report unpublished code and tested APK separately. Physical microphone and the user's Persian requests require phone acceptance; emulator audio tests do not substitute for it.
+
+Candidate 35 was not published: instrumentation's old blanket ban on any HTTPS text incorrectly rejected the private APK asset origin. The replacement enumerates URL literals and allows only the exact https://localhost origin, never remote hosts or lookalikes. Keep the other recovery assertions. A genuine ADB user tap precedes sample playback so WebView autoplay policy is respected, not disabled. The recorded input is the attributed public fixture, not a claim of a physical microphone test.

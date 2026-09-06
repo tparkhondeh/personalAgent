@@ -116,8 +116,16 @@ public class ApplicationContextTest {
         assertTrue(recovery.contains("offlineRuntime.textContent = bundledScript"));
         assertTrue(recovery.contains("برنامه امروز"));
         assertFalse(recovery.contains("fetch(\"./index.html\""));
-        assertFalse(recovery.contains("http://"));
-        assertFalse(recovery.contains("https://"));
+        // Only the APK's private asset origin is allowed. Speech model URLs are
+        // bundled, not a network dependency. Keep rejecting every remote host.
+        java.util.regex.Matcher urls = java.util.regex.Pattern
+            .compile("https?://[^\\s\"'\\\\<>]+")
+            .matcher(recovery);
+        while (urls.find()) {
+            String url = urls.group();
+            assertTrue("Unexpected recovery dependency: " + url,
+                url.equals("https://localhost") || url.startsWith("https://localhost/"));
+        }
     }
 
     @Test

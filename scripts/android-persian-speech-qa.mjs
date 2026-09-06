@@ -9,6 +9,8 @@ export async function persianSpeechFixtureQa(base64, waitUntil) {
   assert(result==='خوش آمدید','Real Persian audio was not decoded: '+result);
   assert(localStorage.getItem('hamrah-local-v2')===before,'Recognition unexpectedly created records');
   const context=new AudioContext();
+  await context.resume();
+  assert(context.state==='running','Public fixture playback needs a real user gesture');
   const decoded=await context.decodeAudioData(await audio.arrayBuffer());
   const destination=context.createMediaStreamDestination();
   const source=context.createBufferSource();source.buffer=decoded;source.connect(destination);
