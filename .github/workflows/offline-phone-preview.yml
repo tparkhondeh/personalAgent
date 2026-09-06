@@ -292,6 +292,11 @@ jobs:
     timeout-minutes: 10
 
     steps:
+      - name: Check out evidence packaging script
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
       - name: Download the tested APK
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
@@ -313,7 +318,8 @@ jobs:
           PACKAGE_ID: ${{ needs.build.outputs.package_id }}
         run: |
           tag="phone-preview-stable-${GITHUB_RUN_NUMBER}"
-          mapfile -t screenshots < <(find artifacts/evidence -type f -name '*.png' | sort)
+          node scripts/prepare-android-release-evidence.mjs artifacts/evidence artifacts/release-evidence
+          mapfile -t screenshots < <(find artifacts/release-evidence -type f -name '*.png' | sort)
           gh release create "$tag" \
             "artifacts/build/${APK_NAME}#${APP_NAME}" \
             artifacts/build/SHA256SUMS.txt \

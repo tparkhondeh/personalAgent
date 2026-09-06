@@ -111,10 +111,11 @@ jobs:
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN/jobs" > artifacts/source-jobs.json
           node scripts/verify-existing-apk.mjs
           source artifacts/apk-identity.env
-          mapfile -t screenshots < <(find artifacts/evidence -name '*.png' | sort)
+          node scripts/prepare-android-release-evidence.mjs artifacts/evidence artifacts/release-evidence
+          mapfile -t screenshots < <(find artifacts/release-evidence -name '*.png' | sort)
           gh release create "phone-preview-stable-$APK_VERSION" \
             "artifacts/build/$APK_FILE" artifacts/build/metadata.json artifacts/build/SHA256SUMS.txt \
             artifacts/build/hamrah-staging-server.tar.gz artifacts/build/SERVER_SHA256SUMS.txt \
             "${screenshots[@]}" --repo "$GITHUB_REPOSITORY" --target "$APK_COMMIT" \
             --title "همراه پایدار آزمایشی $APK_VERSION" --prerelease \
-            --notes "APK اصلی بدون بازسازی روی Android 13/14/16 پس از پایدارشدن اولیه سرویس‌های شبیه‌ساز آزمایش شد. شکست قبلی ناشی از restart سرویس فونت سیستم در گزارش پروژه حفظ است؛ استقلال کامل از اشکالات WebView سیستم ادعا نمی‌شود. مدرک آزمون: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID . متن فارسی، تقویم شمسی، ساعت ۲۴ساعته، سه اعلان، لغو، حالت آفلاین و بازیابی شبکه/SSL بررسی شدند. شبکه Runner به Staging پورت 8443 دسترسی ندارد؛ آزمون آنلاین Staging جداگانه انجام شده است. Production تغییر نکرده است."
+            --notes "همان APK اصلی بدون بازسازی روی Android 13/14/16 بررسی شد. متن فارسی، کارت تأیید کوتاه، کیبورد واقعی، ثبت، سه اعلان، لغو و بازیابی آفلاین/DNS/SSL آزموده شدند. کنترل پنجره‌های خطای سیستم پیش از نصب و هنگام گرفتن تصاویر فعال است؛ تصاویر diagnostic شاهد خطای اولیه‌اند و تصویر موفق برنامه محسوب نمی‌شوند. مدرک آزمون و Commit ابزار کنترل: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID . Commit سازنده و SHA فایل در metadata ثبت است. نسخه آنلاین Staging جداست و به‌روز بودن آن با انتشار APK اثبات نمی‌شود. Production تغییر نکرده است."
