@@ -22,11 +22,22 @@ beforeEach(()=>{
   vi.stubGlobal('AudioContext',class{async decodeAudioData(){return{duration};}async close(){}});
   vi.stubGlobal('OfflineAudioContext',class{destination={};createBufferSource(){return{buffer:null,connect(){},start(){}};}async startRendering(){return{getChannelData:()=>new Float32Array(16000).fill(signalLevel)};}});
 });
-afterEach(()=>vi.unstubAllGlobals());
+afterEach(()=>{vi.unstubAllGlobals();vi.useRealTimers();});
 describe('device-only Persian transcription control (engine mocked; actual decoding tested separately)',()=>{
   it('normalizes Persian letters without inventing a title',()=>expect(normalizeVoiceText('  علي  شركت  ۳۶۰  ')).toBe('علی شرکت ۳۶۰'));
   it('keeps the APK asset origin private and the web same-origin',()=>{expect(localSpeechOrigin()).toBe('https://app.example');vi.stubGlobal('window',{Capacitor:{isNativePlatform:()=>true}});expect(localSpeechOrigin()).toBe('https://localhost');});
   it('collects final text and terminates its worker',async()=>{expect(await createLocalSpeech().transcribe(new Blob(['test']),()=>{})).toBe('فردا ساعت پنج عصر جلسه با تیم فروش');expect(models[0].terminate).toHaveBeenCalled();});
+  it('works without recent AbortSignal helpers on older Android WebViews',async()=>{
+    vi.stubGlobal('AbortSignal',{});
+    expect(await createLocalSpeech().transcribe(new Blob(['test']),()=>{})).toContain('جلسه با تیم فروش');
+  });
+  it('times out and terminates without leaving a pending timer',async()=>{
+    vi.useFakeTimers();load=false;const speech=createLocalSpeech();
+    const result=speech.transcribe(new Blob(['test']),()=>{});
+    const check=expect(result).rejects.toThrow('بیش از حد طول کشید');
+    await vi.advanceTimersByTimeAsync(180001);await check;
+    expect(models[0].terminate).toHaveBeenCalled();expect(vi.getTimerCount()).toBe(0);
+  });
   it('rejects silence before loading an engine',async()=>{signalLevel=0;await expect(createLocalSpeech().transcribe(new Blob(['test']),()=>{})).rejects.toThrow('گفتار واضحی');expect(models).toHaveLength(0);});
   it('rejects empty audio',async()=>{await expect(createLocalSpeech().transcribe(new Blob([]),()=>{})).rejects.toThrow();expect(models).toHaveLength(0);});
   it('bounds recording duration',async()=>{duration=62;await expect(createLocalSpeech().transcribe(new Blob(['test']),()=>{})).rejects.toThrow();expect(models).toHaveLength(0);});

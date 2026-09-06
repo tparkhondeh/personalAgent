@@ -326,7 +326,7 @@ public class MainActivity extends BridgeActivity {
             // never files, cookies or audio. TLS validation for remote pages is unchanged.
             String speechPath = request.getUrl().toString().replace(bundledOrigin() + "/speech/", "");
             if (request.getMethod().equals("GET") && request.getUrl().toString().startsWith(bundledOrigin() + "/speech/")
-                && (speechPath.equals("vosk-0.0.8.js") || speechPath.equals("fa-0.42.tar.gz"))) {
+                && (speechPath.equals("vosk-0.0.8.js") || speechPath.equals("fa-0.42.model"))) {
                 try {
                     java.util.Map<String, String> headers = new java.util.HashMap<>();
                     headers.put("Access-Control-Allow-Origin", "*");

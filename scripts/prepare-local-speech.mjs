@@ -33,7 +33,9 @@ if(engineSource.split(queuedTerminate).length!==2)throw new Error('Review Vosk c
 const safeEngine=engineSource.replace(queuedTerminate,'terminate() { this.worker.terminate(); this._ready = false; }');
 for(const dir of ['public/speech','mobile-shell/speech']) {
   await mkdir(path.join(root,dir),{recursive:true});
-  await copyFile(archive,path.join(root,dir,'fa-0.42.tar.gz'));
+  // AAPT transparently expands .gz assets and removes the suffix. An opaque
+  // extension preserves the exact gzip bytes needed by the WASM archive reader.
+  await copyFile(archive,path.join(root,dir,'fa-0.42.model'));
   await writeFile(path.join(root,dir,'vosk-0.0.8.js'),safeEngine);
   await copyFile(path.join(root,'docs/licenses/VOSK-APACHE-2.0.txt'),path.join(root,dir,'LICENSE.txt'));
   const notice=await readFile(path.join(root,'docs/licenses/VOSK-THIRD-PARTY-NOTICE.txt'),'utf8');

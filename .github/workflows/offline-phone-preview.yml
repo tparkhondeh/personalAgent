@@ -154,6 +154,7 @@ jobs:
           ./android/gradlew -p android --no-daemon \
             :app:lintDebug :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest
           stable_apk="android/app/build/outputs/apk/debug/app-debug.apk"
+          node scripts/verify-android-speech-assets.mjs "$stable_apk"
           test_apk="android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"
           cp "$stable_apk" "artifacts/build/${APK_NAME}"
           cp "$test_apk" artifacts/build/hamrah-stable-androidTest.apk

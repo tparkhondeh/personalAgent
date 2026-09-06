@@ -94,6 +94,8 @@ function fitProgramList(list, today) {
     list.dataset.scrollable = String(fits && list.scrollHeight > list.clientHeight + 1);
     return fits;
 }
+const checkAbort = (signal) => { if (signal.aborted)
+    throw new Error('cancelled'); };
 function localSpeechOrigin() {
     const native = window.Capacitor?.isNativePlatform?.();
     return native ? 'https://localhost' : window.location.origin;
@@ -105,7 +107,7 @@ async function loadSpeechLibrary(signal) {
     const scope = window;
     if (scope.Vosk)
         return scope.Vosk;
-    signal.throwIfAborted();
+    checkAbort(signal);
     await new Promise((resolve, reject) => {
         const script = document.createElement('script');
         script.src = `${localSpeechOrigin()}/speech/vosk-0.0.8.js`;
@@ -116,7 +118,7 @@ async function loadSpeechLibrary(signal) {
         signal.addEventListener('abort', abort, { once: true });
         document.head.append(script);
     });
-    signal.throwIfAborted();
+    checkAbort(signal);
     if (!scope.Vosk)
         throw new Error('engine');
     return scope.Vosk;
@@ -131,7 +133,11 @@ function createLocalSpeech() {
                 throw new Error('در حال پردازش صدای قبلی است.');
             const controller = new AbortController();
             active = controller;
-            const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(180000)]);
+            // Android OS version does not guarantee a recent WebView. Avoid newer
+            // AbortSignal.any/timeout/throwIfAborted helpers; cancellation is baseline.
+            const signal = controller.signal;
+            let timedOut = false;
+            const deadline = setTimeout(() => { timedOut = true; controller.abort(); }, 180000);
             let model, recognizer;
             const terminate = () => { model?.terminate(); };
             signal.addEventListener('abort', terminate, { once: true });
@@ -146,7 +152,7 @@ function createLocalSpeech() {
                 finally {
                     await context.close();
                 }
-                signal.throwIfAborted();
+                checkAbort(signal);
                 if (decoded.duration < 0.1 || decoded.duration > 61)
                     throw new Error('duration');
                 const offline = new OfflineAudioContext(1, Math.ceil(decoded.duration * 16000), 16000);
@@ -162,8 +168,8 @@ function createLocalSpeech() {
                     throw new Error('silence');
                 progress('در حال آماده‌سازی تشخیص فارسی روی دستگاه…');
                 const library = await loadSpeechLibrary(signal);
-                signal.throwIfAborted();
-                model = new library.Model(`${localSpeechOrigin()}/speech/fa-0.42.tar.gz`, -2);
+                checkAbort(signal);
+                model = new library.Model(`${localSpeechOrigin()}/speech/fa-0.42.model`, -2);
                 const wait = (listen) => new Promise((resolve, reject) => {
                     const abort = () => reject(new Error('cancelled'));
                     signal.addEventListener('abort', abort, { once: true });
@@ -174,7 +180,7 @@ function createLocalSpeech() {
                         abort();
                 });
                 await wait((done, fail) => { model.on('load', m => m.result === true ? done() : fail()); model.on('error', fail); });
-                signal.throwIfAborted();
+                checkAbort(signal);
                 progress('در حال تبدیل صدا؛ چیزی هنوز ثبت نشده است…');
                 recognizer = new model.KaldiRecognizer(16000);
                 const parts = [];
@@ -183,19 +189,21 @@ function createLocalSpeech() {
                 recognizer.on('partialresult', m => receive?.(m));
                 recognizer.on('error', () => failed?.());
                 for (let start = 0; start < samples.length; start += 16000) {
-                    signal.throwIfAborted();
+                    checkAbort(signal);
                     await wait((done, fail) => { failed = fail; receive = m => { if (m.event === 'result' && typeof m.result === 'object' && m.result.text)
                         parts.push(m.result.text); done(); }; recognizer.acceptWaveformFloat(samples.slice(start, start + 16000), 16000); });
                 }
                 await wait((done, fail) => { failed = fail; receive = m => { if (typeof m.result === 'object' && m.result.text)
                     parts.push(m.result.text); done(); }; recognizer.retrieveFinalResult(); });
-                signal.throwIfAborted();
+                checkAbort(signal);
                 const text = normalizeVoiceText(parts.join(' '));
                 if (!text)
                     throw new Error('silence');
                 return text;
             }
             catch (error) {
+                if (timedOut)
+                    throw new Error('تبدیل صدا بیش از حد طول کشید؛ کوتاه‌تر ضبط کن یا متن را بنویس.');
                 if (controller.signal.aborted)
                     throw new Error('ضبط و تبدیل لغو شد؛ چیزی ثبت نشده است.');
                 if (error instanceof Error && error.message === 'silence')
@@ -203,6 +211,7 @@ function createLocalSpeech() {
                 throw new Error('تبدیل روی دستگاه کامل نشد؛ دوباره تلاش کن یا متن را بنویس. در وب، بار اول اینترنت برای دریافت مدل لازم است.');
             }
             finally {
+                clearTimeout(deadline);
                 signal.removeEventListener('abort', terminate);
                 recognizer?.remove();
                 model?.terminate();

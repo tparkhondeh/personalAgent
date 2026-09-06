@@ -116,6 +116,10 @@ public class ApplicationContextTest {
         assertTrue(recovery.contains("offlineRuntime.textContent = bundledScript"));
         assertTrue(recovery.contains("برنامه امروز"));
         assertFalse(recovery.contains("fetch(\"./index.html\""));
+        try (InputStream model = appContext.getAssets().open("public/speech/fa-0.42.model")) {
+            assertEquals("Bundled model must retain gzip bytes", 0x1f, model.read());
+            assertEquals(0x8b, model.read());
+        }
         // Only the APK's private asset origin is allowed. Speech model URLs are
         // bundled, not a network dependency. Keep rejecting every remote host.
         java.util.regex.Matcher urls = java.util.regex.Pattern
