@@ -65,5 +65,7 @@ describe("offline Android mobile shell", () => {
     expect(mainActivity).toContain('request.isForMainFrame() && request.getUrl().toString().equals(getBridge().getErrorUrl())');
     expect(mainActivity).toContain('getAssets().open("public/connection-error.html")');
     expect(mainActivity).toContain('JSExport.getPluginJS(Collections.singletonList(notifications))');
+    expect(mainActivity).toContain('return getBridge().getScheme() + "://" + getBridge().getHost()');
+    expect(mainActivity).not.toContain('getBridge().getLocalUrl()');
   });
 });

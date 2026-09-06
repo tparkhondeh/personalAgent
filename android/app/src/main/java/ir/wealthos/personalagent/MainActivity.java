@@ -3,7 +3,6 @@ package ir.wealthos.personalagent;
 import android.annotation.SuppressLint;
 import android.graphics.Color;
 import android.net.http.SslError;
-import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -190,6 +189,12 @@ public class MainActivity extends BridgeActivity {
         return url != null && errorUrl != null && url.startsWith(errorUrl);
     }
 
+    private String bundledOrigin() {
+        // getLocalUrl() becomes the remote origin when server.url is configured.
+        // The error asset always belongs to the configured private scheme/host.
+        return getBridge().getScheme() + "://" + getBridge().getHost();
+    }
+
     private void showRecoveryPage() {
         if (showingRecovery || getBridge() == null) return;
         String errorUrl = getBridge().getErrorUrl();
@@ -243,7 +248,7 @@ public class MainActivity extends BridgeActivity {
 
         @Override
         public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
-            String localFontUrl = Uri.parse(getBridge().getLocalUrl()).buildUpon().path("/Vazirmatn.woff2").build().toString();
+            String localFontUrl = bundledOrigin() + "/Vazirmatn.woff2";
             if (request.getMethod().equals("GET") && request.getUrl().toString().equals(localFontUrl)) {
                 try {
                     return new WebResourceResponse("font/woff2", null, getAssets().open("public/Vazirmatn.woff2"));
@@ -262,7 +267,7 @@ public class MainActivity extends BridgeActivity {
                     ))) {
                         String html = reader.lines().collect(Collectors.joining("\n"));
                         String script = JSExport.getGlobalJS(MainActivity.this, false, BuildConfig.DEBUG)
-                            + "\nwindow.WEBVIEW_SERVER_URL = " + JSONObject.quote(getBridge().getLocalUrl()) + ";\n"
+                            + "\nwindow.WEBVIEW_SERVER_URL = " + JSONObject.quote(bundledOrigin()) + ";\n"
                             + JSExport.getBridgeJS(MainActivity.this) + "\n"
                             + JSExport.getPluginJS(Collections.singletonList(notifications));
                         html = BundledPageInjector.inject(html, script);
