@@ -38,10 +38,8 @@ launch_and_verify() {
   node scripts/android-webview-inspect.mjs "$package_name" "$evidence_dir/${label}-webview.json" "$expected" "$action"
   capture_verified "$label"
   adb logcat -d > "$evidence_dir/${label}-logcat.txt"
-  if grep -E "FATAL EXCEPTION|Fatal signal|SIGSEGV|Uncaught (TypeError|ReferenceError|SyntaxError)|SSL.*proceed" "$evidence_dir/${label}-logcat.txt"; then
-    echo "A fatal Android, JavaScript, renderer or unsafe SSL error was found in $label." >&2
-    return 1
-  fi
+  node scripts/android-logcat-check.mjs "$evidence_dir/${label}-logcat.txt" \
+    "$evidence_dir/${label}-system-ui-result.json" "$evidence_dir/${label}-log-verification.json"
 }
 
 adb wait-for-device
