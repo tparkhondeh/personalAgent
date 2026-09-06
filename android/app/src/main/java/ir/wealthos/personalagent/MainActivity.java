@@ -51,6 +51,24 @@ public class MainActivity extends BridgeActivity {
     private AppearanceController appearance;
     private TextView loadingLabel;
     private ProgressBar loadingProgress;
+    private final Runnable refreshAppearance = () -> { if (!isDestroyed()) applyAppearance(); };
+
+    @Override
+    public void onConfigurationChanged(android.content.res.Configuration configuration) {
+        super.onConfigurationChanged(configuration);
+        // Capacitor restores its cached SystemBars style during configuration
+        // changes. The saved app choice owns our window, including native chrome.
+        applyAppearance();
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) {
+            mainHandler.removeCallbacks(refreshAppearance);
+            mainHandler.post(refreshAppearance);
+        }
+    }
 
     @Override
     protected void load() {
@@ -79,6 +97,7 @@ public class MainActivity extends BridgeActivity {
         if (loadingProgress != null) loadingProgress.getIndeterminateDrawable().setTint(appearanceColor(R.color.appearance_light_primary, R.color.appearance_dark_primary));
         getWindow().setStatusBarColor(background);
         getWindow().setNavigationBarColor(background);
+        getWindow().getDecorView().setBackgroundColor(background);
         androidx.core.view.WindowInsetsControllerCompat bars = androidx.core.view.WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
         boolean light = !"dark".equals(AppearanceController.read(this));
         bars.setAppearanceLightStatusBars(light);
@@ -112,6 +131,7 @@ public class MainActivity extends BridgeActivity {
         webView.addJavascriptInterface(new RecoveryActions(), RECOVERY_INTERFACE);
         installLoadingOverlay(webView);
         applyAppearance();
+        mainHandler.post(refreshAppearance);
 
         recoveryListener = new WebViewListener() {
             @Override
@@ -352,6 +372,7 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onDestroy() {
+        mainHandler.removeCallbacks(refreshAppearance);
         if (appearance != null) appearance.destroy();
         cancelLoadTimeout();
         if (contentCheck != null) mainHandler.removeCallbacks(contentCheck);

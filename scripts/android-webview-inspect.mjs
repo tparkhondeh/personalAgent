@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { waitUntil } from "./qa-wait-until.mjs";
+import { verifyBarAppearance } from "./android-bar-appearance.mjs";
 
 const packageName = process.argv[2];
 const outputPath = resolve(process.argv[3] || "artifacts/android/webview.json");
@@ -119,6 +120,10 @@ async function inspect() {
     })()`);
     if(check.result.exceptionDetails)throw new Error(JSON.stringify(check.result.exceptionDetails));
     mkdirSync(dirname(outputPath),{recursive:true});
+    const nativeWindow=adb('shell','dumpsys','window','windows');
+    writeFileSync(outputPath.replace(/\.json$/,'-bars-window.txt'),nativeWindow);
+    const bars=verifyBarAppearance(nativeWindow,packageName,theme);
+    writeFileSync(outputPath.replace(/\.json$/,'-bars.json'),JSON.stringify(bars,null,2));
     writeFileSync(outputPath.replace(/\.json$/,'-appearance.json'),JSON.stringify(check.result.result.value,null,2));
   }
   if (result && action === "open-offline") {
