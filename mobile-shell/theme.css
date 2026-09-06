@@ -86,3 +86,5 @@ body{ background: radial-gradient(circle at 88% 4%, rgba(51, 59, 91, 0.7), trans
 .assistant-result .settings-actions button { padding-inline: 8px; }
 .picker-header button { border: 1px solid var(--line); background: var(--surface); color: var(--text); border-radius: 10px; padding: 8px; }
 .agent-review { padding-bottom: 20px; }
+.assistant-result > label { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+.assistant-result > label input[type=checkbox] { width: 20px; min-height: 20px; height: 20px; flex: 0 0 20px; accent-color: var(--primary); }

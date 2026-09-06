@@ -81,3 +81,7 @@ export function escalationPreferencesChanged(before:Partial<EscalationPolicy> & 
   const keys=[...Object.keys(defaultEscalationPolicy),"emergencyPhone"] as (keyof typeof after)[];
   return keys.some(key=>before[key]!==after[key]);
 }
+// A preferences save must not restart an already-issued chain for the same task version.
+export function canSeedEscalation(taskUpdatedAt:Date, lastAttemptCreatedAt:Date|null) {
+  return !lastAttemptCreatedAt || lastAttemptCreatedAt.getTime() < taskUpdatedAt.getTime();
+}

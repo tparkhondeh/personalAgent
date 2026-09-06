@@ -1,7 +1,7 @@
 import "server-only";
 
 import { db } from "@/lib/db";
-import { buildEscalationPlan, preservesLegacyQuietHours, defaultEscalationPolicy, escalationIdempotencyKey, type EscalationPolicy } from "@/lib/escalations";
+import { buildEscalationPlan, canSeedEscalation, preservesLegacyQuietHours, defaultEscalationPolicy, escalationIdempotencyKey, type EscalationPolicy } from "@/lib/escalations";
 import { sendWebPush } from "@/lib/push";
 import { isInsideQuietHours } from "@/lib/reminders";
 import { sendUrgentVoiceCall } from "@/lib/outbound-calls";
@@ -36,6 +36,8 @@ async function seedPlans(userId: string, now: Date, policy: EscalationPolicy, po
     const taskPolicy = approved ? { ...policy, urgentRepeatMinutes: approved.repeatMinutes, urgentMaxRepeats: approved.repeatCount, androidAlarmEnabled: approved.channels.includes("ALARM"), highPriorityEnabled: approved.channels.includes("PUSH"), smsEscalationEnabled: false, callEscalationEnabled: false } : policy;
     const active = await db.escalationAttempt.findFirst({ where: { taskId: task.id, status: { in: activeStatuses } }, select: { id: true } });
     if (active) continue;
+    const latest = await db.escalationAttempt.findFirst({where:{taskId:task.id},orderBy:{createdAt:"desc"},select:{createdAt:true}});
+    if(!canSeedEscalation(task.updatedAt,latest?.createdAt??null))continue;
     let previousAlertAt = now;
     const spacing = Math.max(10, taskPolicy.urgentRepeatMinutes) * 60_000;
     const plan = buildEscalationPlan(now, taskPolicy).filter(entry => !approved || entry.level !== "IN_APP_PUSH" || approved.channels.some(c=>c==="IN_APP"||c==="PUSH")).map((entry) => {

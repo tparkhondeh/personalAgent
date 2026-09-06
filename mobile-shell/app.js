@@ -179,7 +179,7 @@
     check.questions.push(...(agentDraft.questions||[]));
     const fields=[
       ["عنوان","title","text",p.title],
-      ["تعداد نوبت تکرار، ۲ تا ۱۲","occurrenceCount","number",p.occurrenceCount??""],
+      ...(p.recurrence!=="NONE"?[["تعداد نوبت تکرار، ۲ تا ۱۲","occurrenceCount","number",p.occurrenceCount??""]]:[]),
       ["تعداد هشدار","repeatCount","number",p.repeatCount],["فاصله هشدار، دقیقه","repeatMinutes","number",p.repeatMinutes],
 
     ];
@@ -210,7 +210,15 @@
       try{
         const stored=JSON.parse(localStorage.getItem(draftKey)||"null");
         if(!stored||stored.id!==agentDraft.id||stored.revision!==agentDraft.revision||stored.status!=="PENDING")throw new Error("نسخه پیشنهاد تغییر کرده است.");
-        if(planner.inspectPlan(p,new Date(),planningItems()).questions.length || agentDraft.questions?.length)throw new Error("ابتدا اطلاعات نامشخص را تکمیل کن.");
+        const errors=[...planner.inspectPlan(p,new Date(),planningItems()).questions,...(agentDraft.questions||[])];
+        if(errors.length){
+          root.querySelectorAll("[data-approval-error]").forEach(e=>e.remove());
+          for(const [selector,pattern] of [['[data-plan="title"]',/عنوان/],['input[aria-label="تاریخ شمسی"]',/تاریخ|روز/],['input[aria-label="ساعت ۲۴ساعته"]',/ساعت|زمان/],['[data-plan="repeatCount"]',/تعداد هشدار/],['[data-plan="repeatMinutes"]',/فاصله هشدار/],['[data-plan="occurrenceCount"]',/نوبت/]]){
+            const message=errors.find(e=>pattern.test(e)),field=root.querySelector(selector);
+            if(message&&field){field.setAttribute("aria-invalid","true");const hint=document.createElement("small");hint.dataset.approvalError="true";hint.className="field-error";hint.textContent=message;field.closest("label").append(hint);}
+          }
+          throw new Error(errors[0]);
+        }
         const existing=p.targetId?tasks.find(t=>t.id===p.targetId):null;
         if(p.operation!=="CREATE" && (!existing||(existing.updatedAt||existing.id)!==p.targetUpdatedAt))throw new Error("مورد انتخاب‌شده تغییر کرده؛ دوباره درخواست بده.");
         // Claim before any await; repeated clicks/reloads cannot create another entity.

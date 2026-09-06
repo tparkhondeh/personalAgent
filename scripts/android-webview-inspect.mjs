@@ -183,6 +183,12 @@ async function inspect() {
       internal.querySelector('[data-action="delete"]').click();
       document.querySelector('#task-list [data-action="confirm-delete"]').click();
       await new Promise(resolve=>setTimeout(resolve,200));
+      document.querySelector('[data-panel="assistant"]').click();
+      document.querySelector('#assistant-input').value='فردا ساعت پنج جلسه با تیم فروش دارم';
+      document.querySelector('#assistant-send').click();
+      document.querySelector('#local-plan-confirm').click();
+      assert(document.querySelector('input[aria-label="ساعت ۲۴ساعته"]').closest('label').querySelector('.field-error')?.textContent.includes('ساعت'),'Missing inline ambiguity error');
+      document.querySelector('#local-plan-cancel').click();
       document.querySelector('[data-panel="today"]').click();
       await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
       return { poem: true, gregorianDate: true, persianFont: true, nativeReminders: 3, cancellation: true, sharedPalette:true, persianPlanner:true, editableApproval:true, noEffectsBeforeConfirmation:true, approvedChannelIsolation:true, jalaliPicker:true, clock24:true, simplifiedApproval:true };

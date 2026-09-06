@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { preservesLegacyQuietHours, escalationPreferencesChanged, buildEscalationPlan, defaultEscalationPolicy, escalationIdempotencyKey, isUrgentOverdueTask, nativeNotificationId } from "./escalations";
+import { canSeedEscalation, preservesLegacyQuietHours, escalationPreferencesChanged, buildEscalationPlan, defaultEscalationPolicy, escalationIdempotencyKey, isUrgentOverdueTask, nativeNotificationId } from "./escalations";
 
 describe("urgent escalation planning", () => {
   const anchor = new Date("2026-08-31T10:00:00.000Z");
@@ -41,4 +41,12 @@ describe("retired quiet-hour safeguards",()=>{
     expect(escalationPreferencesChanged(defaultEscalationPolicy,{...defaultEscalationPolicy})).toBe(false);
     expect(escalationPreferencesChanged(defaultEscalationPolicy,{...defaultEscalationPolicy,urgentRepeatMinutes:30})).toBe(true);
   });
+});
+
+it("does not replay an old chain after settings change; a new task version can rearm",()=>{
+ const task=new Date("2026-09-05T08:00:00Z");
+ expect(canSeedEscalation(task,null)).toBe(true);
+ expect(canSeedEscalation(task,new Date("2026-09-05T07:00:00Z"))).toBe(true);
+ expect(canSeedEscalation(task,task)).toBe(false);
+ expect(canSeedEscalation(task,new Date("2026-09-05T09:00:00Z"))).toBe(false);
 });
