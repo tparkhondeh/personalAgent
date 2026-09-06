@@ -8,6 +8,18 @@ const projectRoot = process.cwd();
 const resourceRoot = path.join(projectRoot, "android", "app", "src", "main", "res");
 const publicRoot = path.join(projectRoot, "public");
 const mobileRoot = path.join(projectRoot, "mobile-shell");
+const appearanceSource=await readFile(path.join(projectRoot,"src/lib/appearance.ts"),"utf8");
+const appearance=appearanceSource.match(/String\.raw`([\s\S]*?)`;/)?.[1];
+if(!appearance)throw new Error("Missing shared appearance bootstrap");
+await writeFile(path.join(mobileRoot,"appearance.js"),appearance);
+// Native loading/splash colours are generated from the same web palette.
+const canonicalCss=await readFile(path.join(projectRoot,"src/app/globals.css"),"utf8");
+const paletteBlock=selector=>canonicalCss.slice(canonicalCss.indexOf(selector+' {')).match(/\{([^}]+)\}/)[1];
+const nativePalettes=['light','dark'].map(mode=>{
+  const block=paletteBlock(mode==='light'?':root':':root[data-theme="dark"]');
+  return ['bg','ink','primary'].map(key=>`<color name="appearance_${mode}_${key}">${block.match(new RegExp(`--${key}:\\s*(#[a-fA-F0-9]+)`))[1]}</color>`).join('\n');
+});
+await writeFile(path.join(resourceRoot,'values','appearance.xml'),`<resources>\n${nativePalettes.join('\n')}\n</resources>\n`);
 
 function appIconSvg(background = "#F7F7FF", transparent = false) {
   return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
@@ -92,6 +104,7 @@ const inputControls=await readFile(path.join(mobileRoot,"input-controls.js"),"ut
 const plannerScript = `${inputsScript}\nwindow.HamrahPlanner=(()=>{${plannerJs}\nreturn {planPersian,planInstant,inspectPlan,dateParts,planOccurrences,plannedReminderTimes,normalizePlanForReview,approvalSummary};})();\n`;
 await writeFile(path.join(mobileRoot,"planner.js"),plannerScript);
 const bundledDocument = indexHtml
+  .replace('<script src="./appearance.js"></script>',()=>`<script>${appearance}</script>`)
   .replace('<link rel="stylesheet" href="./app.css" />', () => `<style>${appStyles}\n${sharedTheme}</style>`)
   .replace('<link rel="stylesheet" href="./theme.css" />', "")
   .replace('<script src="./content.js"></script>', "")
@@ -110,6 +123,7 @@ if (!offlineScriptMarker.test(recoveryHtml)) {
   throw new Error("The Android recovery page is missing its generated offline script marker.");
 }
 const generatedRecovery = recoveryHtml
+  .replace(/<script id="hamrah-appearance">[\s\S]*?<\/script>/,()=>`<script id="hamrah-appearance">${appearance}</script>`)
   .replace(
     offlineDocumentMarker,
     (_marker, indentation) =>

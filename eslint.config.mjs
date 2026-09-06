@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     ".next-build/**",
     "out/**",
     "build/**",
+    // Recovery archives and downloaded release evidence are not project source.
+    "backups/**",
+    "artifacts/**",
     "android/**/build/**",
     "android/.gradle/**",
     ".pnpm-store/**",

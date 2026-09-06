@@ -3,7 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#f8f7ff" />
+    <meta name="theme-color" content="#f7f7ff" />
+    <script src="./appearance.js"></script>
     <title>همراه</title>
   <link rel="stylesheet" href="./app.css" />
   <link rel="stylesheet" href="./theme.css" />
@@ -44,6 +45,7 @@
       </section>
 
       <section id="settings-panel" class="panel" aria-labelledby="settings-title">
+        <section class="appearance-setting" aria-label="ظاهر برنامه"><strong>ظاهر</strong><div role="group" aria-label="انتخاب ظاهر"><button type="button" data-appearance="light" aria-pressed="true">روشن</button><button type="button" data-appearance="dark" aria-pressed="false">تیره</button></div><p id="appearance-status" role="status"></p></section>
         <article class="card"><h2>یادآوری‌های پیش‌فرض</h2><p class="helper">برای برنامه‌های جدید، یک تا سه زمان انتخاب کن.</p><form id="reminder-form"><div class="reminder-options"><label><input type="checkbox" name="reminder" value="1440" />۱ روز قبل</label><label><input type="checkbox" name="reminder" value="180" />۳ ساعت قبل</label><label><input type="checkbox" name="reminder" value="60" />۱ ساعت قبل</label></div><button class="secondary" type="submit">ذخیره تنظیمات</button><p id="reminder-status" class="status" role="status"></p></form></article>
         <article class="card"><h2 id="settings-title">اعلان و زنگ هشدار</h2><p class="helper">اعلان‌ها فقط روی همین گوشی اجرا می‌شوند و هزینه‌ای ندارند.</p><div class="settings-actions"><button id="enable-notifications" class="secondary" type="button">فعال‌سازی اعلان‌ها</button><button id="test-alarm" class="secondary" type="button">زنگ آزمایشی ۳۰ ثانیه‌ای</button></div><p id="alarm-status" class="status" role="status">برای آزمایش، ابتدا اعلان‌ها را فعال کنید.</p></article>
         <article class="card"><h3>حریم خصوصی</h3><p class="helper">این نسخه به تونل، دامنه موقت یا سرویس بیرونی وابسته نیست. حذف برنامه باعث پاک‌شدن داده‌های محلی آن می‌شود.</p></article>

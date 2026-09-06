@@ -1,4 +1,4 @@
-const CACHE_NAME = "hamrah-shell-v5";
+const CACHE_NAME = "hamrah-shell-v6-explicit-appearance";
 const CORE_ASSETS = ["/", "/manifest.webmanifest", "/icon.svg", "/icon-192.png", "/icon-512.png"];
 const IS_LOCAL_DEVELOPMENT = self.location.hostname === "localhost" || self.location.hostname === "127.0.0.1";
 

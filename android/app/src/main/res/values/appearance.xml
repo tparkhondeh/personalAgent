@@ -1,0 +1,8 @@
+<resources>
+<color name="appearance_light_bg">#f7f7ff</color>
+<color name="appearance_light_ink">#303448</color>
+<color name="appearance_light_primary">#5c70b4</color>
+<color name="appearance_dark_bg">#13151f</color>
+<color name="appearance_dark_ink">#eff0f8</color>
+<color name="appearance_dark_primary">#9cabe6</color>
+</resources>

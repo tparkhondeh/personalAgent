@@ -5,7 +5,7 @@ import { planPersian } from "./agent-planner";
 describe("generated palette and planner parity",()=>{
   it("keeps every web light/dark root token in the APK stylesheet",()=>{
     const web=readFileSync("src/app/globals.css","utf8"),mobile=readFileSync("mobile-shell/theme.css","utf8");
-    const roots=[...web.matchAll(/:root\s*\{([^}]+)\}/g)];expect(roots.length).toBe(2);
+    const roots=[...web.matchAll(/:root(?:\[data-theme="dark"\])?\s*\{([^}]+)\}/g)].filter(root=>root[1].includes('--bg:'));expect(roots.length).toBe(2);
     for(const root of roots)for(const declaration of root[1].split(";").map(d=>d.trim()).filter(Boolean))expect(mobile).toContain(declaration);
   });
   it("runs the same planner in the bundled JavaScript runtime",()=>{

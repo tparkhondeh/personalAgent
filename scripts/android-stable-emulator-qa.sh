@@ -49,6 +49,7 @@ adb shell settings put global animator_duration_scale 0
 adb shell settings put global http_proxy :0 || true
 adb shell svc wifi enable || true
 adb shell svc data enable || true
+adb shell cmd uimode night yes
 
 adb install -r "$stable_apk"
 adb shell pm grant "$package_name" android.permission.POST_NOTIFICATIONS || true
@@ -73,10 +74,16 @@ node scripts/android-webview-inspect.mjs "$package_name" "$evidence_dir/stable-l
 capture_verified stable-local-fallback
 launch_and_verify "stable-offline-relaunch" "اتصال برقرار نشد"
 adb shell cmd uimode night yes
-launch_and_verify "stable-dark-offline" "اتصال برقرار نشد"
+launch_and_verify "stable-os-dark-default-light" "اتصال برقرار نشد" "assert-light"
 node scripts/android-webview-inspect.mjs "$package_name" "$evidence_dir/stable-dark-local-webview.json" "برنامه‌های من" "open-offline"
+node scripts/android-webview-inspect.mjs "$package_name" "$evidence_dir/explicit-dark-webview.json" "برنامه‌های من" "appearance-dark"
 capture_verified stable-dark-local
+launch_and_verify "stable-dark-offline" "اتصال برقرار نشد" "assert-dark"
 adb shell cmd uimode night no
+launch_and_verify "stable-saved-dark-os-light" "اتصال برقرار نشد" "assert-dark"
+node scripts/android-webview-inspect.mjs "$package_name" "$evidence_dir/saved-dark-local-webview.json" "برنامه‌های من" "open-offline"
+node scripts/android-webview-inspect.mjs "$package_name" "$evidence_dir/explicit-light-webview.json" "برنامه‌های من" "appearance-light"
+launch_and_verify "stable-saved-light" "اتصال برقرار نشد" "assert-light"
 
 adb shell settings put global http_proxy :0 || true
 adb shell svc wifi enable || true

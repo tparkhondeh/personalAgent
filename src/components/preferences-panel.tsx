@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AppearanceSetting } from "@/components/appearance-setting";
 import { Time24Field } from "@/components/persian-date-time";
 import { FormEvent, useEffect, useState } from "react";
 import { enableNativeEscalationAlarms, isNativeAndroid } from "@/lib/native-escalations";
@@ -52,7 +53,11 @@ export const defaultPreferences: UserPreferences = {
 
 const dayLabels: Array<[WorkingDay, string]> = [["SAT", "شنبه"], ["SUN", "یکشنبه"], ["MON", "دوشنبه"], ["TUE", "سه‌شنبه"], ["WED", "چهارشنبه"], ["THU", "پنجشنبه"], ["FRI", "جمعه"]];
 
-export function PreferencesPanel({ initial, signedIn, onSaved, onNativePermissionChanged }: { initial: UserPreferences | null; signedIn: boolean; onSaved: (preference: UserPreferences) => void; onNativePermissionChanged?: () => void }) {
+export function PreferencesPanel(props: Parameters<typeof PlanningPreferencesPanel>[0]) {
+  return <div className="preferences-stack"><AppearanceSetting /><PlanningPreferencesPanel {...props} /></div>;
+}
+
+function PlanningPreferencesPanel({ initial, signedIn, onSaved, onNativePermissionChanged }: { initial: UserPreferences | null; signedIn: boolean; onSaved: (preference: UserPreferences) => void; onNativePermissionChanged?: () => void }) {
   const starting = initial || defaultPreferences;
   const [workingDays, setWorkingDays] = useState<WorkingDay[]>(starting.workingDays);
   const [reminderOffsets, setReminderOffsets] = useState<number[]>(starting.defaultReminderOffsets);

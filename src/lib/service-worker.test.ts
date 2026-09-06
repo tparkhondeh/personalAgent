@@ -10,7 +10,7 @@ describe("PWA service worker", () => {
   it("never serves a stale interactive-looking shell during local development", () => {
     const worker = readProjectFile("public/sw.js");
 
-    expect(worker).toContain('CACHE_NAME = "hamrah-shell-v5"');
+    expect(worker).toContain('CACHE_NAME = "hamrah-shell-v6-explicit-appearance"');
     expect(worker).toContain('self.location.hostname === "localhost"');
     expect(worker).toContain('self.location.hostname === "127.0.0.1"');
     expect(worker).toContain("if (IS_LOCAL_DEVELOPMENT) return;");

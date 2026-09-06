@@ -11,3 +11,9 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 ## Project continuity
 
 Read `PROJECT_STATUS.md` and `docs/DEVELOPMENT_RULES.md` before implementation. Use targeted reads and concise evidence to conserve tokens without skipping security or regression tests. Follow `docs/ANDROID_RELEASE_PLAYBOOK.md` for Android changes. Never equate source, deployed Staging, a released APK, and real-phone acceptance.
+
+## Durable efficiency and appearance rules
+
+Optimize tokens without sacrificing quality, security, runtime performance or necessary tests: read focused code, reuse still-valid evidence, avoid unchanged rereads and oversized output, and parallelize safe independent checks. Never replace verification with guesses. Record evidence and blockers concisely in PROJECT_STATUS.md.
+
+The app defaults to explicit light pastel appearance, regardless of OS theme. Dark mode requires a saved user choice. Web, bundled Android and recovery must share that policy and palette. Keep poems in two RTL columns, compact spacing, readable text and accessible touch targets.

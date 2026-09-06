@@ -107,6 +107,20 @@ async function inspect() {
   }
 
   const result = await waitForText(requiredText);
+  if(result && /^(appearance|assert)-(light|dark)$/.test(action)) {
+    const theme=action.split('-')[1];
+    const check=await evaluate(`(async()=>{
+      ${action.startsWith('appearance-')?`document.querySelector('[data-panel="settings"]').click();document.querySelector('[data-appearance="${theme}"]').click();`:''}
+      await new Promise(r=>setTimeout(r,500));
+      const current=document.documentElement.dataset.theme;
+      const bg=getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+      if(current!=='${theme}'||bg!=='${theme==='dark'?'#13151f':'#f7f7ff'}')throw new Error('Explicit appearance mismatch');
+      return {theme:current,bg,native:window.__hamrahNativeTheme,systemDark:matchMedia('(prefers-color-scheme:dark)').matches};
+    })()`);
+    if(check.result.exceptionDetails)throw new Error(JSON.stringify(check.result.exceptionDetails));
+    mkdirSync(dirname(outputPath),{recursive:true});
+    writeFileSync(outputPath.replace(/\.json$/,'-appearance.json'),JSON.stringify(check.result.result.value,null,2));
+  }
   if (result && action === "open-offline") {
     const parity = await evaluate(`(async () => {
       const assert = (condition, message) => { if (!condition) throw new Error(message); };
@@ -114,6 +128,10 @@ async function inspect() {
       assert(document.querySelector('#page-title')?.getAttribute('aria-label')?.includes('شعر روز مولانا'), 'Daily poem missing');
       assert(document.querySelector('#gregorian-date')?.textContent.trim(), 'Gregorian date missing');
       assert(window.HamrahPoems?.length === 360, 'Bundled poems missing');
+      assert(document.querySelectorAll('.poem-couplet').length===2,'Poem must have two rows');
+      const row=document.querySelector('.poem-couplet'),a=row.children[0].getBoundingClientRect(),b=row.children[1].getBoundingClientRect();
+      assert(Math.abs(a.top-b.top)<2&&a.left>b.left,'Poem must use two RTL columns on a phone');
+      assert(document.documentElement.scrollWidth<=innerWidth+1,'Unwanted horizontal page scroll');
       await document.fonts.load('16px Vazirmatn', 'همراه');
       assert([...document.fonts].some((font) => font.family === 'Vazirmatn' && font.status === 'loaded'), 'Bundled Persian font did not load');
       const plugin = window.Capacitor?.Plugins?.LocalNotifications;
@@ -160,7 +178,7 @@ async function inspect() {
       assert(window.HamrahPlanner?.planPersian,'Shared Persian planner missing');
       const leadingReminder=window.HamrahPlanner.planPersian('یادم بنداز فردا ساعت پنج عصر جلسه با تیم فروش دارم؛ سه ساعت قبل یادم بنداز',{});
       assert(leadingReminder.plan.title==='جلسه با تیم فروش'&&leadingReminder.plan.time==='17:00'&&leadingReminder.questions.length===0,'Leading reminder lost its subject or time');
-      const expectedBg=matchMedia('(prefers-color-scheme: dark)').matches?'#13151f':'#f7f7ff';
+      const expectedBg=window.HamrahAppearance.get()==='dark'?'#13151f':'#f7f7ff';
       assert(getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()===expectedBg,'Canonical web palette mismatch');
       document.querySelector('[data-panel="assistant"]').click();
       document.querySelector('#assistant-input').value='فردا ساعت پنج عصر جلسه با تیم فروش دارم؛ یک روز قبل، سه ساعت قبل و یک ساعت قبل یادم بنداز و آلارم هم بگذار.';

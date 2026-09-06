@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { appearanceBootstrap } from "@/lib/appearance";
 import "vazirmatn/Vazirmatn-Variable-font-face.css";
 import "./globals.css";
 
@@ -15,10 +16,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#5c70b4" },
-    { media: "(prefers-color-scheme: dark)", color: "#13151f" },
-  ],
+  themeColor: "#f7f7ff",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -27,7 +25,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="fa"
       dir="rtl"
       className="h-full antialiased"
+      data-theme="light"
+      suppressHydrationWarning
     >
+      <head><script id="hamrah-appearance" dangerouslySetInnerHTML={{__html:appearanceBootstrap}} /></head>
       <body className="min-h-full">{children}</body>
     </html>
   );

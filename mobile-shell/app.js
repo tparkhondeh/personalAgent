@@ -284,9 +284,16 @@
     $("#gregorian-date").textContent = new Intl.DateTimeFormat("fa-IR-u-ca-gregory", { timeZone: "Asia/Tehran", day: "numeric", month: "long", year: "numeric" }).format(now);
     const title = $("#page-title");
     title.classList.toggle("daily-poem", panel === "today");
-    if (panel === "today") { const lines = domain.dailyPoem(window.HamrahPoems, now); title.setAttribute("aria-label", `شعر روز مولانا: ${lines.join("، ")}`); title.innerHTML = lines.map((line) => `<span>${escapeText(line)}</span>`).join(""); }
+    if (panel === "today") { const lines = domain.dailyPoem(window.HamrahPoems, now); title.setAttribute("aria-label", `شعر روز مولانا: ${lines.join("، ")}`); title.innerHTML = [0,2].map(i => `<span class="poem-couplet"><span>${escapeText(lines[i])}</span><span>${escapeText(lines[i+1])}</span></span>`).join(""); }
     else { title.removeAttribute("aria-label"); title.textContent = { tasks: "همه کارها و جلسات", calendar: "تقویم من", assistant: "گفتگو با همراه", settings: "تنظیمات من" }[panel]; }
   }
+  document.querySelectorAll('[data-appearance]').forEach(button=>button.addEventListener('click',()=>{
+    const saved=window.HamrahAppearance?.set(button.dataset.appearance);
+    $('#appearance-status').textContent=saved?'':'انتخاب فعلی اعمال شد؛ ذخیره روی این دستگاه ممکن نیست.';
+  }));
+  const updateAppearance=()=>document.querySelectorAll('[data-appearance]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.appearance===window.HamrahAppearance?.get())));
+  window.addEventListener('hamrah-appearance',updateAppearance);
+  updateAppearance();
   renderHeader();
   document.addEventListener("visibilitychange", () => { if (!document.hidden) { renderHeader(); render(); } });
   render();

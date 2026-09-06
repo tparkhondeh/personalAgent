@@ -48,6 +48,42 @@ public class MainActivity extends BridgeActivity {
     private View loadingOverlay;
     private WebViewListener recoveryListener;
     private boolean showingRecovery;
+    private AppearanceController appearance;
+    private TextView loadingLabel;
+    private ProgressBar loadingProgress;
+
+    @Override
+    protected void load() {
+        // Install the document-start script BEFORE Capacitor's first loadUrl.
+        config = com.getcapacitor.CapConfig.loadDefault(this);
+        WebView view = findViewById(com.getcapacitor.android.R.id.webview);
+        java.util.Set<String> origins = new java.util.HashSet<>();
+        origins.add(config.getAndroidScheme() + "://" + config.getHostname());
+        if (config.getServerUrl() != null) {
+            android.net.Uri remote = android.net.Uri.parse(config.getServerUrl());
+            origins.add(remote.getScheme() + "://" + remote.getEncodedAuthority());
+        }
+        appearance = new AppearanceController(this, view, origins, this::applyAppearance);
+        super.load();
+    }
+
+    private int appearanceColor(int light, int dark) {
+        return getColor("dark".equals(AppearanceController.read(this)) ? dark : light);
+    }
+
+    private void applyAppearance() {
+        int background = appearanceColor(R.color.appearance_light_bg, R.color.appearance_dark_bg);
+        if (getBridge() != null) getBridge().getWebView().setBackgroundColor(background);
+        if (loadingOverlay != null) loadingOverlay.setBackgroundColor(background);
+        if (loadingLabel != null) loadingLabel.setTextColor(appearanceColor(R.color.appearance_light_ink, R.color.appearance_dark_ink));
+        if (loadingProgress != null) loadingProgress.getIndeterminateDrawable().setTint(appearanceColor(R.color.appearance_light_primary, R.color.appearance_dark_primary));
+        getWindow().setStatusBarColor(background);
+        getWindow().setNavigationBarColor(background);
+        androidx.core.view.WindowInsetsControllerCompat bars = androidx.core.view.WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+        boolean light = !"dark".equals(AppearanceController.read(this));
+        bars.setAppearanceLightStatusBars(light);
+        bars.setAppearanceLightNavigationBars(light);
+    }
 
     @Override
     @SuppressLint("AddJavascriptInterface")
@@ -75,6 +111,7 @@ public class MainActivity extends BridgeActivity {
         webView.setBackgroundColor(Color.parseColor("#F7F7FF"));
         webView.addJavascriptInterface(new RecoveryActions(), RECOVERY_INTERFACE);
         installLoadingOverlay(webView);
+        applyAppearance();
 
         recoveryListener = new WebViewListener() {
             @Override
@@ -136,10 +173,12 @@ public class MainActivity extends BridgeActivity {
         content.setGravity(Gravity.CENTER);
 
         ProgressBar progress = new ProgressBar(this);
+        loadingProgress = progress;
         progress.getIndeterminateDrawable().setTint(Color.parseColor("#5C70B4"));
         content.addView(progress, new LinearLayout.LayoutParams(56, 56));
 
         TextView label = new TextView(this);
+        loadingLabel = label;
         label.setText("در حال آماده‌سازی همراه");
         label.setTextColor(Color.parseColor("#303448"));
         label.setTextSize(16);
@@ -286,7 +325,7 @@ public class MainActivity extends BridgeActivity {
                             + "\nwindow.WEBVIEW_SERVER_URL = " + JSONObject.quote(bundledOrigin()) + ";\n"
                             + JSExport.getBridgeJS(MainActivity.this) + "\n"
                             + JSExport.getPluginJS(Collections.singletonList(notifications));
-                        html = BundledPageInjector.inject(html, script);
+                        html = BundledPageInjector.inject(html, (appearance != null ? appearance.bootstrap() : "") + script);
                         return new WebResourceResponse("text/html", "UTF-8", new ByteArrayInputStream(html.getBytes(StandardCharsets.UTF_8)));
                     } catch (Exception error) {
                         Logger.warn("HamrahRecovery", "Offline notification bridge could not be prepared.");
@@ -313,6 +352,7 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onDestroy() {
+        if (appearance != null) appearance.destroy();
         cancelLoadTimeout();
         if (contentCheck != null) mainHandler.removeCallbacks(contentCheck);
         if (getBridge() != null) {

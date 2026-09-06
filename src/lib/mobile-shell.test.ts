@@ -31,7 +31,8 @@ describe("offline Android mobile shell", () => {
     expect(html).toContain("گفتگو با همراه");
     expect(html).toContain("زنگ آزمایشی ۳۰ ثانیه‌ای");
     expect(mobileStyles).toContain("Vazirmatn.woff2");
-    expect(mobileStyles).toContain("prefers-color-scheme:dark");
+    expect(mobileStyles).toContain(':root[data-theme="dark"]');
+    expect(mobileStyles).not.toContain("prefers-color-scheme");
   });
 
   it("provides a local Persian recovery screen for connected builds", () => {

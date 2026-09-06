@@ -2,6 +2,11 @@ name: Verified stable Android preview
 
 on:
   workflow_dispatch:
+    inputs:
+      publish_after_qa:
+        description: Publish automatically only when visual review and repository release permissions are already approved
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -289,6 +294,9 @@ jobs:
 
   release:
     name: Publish only after all three Android versions pass
+    # Default is an evidence-producing build. Reviewed exact artifacts can be
+    # published using the owner's existing authorized release connection.
+    if: ${{ inputs.publish_after_qa }}
     needs: [build, emulator]
     runs-on: ubuntu-latest
     timeout-minutes: 10
