@@ -2,6 +2,13 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { jsonError, requireApiSession } from "@/lib/api";
 import { guardUserRateLimit } from "@/lib/rate-limit";
+import { publicWebPushConfig } from "@/lib/push-config";
+
+export async function GET(request: Request) {
+  const session = await requireApiSession(request.headers);
+  if (!session) return jsonError("ابتدا وارد حساب شوید", 401);
+  return Response.json(publicWebPushConfig(), { headers: { "Cache-Control": "no-store" } });
+}
 
 const subscriptionSchema = z.object({ endpoint: z.url(), keys: z.object({ p256dh: z.string().min(1), auth: z.string().min(1) }) });
 

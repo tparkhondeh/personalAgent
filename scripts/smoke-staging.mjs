@@ -41,6 +41,12 @@ await call("/api/auth/sign-up/email", {
 });
 if (!cookies.size) throw new Error("Sign-up did not establish a secure session.");
 
+const pushConfig = await call("/api/push-subscriptions");
+if (Object.keys(pushConfig).join(",") !== "publicKey" || !(pushConfig.publicKey === null || typeof pushConfig.publicKey === "string")) {
+  throw new Error("Push configuration was not runtime-safe or exposed unexpected fields.");
+}
+console.log(`Runtime push configuration: ${pushConfig.publicKey ? "configured" : "local"}`);
+
 const preferences = await call("/api/preferences", {
   method: "PUT",
   body: JSON.stringify({

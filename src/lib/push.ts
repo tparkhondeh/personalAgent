@@ -1,12 +1,11 @@
 import "server-only";
 import webPush from "web-push";
+import { readWebPushConfig } from "@/lib/push-config";
 
 export function configureWebPush() {
-  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-  const privateKey = process.env.VAPID_PRIVATE_KEY;
-  const subject = process.env.VAPID_SUBJECT;
-  if (!publicKey || !privateKey || !subject) return false;
-  webPush.setVapidDetails(subject, publicKey, privateKey);
+  const config = readWebPushConfig();
+  if (!config) return false;
+  webPush.setVapidDetails(config.subject, config.publicKey, config.privateKey);
   return true;
 }
 

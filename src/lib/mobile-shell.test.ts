@@ -60,4 +60,10 @@ describe("offline Android mobile shell", () => {
     expect(mainActivity).toContain("clearDataWhenEndpointChanges");
     expect(mainActivity).toContain("WebStorage.getInstance().deleteAllData()");
   });
+
+  it("injects offline notifications only into the exact trusted main-frame asset", () => {
+    expect(mainActivity).toContain('request.isForMainFrame() && request.getUrl().toString().equals(getBridge().getErrorUrl())');
+    expect(mainActivity).toContain('getAssets().open("public/connection-error.html")');
+    expect(mainActivity).toContain('JSExport.getPluginJS(Collections.singletonList(notifications))');
+  });
 });

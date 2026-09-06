@@ -10,7 +10,9 @@ export async function enablePushNotifications() {
   const registration = await navigator.serviceWorker.register("/sw.js", { scope: "/", updateViaCache: "none" });
   const permission = await Notification.requestPermission();
   if (permission !== "granted") throw new Error("اجازه اعلان داده نشد");
-  const key = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  const configuration = await fetch("/api/push-subscriptions", { cache: "no-store" });
+  if (!configuration.ok) throw new Error("دریافت تنظیمات اعلان انجام نشد؛ اتصال و ورود به حساب را بررسی کنید");
+  const { publicKey: key } = await configuration.json() as { publicKey: string | null };
   if (!key) {
     await registration.showNotification("همراه", { body: "اعلان‌های محلی روی این دستگاه فعال شد.", icon: "/icon.svg", tag: "hamrah-local-ready" });
     return { mode: "local" as const };

@@ -3,6 +3,7 @@ package ir.wealthos.personalagent;
 import android.annotation.SuppressLint;
 import android.graphics.Color;
 import android.net.http.SslError;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -15,6 +16,8 @@ import android.webkit.RenderProcessGoneDetail;
 import android.webkit.SslErrorHandler;
 import android.webkit.WebView;
 import android.webkit.WebStorage;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
@@ -23,6 +26,15 @@ import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.BridgeWebViewClient;
 import com.getcapacitor.Logger;
 import com.getcapacitor.WebViewListener;
+import com.getcapacitor.JSExport;
+import com.getcapacitor.PluginHandle;
+import java.io.ByteArrayInputStream;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.Collections;
+import java.util.stream.Collectors;
+import org.json.JSONObject;
 
 public class MainActivity extends BridgeActivity {
 
@@ -227,6 +239,40 @@ public class MainActivity extends BridgeActivity {
     private final class RecoveryWebViewClient extends BridgeWebViewClient {
         RecoveryWebViewClient() {
             super(getBridge());
+        }
+
+        @Override
+        public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+            String localFontUrl = Uri.parse(getBridge().getLocalUrl()).buildUpon().path("/Vazirmatn.woff2").build().toString();
+            if (request.getMethod().equals("GET") && request.getUrl().toString().equals(localFontUrl)) {
+                try {
+                    return new WebResourceResponse("font/woff2", null, getAssets().open("public/Vazirmatn.woff2"));
+                } catch (Exception error) {
+                    Logger.warn("HamrahRecovery", "Bundled font could not be loaded.");
+                }
+            }
+            // Capacitor intentionally omits plugin injection for errorPath. Our trusted,
+            // APK-bundled recovery document needs LocalNotifications for offline reminders.
+            // Inject only into this exact main-frame asset; never into remote/error content.
+            if (request.isForMainFrame() && request.getUrl().toString().equals(getBridge().getErrorUrl())) {
+                PluginHandle notifications = getBridge().getPlugin("LocalNotifications");
+                if (notifications != null) {
+                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(
+                        getAssets().open("public/connection-error.html"), StandardCharsets.UTF_8
+                    ))) {
+                        String html = reader.lines().collect(Collectors.joining("\n"));
+                        String script = JSExport.getGlobalJS(MainActivity.this, false, BuildConfig.DEBUG)
+                            + "\nwindow.WEBVIEW_SERVER_URL = " + JSONObject.quote(getBridge().getLocalUrl()) + ";\n"
+                            + JSExport.getBridgeJS(MainActivity.this) + "\n"
+                            + JSExport.getPluginJS(Collections.singletonList(notifications));
+                        html = html.replace("<head>", "<head><script>" + script.replace("</script", "<\\/script") + "</script>");
+                        return new WebResourceResponse("text/html", "UTF-8", new ByteArrayInputStream(html.getBytes(StandardCharsets.UTF_8)));
+                    } catch (Exception error) {
+                        Logger.warn("HamrahRecovery", "Offline notification bridge could not be prepared.");
+                    }
+                }
+            }
+            return super.shouldInterceptRequest(view, request);
         }
 
         @Override

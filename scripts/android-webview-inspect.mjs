@@ -112,6 +112,8 @@ async function inspect() {
       assert(document.querySelector('#page-title')?.getAttribute('aria-label')?.includes('شعر روز مولانا'), 'Daily poem missing');
       assert(document.querySelector('#gregorian-date')?.textContent.trim(), 'Gregorian date missing');
       assert(window.HamrahPoems?.length === 360, 'Bundled poems missing');
+      await document.fonts.load('16px Vazirmatn', 'همراه');
+      assert([...document.fonts].some((font) => font.family === 'Vazirmatn' && font.status === 'loaded'), 'Bundled Persian font did not load');
       const plugin = window.Capacitor?.Plugins?.LocalNotifications;
       assert(plugin, 'Native notification bridge missing');
       document.querySelector('[data-panel="settings"]').click();
@@ -143,7 +145,7 @@ async function inspect() {
       document.querySelector('#task-list [data-action="confirm-delete"]').click();
       await new Promise((resolve) => setTimeout(resolve, 250));
       document.querySelector('[data-panel="today"]').click();
-      return { poem: true, gregorianDate: true, nativeReminders: 3, cancellation: true };
+      return { poem: true, gregorianDate: true, persianFont: true, nativeReminders: 3, cancellation: true };
     })()`);
     if (parity?.result?.exceptionDetails) throw new Error(`Offline feature QA failed: ${JSON.stringify(parity.result.exceptionDetails)}`);
     mkdirSync(dirname(outputPath), { recursive: true });

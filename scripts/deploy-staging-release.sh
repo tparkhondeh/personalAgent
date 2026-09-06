@@ -44,7 +44,11 @@ switch_release() {
   local link="$base/current-next-$(date -u +%s%N)"
   ln -s "$target" "$link"
   mv -Tf "$link" "$base/current"
-  export APP_BUILD_COMMIT="$(cat "$target/BUILD_COMMIT.txt")"
+  if [[ -f "$target/BUILD_COMMIT.txt" ]]; then
+    export APP_BUILD_COMMIT="$(cat "$target/BUILD_COMMIT.txt")"
+  else
+    export APP_BUILD_COMMIT="$(basename "$target")"
+  fi
   export HOSTNAME=127.0.0.1 PORT=3010
   pm2 restart personal-agent-staging --update-env >/dev/null
 }
