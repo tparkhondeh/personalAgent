@@ -12,13 +12,15 @@
 - خروجی ساختاریافته مدل باید همه فیلدها را required داشته باشد؛ Defaultهای سازگاری داده قدیمی فقط در Schema ذخیره‌سازی باقی بمانند. آزمون قرارداد مدل بدون مصرف API اجرا می‌شود.
 - کاندید ۲۱ نیز تحویل نشد: رویداد چرخه عمر Capacitor روی سند اولیه قبل از تزریق `window.Capacitor` به `triggerEvent` دسترسی می‌گرفت. اصلاح کوچک و نسخه‌دار dependency با `pnpm patch` نگه‌داری می‌شود؛ فقط رویدادِ سندِ بدون پل/شنونده رد می‌شود، نه خطای برنامه. تست بومی هم نبود خطا قبل از آماده‌شدن و هم تحویل رویداد پس از آماده‌شدن را کنترل می‌کند؛ فیلتر Logcat حذف نشده است.
 
-## نسخه مرجع فعلی — ۱۹
+## نسخه مرجع فعلی — ۲۲
 
-- نام: `همراه پایدار 19`؛ Package: `ir.wealthos.personalagent.stable19`؛ Version: `1.0.19`.
-- Commit: `17afb3d5e55ce984fc663068902db7125e9f7d77`.
-- SHA-256: `bb396ba1be0f0efddc2073facedae3670eb9ba0b032c5ac75e5622d79cfac566`.
-- [APK دائمی](https://github.com/tparkhondeh/personalAgent/releases/download/phone-preview-stable-19/Hamrah-stable-19.apk)؛ [CI موفق هر سه Android](https://github.com/tparkhondeh/personalAgent/actions/runs/34008659255)؛ [گزارش تحویل و محدودیت آزمون شبکه Runner](RELEASE_HANDOFF_2026-09-06.md).
-- فایل تحویلی با Artifact آزموده‌شده تطبیق دارد؛ فایل فونت، شعر، تاریخ، سه اعلان و لغو آن‌ها واقعاً آزموده شدند. نصب روی گوشی مالک برای نسخه ۱۹ **معوق** است.
+- نام: `همراه پایدار 22`؛ Package: `ir.wealthos.personalagent.stable22`؛ Version: `1.0.22`.
+- Commit: `158ab5422a1a38307f28fe6014ba1cc78bde9164`.
+- SHA-256: `772812cebb39f0708123716f761d5248ae2e1e4c903646f08289cbba174f28fb`.
+- [APK دائمی](https://github.com/tparkhondeh/personalAgent/releases/download/phone-preview-stable-22/Hamrah-stable-22.apk)؛ [CI موفق هر سه Android](https://github.com/tparkhondeh/personalAgent/actions/runs/34013442504)؛ [گزارش تحویل و محدودیت آزمون شبکه Runner](VOICE_RELEASE_HANDOFF_2026-09-06.md).
+- فایل تحویلی با Artifact آزموده‌شده تطبیق دارد؛ فایل فونت، شعر، تاریخ، سه اعلان و لغو آن‌ها واقعاً آزموده شدند. نصب روی گوشی مالک برای نسخه ۲۲ **معوق** است.
+
+پیام مهارشده `SystemBars` درباره تزریق Safe Area پیش از آماده‌شدن سند در Logcat باقی است؛ با Crash یا خطای مهارنشده اشتباه نشود و حذف/پنهان نشود. تصاویر نهایی سالم‌اند؛ حاشیه نوار سیستم و کیبورد در پذیرش گوشی نیز بررسی شوند. ۱۱ تست بومی، پالت روشن/تاریک و کانال‌های تأییدشده در هر سه نسخه موفق‌اند؛ آزمون صوت واقعی همچنان معوق است.
 
 ## سابقه تأیید گوشی — نسخه ۱۴ (نسخه فعلی نیست)
 

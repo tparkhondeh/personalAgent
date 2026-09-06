@@ -2,7 +2,7 @@
 
 اپ اندروید با Capacitor 8 ساخته شده و کد اصلی وب را دوباره‌نویسی نمی‌کند. پوشه `android/` پروژه بومی و `mobile-shell/` پوسته امن آفلاین است.
 
-> نسخه مرجع قابل‌تحویل اکنون [همراه پایدار ۱۹](https://github.com/tparkhondeh/personalAgent/releases/download/phone-preview-stable-19/Hamrah-stable-19.apk) با Package ID برابر `ir.wealthos.personalagent.stable19` و Commit `17afb3d5e55ce984fc663068902db7125e9f7d77` است. Android 13/14/16 موفق‌اند؛ آزمون گوشی مالک برای نسخه ۱۹ هنوز معوق است. تأیید گوشی نسخه ۱۴ را نباید به آن تعمیم داد. [هش و شواهد تحویل](RELEASE_HANDOFF_2026-09-06.md). نسخه‌های متصل به Pinggy یا Tunnelهای موقت منسوخ‌اند. پیش از هر تغییر یا Release جدید، [راهنمای دائمی ساخت و تحویل Android](ANDROID_RELEASE_PLAYBOOK.md) و چک‌لیست انتهای آن باید کامل اجرا شود.
+> نسخه مرجع قابل‌تحویل اکنون [همراه پایدار ۲۲](https://github.com/tparkhondeh/personalAgent/releases/download/phone-preview-stable-22/Hamrah-stable-22.apk) با Package ID برابر `ir.wealthos.personalagent.stable22` و Commit `158ab5422a1a38307f28fe6014ba1cc78bde9164` است. Android 13/14/16 موفق‌اند؛ آزمون گوشی مالک برای نسخه ۲۲ هنوز معوق است. تأیید گوشی نسخه ۱۴ را نباید به آن تعمیم داد. [هش و شواهد تحویل](VOICE_RELEASE_HANDOFF_2026-09-06.md). نسخه‌های متصل به Pinggy یا Tunnelهای موقت منسوخ‌اند. پیش از هر تغییر یا Release جدید، [راهنمای دائمی ساخت و تحویل Android](ANDROID_RELEASE_PLAYBOOK.md) و چک‌لیست انتهای آن باید کامل اجرا شود.
 
 > نکتهٔ کلیدی: اگر هدف، **یکنواختی کامل ظاهری** با نسخه لوکال باشد، باید APK را با `CAPACITOR_SERVER_URL` بسازیم تا اپ همان نسخه وب را از سرور بگیرد.  
 > در این حالت، ظاهر اپ با نسخه‌ی `http://localhost:3001` (یا دامنه‌ی انتخابی شما) یکی است.  
