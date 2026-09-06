@@ -67,3 +67,10 @@ describe("input validation", () => {
     expect(notificationReadSchema.safeParse({ id: "notice-1", all: true }).success).toBe(false);
   });
 });
+
+it("keeps omitted task category and priority absent in partial updates",()=>{
+ expect(taskUpdateSchema.parse({title:"عنوان تازه"})).toEqual({title:"عنوان تازه"});
+ expect(taskUpdateSchema.parse({status:"DONE"})).toEqual({status:"DONE"});
+ const dueAt="2026-09-06T10:00:00.000Z";
+ expect(taskUpdateSchema.parse({dueAt})).toEqual({dueAt});
+});

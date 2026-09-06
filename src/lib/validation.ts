@@ -13,6 +13,9 @@ export const taskInputSchema = z.object({
 });
 
 export const taskUpdateSchema = taskInputSchema.partial().extend({
+  // Zod defaults in optional create fields must never reset omitted PATCH values.
+  category: z.enum(["PERSONAL", "WORK"]).optional(),
+  priority: z.enum(["URGENT", "IMPORTANT", "NORMAL"]).optional(),
   status: z.enum(["TODO", "IN_PROGRESS", "DONE", "CANCELLED"]).optional(),
 });
 

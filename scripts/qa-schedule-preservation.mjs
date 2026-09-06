@@ -1,0 +1,38 @@
+import assert from "node:assert/strict";
+const base=process.env.QA_BASE_URL||"http://localhost:3001";
+assert(/^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(base)||base==="https://personalagent.wealthos.ir:8443","Use only isolated local/staging targets");
+let cookie="";
+async function call(path,method="GET",body){
+  const r=await fetch(base+path,{method,headers:{origin:base,cookie,"content-type":"application/json"},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(15000)});
+  assert(r.ok,`${method} ${path}: ${r.status}`);
+  if(path.startsWith("/api/auth/"))cookie=r.headers.getSetCookie().map(c=>c.split(";")[0]).join("; ");
+  return (await r.json()).data;
+}
+const email=process.env.QA_EMAIL||`schedule-qa-${Date.now()}@example.invalid`;
+assert(/^schedule-qa-[0-9]+@example.invalid$/.test(email));
+await call(process.env.QA_EMAIL?"/api/auth/sign-in/email":"/api/auth/sign-up/email","POST",{name:"آزمون حفظ هشدار",email,password:"Synthetic-schedule-QA-20260906"});
+const p={timezone:"Asia/Tehran",locale:"fa-IR",workdayStartsAt:"09:00",workdayEndsAt:"18:00",workingDays:["SAT","SUN"],defaultReminderMins:60,defaultReminderOffsets:[1440,180,60],quietHoursStartsAt:"00:00",quietHoursEndsAt:"23:59",planningProfile:"BALANCED",urgentEscalationEnabled:true,urgentRepeatMinutes:15,urgentMaxRepeats:3,androidAlarmEnabled:true,highPriorityEnabled:true,smsEscalationEnabled:false,callEscalationEnabled:false,emergencyContactName:null,emergencyPhone:null};
+await call("/api/preferences","PUT",p);
+const task=await call("/api/tasks","POST",{title:"آزمون حفظ زنجیره هشدار",category:"WORK",priority:"URGENT",dueAt:new Date(Date.now()-300000).toISOString()});
+const before=Date.now();
+await call("/api/escalations","POST");
+const original=(await call("/api/escalations")).alarms;
+assert.equal(original.length,3);
+assert(Date.parse(original[0].scheduledFor)-before<20*60000,"Fresh alarm must ignore legacy nearly-all-day quiet hours");
+await call("/api/preferences","PUT",{...p,workdayStartsAt:"08:00"});
+await call("/api/escalations","POST");
+assert.deepEqual((await call("/api/escalations")).alarms,original,"Unrelated settings must preserve existing alarms exactly");
+await call("/api/preferences","PUT",{...p,urgentEscalationEnabled:false});
+await call("/api/escalations","POST");
+assert.equal((await call("/api/escalations")).alarms.length,0);
+await call("/api/preferences","PUT",p);
+await call("/api/escalations","POST");
+assert.equal((await call("/api/escalations")).alarms.length,0,"Settings must not replay an already-issued task version");
+await call(`/api/tasks/${task.id}`,"PATCH",{dueAt:new Date(Date.now()-120000).toISOString()});
+await call("/api/escalations","POST");
+const rearmed=(await call("/api/escalations")).alarms;
+assert.equal(rearmed.length,3);
+assert(rearmed.every(a=>!original.some(o=>o.id===a.id)),"Explicitly rescheduled task gets a new bounded chain");
+await call(`/api/tasks/${task.id}`,"PATCH",{status:"CANCELLED"});
+assert.equal((await call("/api/escalations")).alarms.length,0);
+console.log(JSON.stringify({passed:true,target:base,checks:8,syntheticRecords:"preserved",coverage:["new-quiet-policy","existing-alarms-unchanged","bounded-repeats","no-replay-after-preferences","explicit-rearm","cancellation"]}));
