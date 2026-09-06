@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
+import { waitUntil } from "./qa-wait-until.mjs";
 
 const packageName = process.argv[2];
 const outputPath = resolve(process.argv[3] || "artifacts/android/webview.json");
@@ -109,6 +110,7 @@ async function inspect() {
   if (result && action === "open-offline") {
     const parity = await evaluate(`(async () => {
       const assert = (condition, message) => { if (!condition) throw new Error(message); };
+      const waitUntil = (${waitUntil.toString()});
       assert(document.querySelector('#page-title')?.getAttribute('aria-label')?.includes('شعر روز مولانا'), 'Daily poem missing');
       assert(document.querySelector('#gregorian-date')?.textContent.trim(), 'Gregorian date missing');
       assert(window.HamrahPoems?.length === 360, 'Bundled poems missing');
@@ -142,16 +144,19 @@ async function inspect() {
       const pending = await plugin.getPending();
       assert(task?.notificationIds?.length === 3 && task.notificationIds.every((id) => pending.notifications.some((item) => item.id === id)), 'Three native reminders were not scheduled');
       document.querySelector('[data-panel="tasks"]').click();
-      document.querySelector('#task-list [data-action="toggle"]').click();
+      const reminderRow=[...document.querySelectorAll('#task-list .item')].find(item=>item.dataset.id===task.id);
+      assert(reminderRow,'Scheduled task row missing');
+      reminderRow.querySelector('[data-action="toggle"]').click();
       for (let attempt = 0; attempt < 30; attempt++) {
-        if (!(await plugin.getPending()).notifications.some((item) => task.notificationIds.includes(item.id))) break;
+        if (JSON.parse(localStorage.getItem('hamrah-local-v2')||'[]').find(item=>item.id===task.id)?.done && !(await plugin.getPending()).notifications.some((item) => task.notificationIds.includes(item.id))) break;
         await new Promise((resolve) => setTimeout(resolve, 150));
       }
       assert(!(await plugin.getPending()).notifications.some((item) => task.notificationIds.includes(item.id)), 'Completed task reminders were not cancelled');
-      document.querySelector('#task-list [data-action="delete"]').click();
+      assert(JSON.parse(localStorage.getItem('hamrah-local-v2')||'[]').find(item=>item.id===task.id)?.done,'Task completion callback not finished');
+      [...document.querySelectorAll('#task-list .item')].find(item=>item.dataset.id===task.id).querySelector('[data-action="delete"]').click();
       document.querySelector('#task-list [data-action="confirm-delete"]').click();
-      await new Promise((resolve) => setTimeout(resolve, 250));
-      const beforeAssistant=JSON.parse(localStorage.getItem('hamrah-local-v2')||'[]').length;
+      await waitUntil(()=>!JSON.parse(localStorage.getItem('hamrah-local-v2')||'[]').some(item=>item.id===task.id),'Previous explicitly confirmed deletion did not finish');
+      const beforeAssistant=JSON.parse(localStorage.getItem('hamrah-local-v2')||'[]').map(item=>item.id).sort();
       assert(window.HamrahPlanner?.planPersian,'Shared Persian planner missing');
       const leadingReminder=window.HamrahPlanner.planPersian('یادم بنداز فردا ساعت پنج عصر جلسه با تیم فروش دارم؛ سه ساعت قبل یادم بنداز',{});
       assert(leadingReminder.plan.title==='جلسه با تیم فروش'&&leadingReminder.plan.time==='17:00'&&leadingReminder.questions.length===0,'Leading reminder lost its subject or time');
@@ -176,7 +181,8 @@ async function inspect() {
       assert(document.querySelector('[data-plan="title"]').value==='جلسه با تیم فروش تهران','Title edit was lost');
       document.querySelector('#local-plan-cancel').click();
       assert(document.querySelector('#assistant-result').textContent.includes('لغو شد'),'Cancel result missing');
-      assert(JSON.parse(localStorage.getItem('hamrah-local-v2')||'[]').length===beforeAssistant,'Unapproved draft created an item');
+      const afterAssistant=JSON.parse(localStorage.getItem('hamrah-local-v2')||'[]').map(item=>item.id).sort();
+      assert(JSON.stringify(afterAssistant)===JSON.stringify(beforeAssistant),'Unapproved draft changed task IDs: '+JSON.stringify({before:beforeAssistant,after:afterAssistant}));
       document.querySelector('#assistant-input').value='پس فردا ساعت 17 کنترل کانال داخلی بساز؛ یک ساعت قبل یادآوری کن';
       document.querySelector('#assistant-send').click();
       assert(!document.querySelector('#local-plan-confirm').disabled,'In-app-only proposal not ready');
@@ -192,7 +198,7 @@ async function inspect() {
       assert(internal,'Approved local task missing');
       internal.querySelector('[data-action="delete"]').click();
       document.querySelector('#task-list [data-action="confirm-delete"]').click();
-      await new Promise(resolve=>setTimeout(resolve,200));
+      await waitUntil(()=>!JSON.parse(localStorage.getItem('hamrah-local-v2')||'[]').some(item=>item.id===internal.dataset.id),'In-app test deletion did not finish');
       document.querySelector('[data-panel="assistant"]').click();
       document.querySelector('#assistant-input').value='فردا ساعت پنج جلسه با تیم فروش دارم';
       document.querySelector('#assistant-send').click();
@@ -242,7 +248,16 @@ async function inspect() {
     execFileSync(process.execPath,['scripts/android-system-ui-check.mjs',outputPath.replace(/\.json$/,'-keyboard-system-ui')],{stdio:'inherit'});
     if(!keyboard?.active||!keyboard.buttonVisible||!keyboard.inputVisible)throw new Error(`Keyboard obscures confirmation or input: ${JSON.stringify(keyboard)}`);
     adb('shell','input','keyevent','KEYCODE_BACK');
-    await evaluate(`document.querySelector('#local-plan-cancel').click();document.querySelector('[data-panel="today"]').click();`);
+    const cleanup=await evaluate(`(async()=>{
+      document.querySelector('#local-plan-cancel').click();
+      if(!document.querySelector('#assistant-result').textContent.includes('لغو شد'))throw Error('Keyboard draft cancellation missing');
+      document.querySelector('[data-panel="today"]').click();window.scrollTo(0,0);
+      await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+      if(!document.querySelector('#today-panel').classList.contains('active'))throw Error('Today panel did not reopen');
+      return true;
+    })()`);
+    if(cleanup?.result?.exceptionDetails)throw new Error('Keyboard QA cleanup failed: '+JSON.stringify(cleanup.result.exceptionDetails));
+    await delay(500);
   }
   socket.close();
 
