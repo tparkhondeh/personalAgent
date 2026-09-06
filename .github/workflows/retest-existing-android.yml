@@ -1,0 +1,120 @@
+name: Verify existing APK on settled Android emulators
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run:
+        description: Successful build run to retest without rebuilding its APK
+        required: true
+        default: '34017986340'
+        type: string
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: retest-existing-android
+  cancel-in-progress: false
+
+jobs:
+  emulator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [33, 34, 36]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: hamrah-stable-build-${{ inputs.source_run }}
+          run-id: ${{ inputs.source_run }}
+          github-token: ${{ github.token }}
+          path: artifacts/build
+      - name: Verify source build and unchanged APK identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN: ${{ inputs.source_run }}
+        run: |
+          [[ "$SOURCE_RUN" =~ ^[0-9]+$ ]]
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN" > artifacts/source-run.json
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN/jobs" > artifacts/source-jobs.json
+          node scripts/verify-existing-apk.mjs
+      - name: Probe stable staging separately
+        run: |
+          if curl -fsS --max-time 15 'https://personalagent.wealthos.ir:8443/login' | grep -Fq 'خوش برگشتی'; then
+            echo 'STAGING_EXPECTATION=online' >> "$GITHUB_ENV"
+          else
+            echo 'STAGING_EXPECTATION=recovery' >> "$GITHUB_ENV"
+          fi
+      - name: Enable emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Settle fresh emulator then run every existing UI and failure check
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: ${{ matrix.api }}
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: >-
+            bash scripts/android-emulator-settle.sh artifacts/evidence/android-${{ matrix.api }} &&
+            bash scripts/android-stable-emulator-qa.sh "$APK_PACKAGE" "artifacts/build/$APK_FILE"
+            artifacts/build/hamrah-stable-androidTest.apk artifacts/build/diagnostic-dns.apk
+            artifacts/build/diagnostic-server-down.apk artifacts/build/diagnostic-ssl.apk '${{ matrix.api }}'
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: retest-android-${{ matrix.api }}-${{ github.run_id }}
+          path: artifacts/evidence/android-${{ matrix.api }}/
+          retention-days: 14
+
+  release:
+    needs: emulator
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: hamrah-stable-build-${{ inputs.source_run }}
+          run-id: ${{ inputs.source_run }}
+          github-token: ${{ github.token }}
+          path: artifacts/build
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: retest-android-*-${{ github.run_id }}
+          path: artifacts/evidence
+      - name: Publish exact tested candidate (never overwrite an existing release)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN: ${{ inputs.source_run }}
+        run: |
+          [[ "$SOURCE_RUN" =~ ^[0-9]+$ ]]
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN" > artifacts/source-run.json
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN/jobs" > artifacts/source-jobs.json
+          node scripts/verify-existing-apk.mjs
+          source artifacts/apk-identity.env
+          mapfile -t screenshots < <(find artifacts/evidence -name '*.png' | sort)
+          gh release create "phone-preview-stable-$APK_VERSION" \
+            "artifacts/build/$APK_FILE" artifacts/build/metadata.json artifacts/build/SHA256SUMS.txt \
+            artifacts/build/hamrah-staging-server.tar.gz artifacts/build/SERVER_SHA256SUMS.txt \
+            "${screenshots[@]}" --repo "$GITHUB_REPOSITORY" --target "$APK_COMMIT" \
+            --title "همراه پایدار آزمایشی $APK_VERSION" --prerelease \
+            --notes "APK اصلی بدون بازسازی روی Android 13/14/16 پس از پایدارشدن اولیه سرویس‌های شبیه‌ساز آزمایش شد. شکست قبلی ناشی از restart سرویس فونت سیستم در گزارش پروژه حفظ است؛ استقلال کامل از اشکالات WebView سیستم ادعا نمی‌شود. مدرک آزمون: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID . متن فارسی، تقویم شمسی، ساعت ۲۴ساعته، سه اعلان، لغو، حالت آفلاین و بازیابی شبکه/SSL بررسی شدند. شبکه Runner به Staging پورت 8443 دسترسی ندارد؛ آزمون آنلاین Staging جداگانه انجام شده است. Production تغییر نکرده است."
