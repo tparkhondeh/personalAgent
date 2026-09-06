@@ -266,6 +266,7 @@ jobs:
           disable-animations: true
           emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: >-
+            bash scripts/android-emulator-settle.sh artifacts/evidence/android-${{ matrix.api }} &&
             bash scripts/android-stable-emulator-qa.sh
             "${{ needs.build.outputs.package_id }}"
             "artifacts/build/${{ needs.build.outputs.apk_name }}"

@@ -2,6 +2,14 @@
 
 این سند حاصل خطاهایی است که هنگام ساخت نسخه Android پروژه «همراه» رخ داد. هدف آن این است که صفحه سفید، لینک منقضی، اشتباه‌گرفتن APKها و اعلام موفقیت زودهنگام دوباره تکرار نشوند.
 
+## نسخه مرجع فعلی — ۲۶
+
+- نام `همراه پایدار 26`؛ Package `ir.wealthos.personalagent.stable26`؛ نسخه `1.0.26`.
+- Commit برنامه `07f98c06e24b877b8934763a5f94942be76add4d`؛ Staging از همین Commit است. Commitهای بعدی QA و گزارش‌اند.
+- SHA-256: `b34d1bade9e13033af3af7ab1f7c355f2e9665056ce620a8d8373ea11d48b91c`.
+- [دانلود دائمی](https://github.com/tparkhondeh/personalAgent/releases/download/phone-preview-stable-26/Hamrah-stable-26.apk)؛ [CI نهایی سه Android](https://github.com/tparkhondeh/personalAgent/actions/runs/34018848466)؛ [گزارش تحویل و محدودیت‌ها](SIMPLIFIED_APPROVAL_2026-09-06.md).
+- فایل منتشرشده دوباره دانلود و SHA با همان Artifact تست‌شده برابر شد. تست گوشی مالک برای این نسخه معوق است؛ نسخه‌های پایین سابقه‌اند، نه لینک پیشنهادی نصب.
+
 ## یافته‌های بازبینی صوت و پالت — ۲۰۲۶-۰۹-۰۶
 
 - پالت و فونت رابط محلی از منبع وب تولید می‌شوند؛ Android نباید با Algorithmic Darkening رنگ‌ها را دوباره تیره کند. هر دو تم در فایل APK آزموده شوند.
