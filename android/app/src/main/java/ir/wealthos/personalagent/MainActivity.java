@@ -265,7 +265,7 @@ public class MainActivity extends BridgeActivity {
                             + "\nwindow.WEBVIEW_SERVER_URL = " + JSONObject.quote(getBridge().getLocalUrl()) + ";\n"
                             + JSExport.getBridgeJS(MainActivity.this) + "\n"
                             + JSExport.getPluginJS(Collections.singletonList(notifications));
-                        html = html.replace("<head>", "<head><script>" + script.replace("</script", "<\\/script") + "</script>");
+                        html = BundledPageInjector.inject(html, script);
                         return new WebResourceResponse("text/html", "UTF-8", new ByteArrayInputStream(html.getBytes(StandardCharsets.UTF_8)));
                     } catch (Exception error) {
                         Logger.warn("HamrahRecovery", "Offline notification bridge could not be prepared.");
