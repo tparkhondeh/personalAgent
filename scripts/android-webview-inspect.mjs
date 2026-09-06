@@ -153,6 +153,8 @@ async function inspect() {
       await new Promise((resolve) => setTimeout(resolve, 250));
       const beforeAssistant=JSON.parse(localStorage.getItem('hamrah-local-v2')||'[]').length;
       assert(window.HamrahPlanner?.planPersian,'Shared Persian planner missing');
+      const leadingReminder=window.HamrahPlanner.planPersian('یادم بنداز فردا ساعت پنج عصر جلسه با تیم فروش دارم؛ سه ساعت قبل یادم بنداز',{});
+      assert(leadingReminder.plan.title==='جلسه با تیم فروش'&&leadingReminder.plan.time==='17:00'&&leadingReminder.questions.length===0,'Leading reminder lost its subject or time');
       const expectedBg=matchMedia('(prefers-color-scheme: dark)').matches?'#13151f':'#f7f7ff';
       assert(getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()===expectedBg,'Canonical web palette mismatch');
       document.querySelector('[data-panel="assistant"]').click();

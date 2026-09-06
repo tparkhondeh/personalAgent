@@ -36,12 +36,18 @@ export function normalizePersian(text: string) {
   return result;
 }
 
+function withoutLeadingReminder(text:string) {
+  return text.replace(/^\s*(?:(?:لطفاً|لطفا)\s+)?(?:برام\s+)?(?:یادم\s*بنداز|یادآوری\s*کن)(?:\s+(?:که|تا))?\s*/,"");
+}
+
 export function extractPersianTitle(message:string) {
   let text=message.replace(/\u200c/g," ").replace(/ي/g,"ی").replace(/ك/g,"ک");
   const named=text.match(/(?:عنوان|تیتر|اسمش|اسم|نام)(?:ش)?\s*(?:را|رو)?\s*(?:بگذار|بذار|باشد|باشه|بشه|بکن)?\s*[«"“]([^»"”]+)[»"”]/);
   if(named)return named[1].trim().slice(0,180);
   const n="(?:[0-9۰-۹٠-٩]+|بیست(?:\\s+و\\s+(?:یک|دو|سه))?|دوازده|یازده|سیزده|چهارده|پانزده|شانزده|هفده|هجده|نوزده|ده|نه|هشت|هفت|شش|پنج|چهار|سه|دو|یک|صفر)";
   const clock=new RegExp("ساعت\\s*"+n+"(?::[0-9۰-۹٠-٩]{1,2}|\\s+و\\s+(?:نیم|ربع|"+n+")(?:\\s+دقیقه)?)?(?:\\s*(?:بعد از ظهر|بعدازظهر|بامداد|عصر|صبح|ظهر|شب))?","g");
+  // A leading reminder verb introduces the subject; only a later reminder clause ends it.
+  text=withoutLeadingReminder(text);
   text=text.split(/[؛;\n]/)[0].split(/(?:یادم|یادآور|یادآوری|آلارم|الارم|هشدار|اعلان|alarm|notification)/i)[0]
     .replace(clock," ")
     .replace(/[0-9۰-۹٠-٩]{4}[/-][0-9۰-۹٠-٩]{1,2}[/-][0-9۰-۹٠-٩]{1,2}/g," ")
@@ -185,7 +191,7 @@ export function planPersian(message: string, context: PlanningContext = {}) {
   };
   const summary = !previous && /خلاصه|زمان آزاد|برنامه امروز/.test(text) && !/ثبت|بساز|دارم/.test(text);
   if (summary) return { plan: null, reply: `${context.items?.length ?? 0} کار باز؛ ${(context.items ?? []).slice(0, 4).map(i => i.title).join("، ") || "موردی ثبت نشده است."}`, questions: [], warnings: [], candidates: [] as PlanningItem[], instant: null };
-  const command = text.split(/[؛;]/)[0].split(/(?:یادم|یادآور|یادآوری|آلارم|الارم|اعلان)/)[0];
+  const command = withoutLeadingReminder(text).split(/[؛;]/)[0].split(/(?:یادم|یادآور|یادآوری|آلارم|الارم|اعلان)/)[0];
   if (/حذف کن|پاک کن/.test(command)) plan.operation = "DELETE";
   else if (/انجام شد|انجام دادم|تمام شد|تکمیل کن/.test(command)) plan.operation = "COMPLETE";
   else if (/تغییر|ویرایش|عوض کن|ببر به/.test(command) && !previous) plan.operation = "UPDATE";

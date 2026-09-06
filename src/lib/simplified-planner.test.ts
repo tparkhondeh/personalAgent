@@ -15,8 +15,14 @@ export const titleCases=[
   ["عنوان را خرید دارو بگذار","خرید دارو"],
   ["گزارش فروش را تکمیل کن","گزارش فروش"],
   ["جلسه با تیم فروش را حذف کن","جلسه با تیم فروش"],
+  ["یادم بنداز فردا ساعت پنج عصر جلسه با تیم فروش دارم؛ سه ساعت قبل یادم بنداز","جلسه با تیم فروش"],
+  ["لطفاً یادم بنداز که فردا ساعت ۱۷ خرید دارو دارم","خرید دارو"],
+  ["یادآوری کن فردا ساعت 18 پیگیری قرارداد با شرکت سپهر","پیگیری قرارداد با شرکت سپهر"],
+  ["برام یادآوری کن پس فردا ساعت 17 تماس با علی","تماس با علی"],
+  ["یادم بنداز", ""],
 ];
 describe("simplified planner",()=>{
+  it("keeps a leading reminder request ready for explicit approval",()=>{const r=planPersian(titleCases[13][0],{now});expect(r.plan?.title).toBe("جلسه با تیم فروش");expect(r.plan?.time).toBe("17:00");expect(r.plan?.reminderOffsets).toEqual([180]);expect(r.questions).toEqual([]);});
   it.each(titleCases)("extracts meaningful title: %s",(message,title)=>expect(extractPersianTitle(message)).toBe(title));
   it("uses documented internal duration without blocking unchanged registration",()=>{const r=planPersian(titleCases[0][0],{now});expect(r.plan?.durationMinutes).toBe(60);expect(r.questions).toEqual([]);});
   it("changes only the current proposal title",()=>{const first=planPersian("فردا ساعت 17 گزارش بساز",{now}).plan!;const next=planPersian('عنوانش رو «گزارش فروش» بذار',{now,previous:first}).plan!;expect(next.title).toBe("گزارش فروش");expect(next.date).toBe(first.date);expect(next.operation).toBe("CREATE");});
