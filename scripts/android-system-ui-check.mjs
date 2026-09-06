@@ -33,7 +33,7 @@ async function main() {
     adb('shell','input','tap',...state.wait.map(String));waited=true;
     await new Promise(r=>setTimeout(r,10000));state=inspect('after-wait');
   }
-  writeFileSync(`${prefix}-result.json`,JSON.stringify({clear:!state.blocked,preInstallLauncherWait:waited}));
+  writeFileSync(`${prefix}-result.json`,JSON.stringify({clear:!state.blocked,preInstallLauncherWait:waited,blockedBy:state.launcher?'launcher':state.blocked?'system':null}));
   if(state.blocked)throw new Error('System Crash/ANR dialog obscures the app; visual QA and release blocked');
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href)await main();
