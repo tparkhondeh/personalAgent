@@ -143,6 +143,8 @@ async function inspect() {
     writeFileSync(outputPath.replace(/\.json$/,'-contrast.json'),JSON.stringify(contrast.result.result.value,null,2));
   }
   if (result && action === "open-offline") {
+    // Isolated emulator permission fixture; never applied to a user's phone.
+    adb('shell','pm','grant',packageName,'android.permission.RECORD_AUDIO');
     const parity = await evaluate(`(async () => {
       const assert = (condition, message) => { if (!condition) throw new Error(message); };
       const waitUntil = (${waitUntil.toString()});
@@ -202,11 +204,26 @@ async function inspect() {
       const expectedBg=window.HamrahAppearance.get()==='dark'?'#13151f':'#f7f7ff';
       assert(getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()===expectedBg,'Canonical web palette mismatch');
       const navPaint=getComputedStyle(document.querySelector('.nav-button.new')).backgroundImage;
-      const topPaint=getComputedStyle(document.querySelector('.top-actions [data-open-form]')).backgroundImage;
+      const topPaint=getComputedStyle(document.querySelector('#assistant-send')).backgroundImage;
+      assert(!document.querySelector('.top-actions [data-open-form]'),'Duplicate create action remains');
+      for(const name of ['settings','notifications']){const button=document.querySelector('.top-actions [data-panel="'+name+'"]');assert(button?.querySelector('svg')&&button.getAttribute('aria-label'),'Accessible header icon missing');}
       assert(navPaint.includes('145deg')&&navPaint.includes('rgb(91, 112, 181)')&&navPaint.includes('rgb(79, 123, 114)'),'Navigation action lost canonical web gradient');
-      assert(topPaint.includes('135deg')&&topPaint.includes('rgb(91, 112, 181)')&&topPaint.includes('rgb(79, 123, 114)'),'Top action lost canonical web gradient');
+      assert(topPaint.includes('135deg')&&topPaint.includes('rgb(91, 112, 181)')&&topPaint.includes('rgb(79, 123, 114)'),'Primary action lost canonical web gradient');
       if(window.HamrahAppearance.get()==='dark')assert(getComputedStyle(document.querySelector('.card')).borderTopColor==='rgb(57, 61, 80)','Dark cards retained a light border');
       document.querySelector('[data-panel="assistant"]').click();
+      assert(!document.querySelector('#assistant-input').disabled,'Local typing is disabled');
+      assert(document.querySelector('#assistant-input').getBoundingClientRect().height<=60,'Composer is not initially one line');
+      document.querySelector('#voice-start').click();
+      await waitUntil(()=>!document.querySelector('#voice-stop').hidden,'Real microphone did not enter recording');
+      await new Promise(resolve=>setTimeout(resolve,900));
+      document.querySelector('#voice-stop').click();
+      await waitUntil(()=>!document.querySelector('#voice-preview').hidden,'Real recording did not produce a preview');
+      const voiceAudio=document.querySelector('#voice-preview');
+      assert(voiceAudio.src.startsWith('blob:'),'Recording must remain local');
+      const voiceBlob=await fetch(voiceAudio.src).then(response=>response.blob());
+      assert(voiceBlob.size>100&&voiceBlob.type.startsWith('audio/'),'Recorded audio is empty or invalid');
+      document.querySelector('#voice-cancel').click();
+      assert(document.querySelector('#voice-preview').hidden&&!document.querySelector('#voice-start').hidden,'Voice cancellation did not reset recording');
       document.querySelector('#assistant-input').value='فردا ساعت پنج عصر جلسه با تیم فروش دارم؛ یک روز قبل، سه ساعت قبل و یک ساعت قبل یادم بنداز و آلارم هم بگذار.';
       document.querySelector('#assistant-send').click();
       assert(document.querySelector('[data-plan="title"]').value==='جلسه با تیم فروش','Persian title extraction failed');
@@ -251,7 +268,7 @@ async function inspect() {
       document.querySelector('#local-plan-cancel').click();
       document.querySelector('[data-panel="today"]').click();
       await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
-      return { poem: true, gregorianDate: true, persianFont: true, nativeReminders: 3, cancellation: true, sharedPalette:true, persianPlanner:true, editableApproval:true, noEffectsBeforeConfirmation:true, approvedChannelIsolation:true, jalaliPicker:true, clock24:true, simplifiedApproval:true, compactApproval:true };
+      return { poem: true, gregorianDate: true, persianFont: true, nativeReminders: 3, cancellation: true, sharedPalette:true, persianPlanner:true, editableApproval:true, noEffectsBeforeConfirmation:true, approvedChannelIsolation:true, jalaliPicker:true, clock24:true, simplifiedApproval:true, compactApproval:true, voiceCapture: true, voiceCancel: true, composerSingleLine: true };
     })()`);
     if (parity?.result?.exceptionDetails) throw new Error(`Offline feature QA failed: ${JSON.stringify(parity.result.exceptionDetails)}`);
     mkdirSync(dirname(outputPath), { recursive: true });

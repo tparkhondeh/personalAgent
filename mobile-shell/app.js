@@ -96,13 +96,14 @@
     const endOfToday = new Date(); endOfToday.setHours(23, 59, 59, 999);
     const scoped = (panel === "today" ? tasks.filter((task) => !task.done && (!task.deadline || new Date(task.deadline) <= endOfToday)) : tasks).filter(task=>!task.archived);
     const visible = filter === "all" ? scoped : scoped.filter((task) => task.category === filter);
-    list.innerHTML = visible.length ? visible.map(taskMarkup).join("") : '<div class="empty"><strong>هنوز برنامه‌ای ثبت نشده</strong>با دکمه «برنامه جدید» اولین مورد را اضافه کنید.</div>';
+    list.innerHTML = visible.length ? visible.map(taskMarkup).join("") : '<span class="sr-only">برنامه‌ای در این فهرست نیست.</span>';
     $("#all-count").textContent = toFa(tasks.filter(task=>!task.archived).length);
     $("#done-count").textContent = toFa(tasks.filter((task) => task.done).length);
     $("#urgent-count").textContent = toFa(tasks.filter((task) => task.priority === "urgent" && !task.done && !task.archived).length);
     const dated = tasks.filter((task) => task.deadline && !task.archived).sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
     datedList.innerHTML = dated.length ? dated.map(taskMarkup).join("") : '<div class="empty">برنامه زمان‌داری وجود ندارد.</div>';
     renderCalendar();
+    requestAnimationFrame(()=>window.HamrahCapture.fitProgramList(list,panel==="today"));
   }
   function renderCalendar() {
     const now = new Date();
@@ -118,7 +119,10 @@
     $("#calendar-grid").innerHTML = cells.join("");
   }
   function showPanel(name) {
+    if(panel==="assistant"&&name!==panel)voiceCapture.cancel("");
     panel = name;
+    document.querySelector(".app").dataset.panel=name;
+    $("#program-list-title").textContent=name==="tasks"?"فهرست برنامه‌ها":"برنامه امروز";
     const target = name === "tasks" ? "today" : name;
     $$(".panel").forEach((item) => item.classList.toggle("active", item.id === `${target}-panel`));
     $$(".nav-button").forEach((button) => button.classList.toggle("active", button.dataset.panel === name));
@@ -259,14 +263,30 @@
     const result=planner.planPersian(message,{timezone:"Asia/Tehran",previous:agentDraft?.status==="PENDING"?agentDraft.plan:null,items:planningItems(),offsets:reminderOffsets});
     if(!result.plan){agentDraft=null;showAgentDraft(result.reply);return;}
     agentDraft={id:agentDraft?.status==="PENDING"?agentDraft.id:crypto.randomUUID(),revision:(agentDraft?.revision||0)+1,status:"PENDING",plan:result.plan,questions:result.questions.filter(q=>/چند درخواست|تاریخ شمسی/.test(q))};
-    localStorage.setItem(draftKey,JSON.stringify(agentDraft));$("#assistant-input").value="";showAgentDraft(result.reply);
+    localStorage.setItem(draftKey,JSON.stringify(agentDraft));$("#assistant-input").value="";saveInput();showAgentDraft(result.reply);
     $("#assistant-input").blur();requestAnimationFrame(()=>$("#assistant-result").scrollIntoView({block:"start"}));
   }
   function resizeApproval(){requestAnimationFrame(()=>{const root=$('#assistant-result'),v=window.visualViewport;root.style.setProperty('--review-viewport',`${v?.height||window.innerHeight}px`);const editor=root.querySelector('.approval-editor');if(root.querySelector('.approval-details')?.open){root.scrollIntoView({block:'start'});root.style.setProperty('--editor-available',`${Math.max(80,(v?.height||window.innerHeight)+(v?.offsetTop||0)-editor.getBoundingClientRect().top-96)}px`);}});}
   window.visualViewport?.addEventListener('resize',resizeApproval);
+  const composeKey="hamrah-local-compose-v1";
+  const input=$("#assistant-input");
+  try{input.value=sessionStorage.getItem(composeKey)||"";}catch{}
+  function saveInput(){try{sessionStorage.setItem(composeKey,input.value);}catch{} input.style.height="auto";input.style.height=Math.min(144,Math.max(44,input.scrollHeight))+"px";}
+  input.addEventListener("input",saveInput);
+  let voiceUrl="";
+  const voiceCapture=window.HamrahCapture.createVoiceCapture((state,message)=>{
+    $("#voice-start").hidden=state!=="idle";$("#voice-stop").hidden=state!=="recording";$("#voice-cancel").hidden=state==="idle";
+    $("#voice-status").textContent=state==="ready"?"ضبط آماده است؛ تبدیل به متن در حالت محلی فعال نیست. صوتی ارسال نشده است.":message;
+  },clip=>{if(voiceUrl)URL.revokeObjectURL(voiceUrl);voiceUrl=clip?URL.createObjectURL(clip):"";if(clip)$("#voice-preview").src=voiceUrl;else{$("#voice-preview").removeAttribute("src");$("#voice-preview").load();}$("#voice-preview").hidden=!clip;});
+  $("#voice-start").addEventListener("click",()=>void voiceCapture.start());
+  $("#voice-stop").addEventListener("click",()=>voiceCapture.stop());
+  $("#voice-cancel").addEventListener("click",()=>voiceCapture.cancel());
+  document.addEventListener("visibilitychange",()=>{if(document.hidden)voiceCapture.cancel("ضبط با خروج از صفحه متوقف شد.");});
+  window.addEventListener("pagehide",()=>voiceCapture.dispose(),{once:true});
+  window.addEventListener("resize",()=>{window.HamrahCapture.fitProgramList(list,panel==="today");saveInput();});
   $("#assistant-send").addEventListener("click", replyToMessage);
   $("#assistant-summary").addEventListener("click", () => { $("#assistant-input").value = "برنامه امروز من را خلاصه کن"; replyToMessage(); });
-  $("#assistant-free-time").addEventListener("click", () => { $("#assistant-input").value = "برای زمان آزاد پیشنهاد بده"; replyToMessage(); });
+
   $("#enable-notifications").addEventListener("click", async () => { try { if (await ensureNotificationAccess(true)) { for (const task of tasks.filter((item) => !item.done && item.deadline)) { await cancelNotifications(task); await scheduleNotification(task); } alarmStatus.textContent = "یادآوری‌های آینده دوباره تنظیم شدند."; } } catch { alarmStatus.textContent = "فعال‌سازی اعلان کامل نشد؛ دوباره تلاش کنید."; } });
   $("#test-alarm").addEventListener("click", async () => { try { const task = { title: "این هشدار برای کنترل عملکرد زنگ است.", deadline: new Date(Date.now() + 30000).toISOString(), notificationId: notificationId() }; const ok = await scheduleNotification(task, "test"); alarmStatus.textContent = ok ? "هشدار تنظیم شد و حدود ۳۰ ثانیه دیگر نمایش داده می‌شود." : "ابتدا اجازه اعلان را فعال کنید."; } catch { alarmStatus.textContent = "تنظیم هشدار آزمایشی ناموفق بود."; } });
   $$("input[name=reminder]").forEach((input) => { input.checked = reminderOffsets.includes(Number(input.value)); });
@@ -285,7 +305,7 @@
     const title = $("#page-title");
     title.classList.toggle("daily-poem", panel === "today");
     if (panel === "today") { const lines = domain.dailyPoem(window.HamrahPoems, now); title.setAttribute("aria-label", `شعر روز مولانا: ${lines.join("، ")}`); title.innerHTML = [0,2].map(i => `<span class="poem-couplet"><span>${escapeText(lines[i])}</span><span>${escapeText(lines[i+1])}</span></span>`).join(""); }
-    else { title.removeAttribute("aria-label"); title.textContent = { tasks: "همه کارها و جلسات", calendar: "تقویم من", assistant: "گفتگو با همراه", settings: "تنظیمات من" }[panel]; }
+    else { title.removeAttribute("aria-label"); title.textContent = { tasks: "همه کارها و جلسات", calendar: "تقویم من", assistant: "", settings: "تنظیمات من", notifications: "اعلان‌ها" }[panel]; }
   }
   document.querySelectorAll('[data-appearance]').forEach(button=>button.addEventListener('click',()=>{
     const saved=window.HamrahAppearance?.set(button.dataset.appearance);

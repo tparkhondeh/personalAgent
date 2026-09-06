@@ -4,7 +4,7 @@ import { planInstant } from "@/lib/agent-planner";
 import { validTime24, persianParts } from "@/lib/persian-inputs";
 
 import Link from "next/link";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { authClient } from "@/lib/auth-client";
 import { enablePushNotifications } from "@/lib/push-client";
 import { defaultPreferences, PreferencesPanel, type UserPreferences } from "@/components/preferences-panel";
@@ -14,6 +14,8 @@ import { syncNativeEscalationAlarms, type NativeEscalationAlarm } from "@/lib/na
 import { getDailyRumiSelection } from "@/lib/daily-rumi";
 import { REMINDER_OFFSET_OPTIONS } from "@/lib/reminder-offsets";
 import { AgentAssistant } from "@/components/agent-assistant";
+import { ActionIcon } from "@/components/action-icon";
+import { fitProgramList } from "@/lib/list-viewport";
 import { clearApprovedDeviceReminders, syncApprovedDeviceReminders } from "@/lib/approved-device-reminders";
 
 type Category = "personal" | "work" | "meeting";
@@ -96,7 +98,7 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
     return()=>{clearInterval(interval);window.removeEventListener("focus",sync);void clearApprovedDeviceReminders().catch(()=>{});};
   },[session?.user.id]);
   const [items, setItems] = useState<Item[]>(() => session?.user ? [] : demoItems);
-  const [view, setView] = useState<View>("today");
+  const [view, setView] = useState<View>(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("view") === "assistant" ? "assistant" : "today");
   const [filter, setFilter] = useState<Category | "all">("all");
   const [composer, setComposer] = useState(false);
   const [editing, setEditing] = useState<Item | null>(null);
@@ -320,10 +322,20 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
   }
 
   const unreadNotifications = notifications.filter((notification) => !notification.readAt).length;
-  return <main className="app-shell">
+  const listRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const list = listRef.current; if (!list) return;
+    let frame = 0;
+    const resize = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(() => fitProgramList(list, view === "today")); };
+    const observer = new ResizeObserver(resize);
+    observer.observe(list); if (list.firstElementChild) observer.observe(list.firstElementChild);
+    resize(); window.addEventListener("resize", resize); window.visualViewport?.addEventListener("resize", resize);
+    return () => { observer.disconnect(); cancelAnimationFrame(frame); window.removeEventListener("resize", resize); window.visualViewport?.removeEventListener("resize", resize); };
+  }, [view, filter, visible.length, loading]);
+  return <main className="app-shell" data-view={view}>
     <aside className="sidebar">
       <div className="brand"><span className="brand-mark">ه</span><div><strong>همراه</strong><small>دستیار شخصی تو</small></div></div>
-      <nav aria-label="ناوبری اصلی"><Nav active={view === "today"} label="امروز" onClick={() => { setView("today"); setFilter("all"); }} /><Nav active={view === "tasks"} label="کارها" badge={open} onClick={() => setView("tasks")} /><Nav active={view === "calendar"} label="تقویم" onClick={() => setView("calendar")} /><Nav active={view === "assistant"} label="گفتگو با همراه" onClick={() => setView("assistant")} /><Nav active={view === "settings"} label="تنظیمات برنامه‌ریزی" onClick={() => setView("settings")} /></nav>
+      <nav aria-label="ناوبری اصلی"><Nav active={view === "today"} label="امروز" onClick={() => { setView("today"); setFilter("all"); }} /><Nav active={view === "tasks"} label="کارها" badge={open} onClick={() => setView("tasks")} /><Nav active={view === "calendar"} label="تقویم" onClick={() => setView("calendar")} /><Nav active={view === "assistant"} label="همراه" onClick={() => setView("assistant")} /><button className="nav-button sidebar-add" aria-label="برنامه جدید" title="برنامه جدید" onClick={() => openComposer()}><ActionIcon name="plus" /></button></nav>
       <div className="sidebar-section"><span className="section-label">فضاها</span>{(Object.keys(categories) as Category[]).map((key) => <button className="space-button" key={key} onClick={() => { setView("tasks"); setFilter(key); }}><i className={categories[key][1]} />{categories[key][0]}<small>{items.filter((item) => item.category === key && !item.done).length}</small></button>)}</div>
       <div className="profile"><div className="avatar">{session?.user.name?.slice(0, 1) || "ه"}</div><div><strong>{session?.user.name || "نسخه آزمایشی"}</strong><small>{signedIn ? "حساب متصل است" : "برای ذخیره دائمی وارد شو"}</small></div>{signedIn ? <button aria-label="خروج" title="خروج" onClick={() => authClient.signOut()}>خروج</button> : <Link className="login-link" href="/login">ورود</Link>}</div>
     </aside>
@@ -336,19 +348,19 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
               <span className="poem-couplet"><span>{dailyRumi.lines[0]}</span><span>{dailyRumi.lines[1]}</span></span>
               <span className="poem-couplet"><span>{dailyRumi.lines[2]}</span><span>{dailyRumi.lines[3]}</span></span>
             </h1>
-          </> : <h1>{view === "settings" ? "تنظیمات من" : view === "assistant" ? "گفتگو با همراه" : view === "calendar" ? "تقویم من" : "همه کارها و جلسات"}</h1>}
+          </> : view !== "assistant" && <h1>{view === "settings" ? "تنظیمات من" : view === "calendar" ? "تقویم من" : "همه کارها و جلسات"}</h1>}
         </div>
-        <div className="top-actions"><button className="settings-button" onClick={() => setView("settings")}>تنظیمات</button><button className="icon-button" aria-label="اعلان‌ها" title="مرکز اعلان‌ها" onClick={() => { const next = !notificationCenter; setNotificationCenter(next); if (next) void loadNotifications(); }}>اعلان{unreadNotifications > 0 && <span>{unreadNotifications}</span>}</button><button className="primary-button" onClick={() => openComposer()}>برنامه جدید</button></div>
+        <div className="top-actions"><button className="icon-button" aria-label="تنظیمات" title="تنظیمات" onClick={() => setView("settings")}><ActionIcon name="settings" /></button><button className="icon-button" aria-label={unreadNotifications ? `اعلان‌ها، ${unreadNotifications} خوانده‌نشده` : "اعلان‌ها"} title="مرکز اعلان‌ها" onClick={() => { const next = !notificationCenter; setNotificationCenter(next); if (next) void loadNotifications(); }}><ActionIcon name="bell" />{unreadNotifications > 0 && <span className="unread-dot" aria-hidden="true" />}</button></div>
       </header>
       {message && <p className="page-message">{message}</p>}
       {view === "settings" ? <PreferencesPanel key={preferences ? "stored" : "default"} initial={preferences} signedIn={signedIn} onSaved={setPreferences} onNativePermissionChanged={() => setEscalationRevision((value) => value + 1)} /> : view === "assistant" ? <Assistant onAdd={() => openComposer()} onChanged={loadRemote} /> : view === "calendar" ? <Calendar items={items} onEdit={openComposer} onAdd={(date) => openComposer(null, date)} /> : <>
-        <section className="summary-grid"><article className="focus-card"><div><p>تمرکز امروز</p><strong>{open} کار باقی مانده</strong></div><div className="progress-ring" style={{ "--progress": `${progress * 3.6}deg` } as React.CSSProperties}><span>{progress}٪</span></div></article><article className="summary-card peach"><div><small>جلسه بعدی</small><strong>{nextMeeting?.title || "جلسه‌ای ثبت نشده"}</strong><p>{nextMeeting ? `${itemDate(nextMeeting)}، ساعت ${itemTime(nextMeeting)}` : "برنامه‌ات آزاد است"}</p></div></article><article className="summary-card lavender"><div><small>پیشنهاد همراه</small><strong>{open ? "از مهم‌ترین کار شروع کن" : "برنامه‌ات مرتب است"}</strong><p>{open ? `${open} کار باز داری` : "زمانی برای استراحت بگذار"}</p></div></article></section>
-        <section className="content-card"><div className="card-heading"><div><h2>{view === "today" ? "برنامه امروز" : "فهرست برنامه‌ها"}</h2><p>{signedIn ? "اطلاعات این صفحه از حساب تو خوانده می‌شود" : "این داده‌ها فقط برای نمایش و روی همین دستگاه هستند"}</p></div><div className="filters"><button className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>همه</button>{(Object.keys(categories) as Category[]).map((key) => <button key={key} className={filter === key ? "active" : ""} onClick={() => setFilter(key)}>{categories[key][0]}</button>)}</div></div>
-          <div className="task-list">{loading ? <div className="empty-state">در حال دریافت برنامه…</div> : visible.length === 0 ? <div className="empty-state">اینجا فعلاً خلوت است؛ یک برنامه تازه اضافه کن.</div> : visible.map((item) => { const itemKey = `${item.source}-${item.id}`; const confirming = pendingDelete === itemKey; return <article className={`task-row ${item.done ? "done" : ""}`} key={itemKey}><button className={`check-button ${item.source === "meeting" ? "meeting-check" : ""}`} onClick={() => void toggle(item)} aria-label={item.source === "meeting" ? "جلسه" : "تغییر وضعیت"}>{item.source === "meeting" ? "" : item.done ? "✓" : ""}</button><div className="task-main"><strong>{item.title}</strong><div><span className={`tag ${categories[item.category][1]}`}>{categories[item.category][0]}</span><span className={`tag ${priorities[item.priority][1]}`}>{priorities[item.priority][0]}</span></div></div><div className="task-time"><strong>{itemTime(item)}</strong><small>{itemDate(item)}</small></div><div className="item-actions">{confirming ? <><button className="delete-button confirm-delete" onClick={() => void remove(item)}>تأیید حذف</button><button className="edit-button" onClick={() => setPendingDelete("")}>انصراف</button></> : <><button className="edit-button" onClick={() => openComposer(item)}>ویرایش</button><button className="delete-button" onClick={() => setPendingDelete(itemKey)}>حذف</button></>}</div></article>; })}</div>
+        {view === "today" && <section className="summary-grid compact-summary"><article className="focus-card"><div><p>تمرکز امروز</p><strong>{open} کار باقی مانده</strong></div><div className="progress-ring" style={{ "--progress": `${progress * 3.6}deg` } as React.CSSProperties}><span>{progress}٪</span></div></article>{nextMeeting && <article className="summary-card peach"><div><small>جلسه بعدی</small><strong>{nextMeeting.title}</strong><p>{itemDate(nextMeeting)}، ساعت {itemTime(nextMeeting)}</p></div></article>}</section>}
+        <section className="content-card program-card"><div className="card-heading"><div><h2>{view === "today" ? "برنامه امروز" : "فهرست برنامه‌ها"}</h2></div><div className="filters"><button className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>همه</button>{(Object.keys(categories) as Category[]).map((key) => <button key={key} className={filter === key ? "active" : ""} onClick={() => setFilter(key)}>{categories[key][0]}</button>)}</div></div>
+          <div ref={listRef} className="task-list" tabIndex={0} role="region" aria-label={view === "today" ? "فهرست قابل پیمایش امروز" : "فهرست قابل پیمایش کارها"}>{loading ? <div className="empty-state">در حال دریافت برنامه…</div> : visible.length === 0 ? <span className="sr-only">برنامه‌ای در این فهرست نیست.</span> : visible.map((item) => { const itemKey = `${item.source}-${item.id}`; const confirming = pendingDelete === itemKey; return <article className={`task-row ${item.done ? "done" : ""}`} key={itemKey}><button className={`check-button ${item.source === "meeting" ? "meeting-check" : ""}`} onClick={() => void toggle(item)} aria-label={item.source === "meeting" ? "جلسه" : "تغییر وضعیت"}>{item.source === "meeting" ? "" : item.done ? "✓" : ""}</button><div className="task-main"><strong>{item.title}</strong><div><span className={`tag ${categories[item.category][1]}`}>{categories[item.category][0]}</span><span className={`tag ${priorities[item.priority][1]}`}>{priorities[item.priority][0]}</span></div></div><div className="task-time"><strong>{itemTime(item)}</strong><small>{itemDate(item)}</small></div><div className="item-actions">{confirming ? <><button className="delete-button confirm-delete" onClick={() => void remove(item)}>تأیید حذف</button><button className="edit-button" onClick={() => setPendingDelete("")}>انصراف</button></> : <><button className="edit-button" onClick={() => openComposer(item)}>ویرایش</button><button className="delete-button" onClick={() => setPendingDelete(itemKey)}>حذف</button></>}</div></article>; })}</div>
         </section>
       </>}
     </section>
-    <nav className="mobile-nav"><Nav active={view === "today"} label="امروز" onClick={() => { setView("today"); setFilter("all"); }} /><Nav active={view === "tasks"} label="کارها" onClick={() => setView("tasks")} /><button className="mobile-add" aria-label="برنامه جدید" onClick={() => openComposer()}>جدید</button><Nav active={view === "calendar"} label="تقویم" onClick={() => setView("calendar")} /><Nav active={view === "assistant"} label="همراه" onClick={() => setView("assistant")} /></nav>
+    <nav className="mobile-nav"><Nav active={view === "today"} label="امروز" onClick={() => { setView("today"); setFilter("all"); }} /><Nav active={view === "tasks"} label="کارها" onClick={() => setView("tasks")} /><button className="mobile-add" aria-label="برنامه جدید" title="برنامه جدید" onClick={() => openComposer()}><ActionIcon name="plus" /></button><Nav active={view === "calendar"} label="تقویم" onClick={() => setView("calendar")} /><Nav active={view === "assistant"} label="همراه" onClick={() => setView("assistant")} /></nav>
     {composer && <Composer initial={editing} initialDate={composerDate} defaultReminderOffsets={preferences?.defaultReminderOffsets ?? defaultPreferences.defaultReminderOffsets} onClose={closeComposer} onSubmit={save} />}
     {notificationCenter && <NotificationCenter notifications={notifications} signedIn={signedIn} pushStatus={notificationStatus} onClose={() => setNotificationCenter(false)} onEnablePush={() => void enableNotifications()} onRead={(id) => void markNotificationsRead(id)} />}
   </main>;

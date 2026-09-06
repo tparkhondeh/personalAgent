@@ -26,9 +26,10 @@ describe("offline Android mobile shell", () => {
   });
 
   it("keeps the essential dashboard usable inside the APK", () => {
-    expect(html).toContain("برنامه‌های من");
+    expect(html).toContain("برنامه امروز");
     expect(html).toContain("تقویم این ماه");
-    expect(html).toContain("گفتگو با همراه");
+    expect(html).toContain('id="assistant-input"');
+    expect(html).toContain('id="voice-start"');
     expect(html).toContain("زنگ آزمایشی ۳۰ ثانیه‌ای");
     expect(mobileStyles).toContain("Vazirmatn.woff2");
     expect(mobileStyles).toContain(':root[data-theme="dark"]');
@@ -44,7 +45,7 @@ describe("offline Android mobile shell", () => {
     expect(recoveryHtml).toContain("const bundledScript =");
     expect(recoveryHtml).toContain("document.write(bundledDocument)");
     expect(recoveryHtml).toContain("offlineRuntime.textContent = bundledScript");
-    expect(recoveryHtml).toContain("برنامه‌های من");
+    expect(recoveryHtml).toContain("برنامه امروز");
     expect(recoveryHtml).not.toContain("fetch(\"./index.html\"");
     expect(recoveryHtml).toContain("window.HamrahOpenBundledInterface = openBundledInterface");
     expect(recoveryHtml).toContain('document.querySelector("#offline").addEventListener');

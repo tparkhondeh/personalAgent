@@ -116,10 +116,9 @@ public class MainActivity extends BridgeActivity {
             @Override
             public void onPermissionRequest(android.webkit.PermissionRequest request) {
                 android.net.Uri origin = request.getOrigin();
-                android.net.Uri trusted = android.net.Uri.parse(getBridge().getAppUrl());
-                boolean sameOrigin = origin != null && origin.getScheme() != null &&
-                    origin.getScheme().equals(trusted.getScheme()) &&
-                    origin.getEncodedAuthority() != null && origin.getEncodedAuthority().equals(trusted.getEncodedAuthority());
+                String bundled = getBridge().getScheme() + "://" + getBridge().getHost();
+                boolean sameOrigin = origin != null && MicrophoneOrigin.allowed(
+                    origin.toString(), getBridge().getAppUrl(), bundled);
                 boolean audioOnly = request.getResources().length == 1 &&
                     android.webkit.PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(request.getResources()[0]);
                 if (sameOrigin && audioOnly) super.onPermissionRequest(request);

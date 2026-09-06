@@ -91,6 +91,7 @@ jobs:
           done
           QA_BASE_URL=http://localhost:3000 node scripts/qa-agent-flow.mjs > artifacts/build/agent-flow.json
           QA_BASE_URL=http://localhost:3000 node scripts/qa-schedule-preservation.mjs > artifacts/build/schedule-preservation.json
+          QA_BASE_URL=http://localhost:3000 node scripts/qa-clean-interface.mjs > artifacts/build/clean-interface.json
 
       - name: Package the matching Linux staging server
         run: |

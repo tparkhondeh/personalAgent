@@ -114,7 +114,7 @@ public class ApplicationContextTest {
         assertTrue(recovery.contains("const bundledScript ="));
         assertTrue(recovery.contains("document.write(bundledDocument)"));
         assertTrue(recovery.contains("offlineRuntime.textContent = bundledScript"));
-        assertTrue(recovery.contains("برنامه‌های من"));
+        assertTrue(recovery.contains("برنامه امروز"));
         assertFalse(recovery.contains("fetch(\"./index.html\""));
         assertFalse(recovery.contains("http://"));
         assertFalse(recovery.contains("https://"));

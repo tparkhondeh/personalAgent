@@ -44,6 +44,6 @@ ${controls.trim()}
 .appearance-setting{margin-bottom:12px}.daily-poem{font-size:15px;line-height:1.9;margin-top:6px;gap:4px;font-weight:640}
 .daily-poem .poem-couplet{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;direction:rtl;align-items:start}
 .poem-couplet>span{min-width:0;overflow-wrap:anywhere}
-.app{padding-top:max(16px,env(safe-area-inset-top))}.topbar{margin-bottom:14px;gap:12px}.card{padding:16px;margin-bottom:12px}.stat{min-height:90px;padding:12px}.empty{padding:24px 14px}textarea{min-height:86px}
+.app{padding-top:max(16px,env(safe-area-inset-top))}.topbar{margin-bottom:14px;gap:12px}.card{padding:16px;margin-bottom:12px}.stat{min-height:90px;padding:12px}.empty{padding:24px 14px}textarea{min-height:44px;max-height:144px;resize:none}
 `;
 }

@@ -54,7 +54,7 @@ export const defaultPreferences: UserPreferences = {
 const dayLabels: Array<[WorkingDay, string]> = [["SAT", "شنبه"], ["SUN", "یکشنبه"], ["MON", "دوشنبه"], ["TUE", "سه‌شنبه"], ["WED", "چهارشنبه"], ["THU", "پنجشنبه"], ["FRI", "جمعه"]];
 
 export function PreferencesPanel(props: Parameters<typeof PlanningPreferencesPanel>[0]) {
-  return <div className="preferences-stack"><AppearanceSetting /><PlanningPreferencesPanel {...props} /></div>;
+  return <div className="preferences-stack"><AppearanceSetting /><details className="preferences-card"><summary>اطلاعات ذخیره‌سازی</summary><p>{props.signedIn ? "برنامه‌های این حساب روی سرور ذخیره می‌شوند؛ موارد محلی جدا هستند." : "داده‌های نمایشی و برنامه‌های بدون حساب فقط روی همین دستگاه هستند و خودکار همگام نمی‌شوند."}</p></details><PlanningPreferencesPanel {...props} /></div>;
 }
 
 function PlanningPreferencesPanel({ initial, signedIn, onSaved, onNativePermissionChanged }: { initial: UserPreferences | null; signedIn: boolean; onSaved: (preference: UserPreferences) => void; onNativePermissionChanged?: () => void }) {
