@@ -189,6 +189,7 @@ async function inspect() {
       const topPaint=getComputedStyle(document.querySelector('.top-actions [data-open-form]')).backgroundImage;
       assert(navPaint.includes('145deg')&&navPaint.includes('rgb(91, 112, 181)')&&navPaint.includes('rgb(79, 123, 114)'),'Navigation action lost canonical web gradient');
       assert(topPaint.includes('135deg')&&topPaint.includes('rgb(91, 112, 181)')&&topPaint.includes('rgb(79, 123, 114)'),'Top action lost canonical web gradient');
+      if(window.HamrahAppearance.get()==='dark')assert(getComputedStyle(document.querySelector('.card')).borderTopColor==='rgb(57, 61, 80)','Dark cards retained a light border');
       document.querySelector('[data-panel="assistant"]').click();
       document.querySelector('#assistant-input').value='فردا ساعت پنج عصر جلسه با تیم فروش دارم؛ یک روز قبل، سه ساعت قبل و یک ساعت قبل یادم بنداز و آلارم هم بگذار.';
       document.querySelector('#assistant-send').click();

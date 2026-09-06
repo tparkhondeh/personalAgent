@@ -8,6 +8,7 @@ describe("generated palette and planner parity",()=>{
     expect(mobile).toMatch(/\.nav-button\.new\{[^}]*background: linear-gradient\(145deg, #5b70b5, #4f7b72\)/);
     expect(mobile).toMatch(/\.primary,\.top-actions \[data-open-form\]\{[^}]*background: linear-gradient\(135deg, #5b70b5 0%, #4f7b72 115%\)/);
     expect(mobile).toMatch(/:root\[data-theme="dark"\] \.top-actions \[data-open-form\]\{[^}]*linear-gradient/);
+    expect(mobile).toContain('background:var(--surface-solid);border-color:var(--line);color:var(--ink)');
   });
   it("keeps every web light/dark root token in the APK stylesheet",()=>{
     const web=readFileSync("src/app/globals.css","utf8"),mobile=readFileSync("mobile-shell/theme.css","utf8");

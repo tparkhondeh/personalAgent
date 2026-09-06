@@ -34,7 +34,7 @@ ${darkMapped(".sidebar, .mobile-nav", ".bottom-nav")}
 ${darkMapped(".focus-card", ".stat:nth-child(2)")}
 ${darkMapped(".summary-card.peach", ".stat:nth-child(3)")}
 ${darkMapped(".summary-card.lavender", ".stat:nth-child(1)")}
-${darkSelector('.card,.item,.round-button')}{background:var(--surface-solid)}:root[data-theme="dark"] .primary{color:#fff}
+${darkSelector('.card,.item,.round-button')}{background:var(--surface-solid);border-color:var(--line);color:var(--ink)}:root[data-theme="dark"] .primary{color:#fff}
 ${mapped(light, ".primary-button, .submit-button", ':root[data-theme="dark"] .top-actions [data-open-form]')}
 ${mapped(light, ".mobile-add", ':root[data-theme="dark"] .nav-button.new')}
 ${darkMapped(".nav-button.active, .working-days label.selected, .preferences-card .reminder-options label.selected", ".nav-button.active")}
