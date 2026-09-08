@@ -12,7 +12,8 @@ import { defaultPreferences, PreferencesPanel, type UserPreferences } from "@/co
 import { NotificationCenter, type AppNotification } from "@/components/notification-center";
 import { buildEscalationPlan, defaultEscalationPolicy } from "@/lib/escalations";
 import { syncNativeEscalationAlarms, type NativeEscalationAlarm } from "@/lib/native-escalations";
-import { getDailyRumiSelection } from "@/lib/daily-rumi";
+import { getDailyRumiSelection, getRumiSelection, rumiSelectionCount } from "@/lib/daily-rumi";
+import { createPoemNavigator, selectDashboardItems, summarizeDashboardItems, tehranDayKey } from "@/lib/dashboard-overview";
 import { REMINDER_OFFSET_OPTIONS } from "@/lib/reminder-offsets";
 import { AgentAssistant } from "@/components/agent-assistant";
 import { ActionIcon } from "@/components/action-icon";
@@ -53,8 +54,6 @@ function dateKey(value: string | Date) {
   const get = (type: string) => parts.find((part) => part.type === type)?.value;
   return `${get("year")}-${get("month")}-${get("day")}`;
 }
-
-function isToday(item: Item) { const moment = itemMoment(item); return moment ? dateKey(moment) === dateKey(new Date()) : false; }
 
 function itemDate(item: Item) {
   const moment = itemMoment(item);
@@ -114,6 +113,9 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
   const [hydrated, setHydrated] = useState(false);
   const [escalationRevision, setEscalationRevision] = useState(0);
   const [dailyRumi, setDailyRumi] = useState(() => getDailyRumiSelection());
+  const [dashboardDay, setDashboardDay] = useState(() => tehranDayKey());
+  const poemNavigator = useRef<ReturnType<typeof createPoemNavigator> | null>(null);
+  const toggling = useRef(new Set<string>());
   const signedIn = Boolean(session?.user);
 
   useEffect(() => {
@@ -134,13 +136,22 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
   }, []);
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
+    const navigator = createPoemNavigator(rumiSelectionCount, {
+      getItem: key => localStorage.getItem(key), setItem: (key, value) => localStorage.setItem(key, value),
+    });
+    poemNavigator.current = navigator;
+    const refresh = () => {
+      setDashboardDay(tehranDayKey());
       setDailyRumi((current) => {
-        const next = getDailyRumiSelection();
+        const next = getRumiSelection(navigator.current());
         return next.id === current.id ? current : next;
       });
-    }, 60_000);
-    return () => window.clearInterval(timer);
+    };
+    const initial = window.setTimeout(refresh, 0);
+    const timer = window.setInterval(refresh, 30_000);
+    window.addEventListener("focus", refresh); window.addEventListener("storage", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => { window.clearTimeout(initial); window.clearInterval(timer); window.removeEventListener("focus", refresh); window.removeEventListener("storage", refresh); document.removeEventListener("visibilitychange", refresh); };
   }, []);
 
   useEffect(() => { if (hydrated && !signedIn) localStorage.setItem("hamrah.items.v2", JSON.stringify(items)); }, [items, hydrated, signedIn]);
@@ -230,28 +241,27 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
     return () => controller.abort();
   }, [session?.user]);
 
-  const visible = useMemo(() => items.filter((item) => {
-    if (filter !== "all" && item.category !== filter) return false;
-    return view !== "today" || isToday(item) || !itemMoment(item);
-  }), [items, filter, view]);
+  const visible = useMemo(() => selectDashboardItems(items, view, filter, new Date(dashboardDay + "T12:00:00Z")), [items, filter, view, dashboardDay]);
+  const overview = summarizeDashboardItems(visible);
   const open = items.filter((item) => item.source === "task" && !item.done).length;
-  const tasks = items.filter((item) => item.source === "task");
-  const progress = tasks.length ? Math.round(tasks.filter((item) => item.done).length / tasks.length * 100) : 0;
-  const nextMeeting = items.filter((item) => item.source === "meeting" && item.startsAt && new Date(item.startsAt) > new Date()).sort((a, b) => new Date(a.startsAt!).getTime() - new Date(b.startsAt!).getTime())[0];
 
   async function toggle(item: Item) {
-    if (item.source !== "task") return;
+    const key = `${item.source}:${item.id}`;
+    if (toggling.current.has(key)) return;
+    toggling.current.add(key);
     const nextDone = !item.done;
-    setItems((all) => all.map((candidate) => candidate.id === item.id ? { ...candidate, done: nextDone } : candidate));
-    if (!signedIn) return;
+    const matches = (candidate: Item) => candidate.id === item.id && candidate.source === item.source;
+    setItems((all) => all.map((candidate) => matches(candidate) ? { ...candidate, done: nextDone } : candidate));
+    if (!signedIn) { toggling.current.delete(key); return; }
     try {
-      const response = await fetch(`/api/tasks/${item.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ status: nextDone ? "DONE" : "TODO" }) });
+      const response = await fetch(`/api/${item.source === "meeting" ? "meetings" : "tasks"}/${item.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ status: nextDone ? "DONE" : item.source === "meeting" ? "SCHEDULED" : "TODO" }) });
       if (!response.ok) throw new Error("STATUS_UPDATE_FAILED");
       setEscalationRevision((value) => value + 1);
+      void syncApprovedDeviceReminders().catch(() => {});
     } catch {
-      setItems((all) => all.map((candidate) => candidate.id === item.id ? { ...candidate, done: !nextDone } : candidate));
+      setItems((all) => all.map((candidate) => matches(candidate) ? { ...candidate, done: !nextDone } : candidate));
       setMessage("تغییر وضعیت ذخیره نشد؛ دوباره تلاش کن.");
-    }
+    } finally { toggling.current.delete(key); }
   }
 
   async function remove(item: Item) {
@@ -345,19 +355,19 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
         <div className={view === "today" ? "daily-poem-wrap" : undefined}>
           <div className="header-date"><p className="eyebrow">{tehranDate.format(new Date())}</p><p className="gregorian-date">{tehranGregorianDate.format(new Date())}</p></div>
           {view === "today" ? <>
-            <h1 className="daily-poem" aria-label={`شعر روز مولانا: ${dailyRumi.lines.join("، ")}`}>
+            <div className="poem-row"><h1 className="daily-poem" aria-label={`شعر روز مولانا: ${dailyRumi.lines.join("، ")}`}>
               <span className="poem-couplet"><span>{dailyRumi.lines[0]}</span><span>{dailyRumi.lines[1]}</span></span>
               <span className="poem-couplet"><span>{dailyRumi.lines[2]}</span><span>{dailyRumi.lines[3]}</span></span>
-            </h1>
+            </h1><button type="button" className="poem-next" aria-label="شعر بعدی" title="شعر بعدی" onClick={() => { if (poemNavigator.current) setDailyRumi(getRumiSelection(poemNavigator.current.next())); }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="m14 6-6 6 6 6M20 12H8" /></svg></button></div>
           </> : view !== "assistant" && <h1>{view === "settings" ? "تنظیمات من" : view === "calendar" ? "تقویم من" : "همه کارها و جلسات"}</h1>}
         </div>
         <div className="top-actions"><button className="icon-button" aria-label="تنظیمات" title="تنظیمات" onClick={() => setView("settings")}><ActionIcon name="settings" /></button><button className="icon-button" aria-label={unreadNotifications ? `اعلان‌ها، ${unreadNotifications} خوانده‌نشده` : "اعلان‌ها"} title="مرکز اعلان‌ها" onClick={() => { const next = !notificationCenter; setNotificationCenter(next); if (next) void loadNotifications(); }}><ActionIcon name="bell" />{unreadNotifications > 0 && <span className="unread-dot" aria-hidden="true" />}</button></div>
       </header>
       {message && <p className="page-message">{message}</p>}
       {view === "settings" ? <PreferencesPanel key={preferences ? "stored" : "default"} initial={preferences} signedIn={signedIn} onSaved={setPreferences} onNativePermissionChanged={() => setEscalationRevision((value) => value + 1)} /> : view === "assistant" ? <Assistant onAdd={() => openComposer()} onChanged={loadRemote} /> : view === "calendar" ? <Calendar items={items} onEdit={openComposer} onAdd={(date) => openComposer(null, date)} /> : <>
-        {view === "today" && <section className="summary-grid compact-summary"><article className="focus-card"><div><p>تمرکز امروز</p><strong>{open} کار باقی مانده</strong></div><div className="progress-ring" style={{ "--progress": `${progress * 3.6}deg` } as React.CSSProperties}><span>{progress}٪</span></div></article>{nextMeeting && <article className="summary-card peach"><div><small>جلسه بعدی</small><strong>{nextMeeting.title}</strong><p>{itemDate(nextMeeting)}، ساعت {itemTime(nextMeeting)}</p></div></article>}</section>}
+        <section className="dashboard-overview" aria-label={view === "today" ? "آمار برنامه‌های امروز، همه وضعیت‌ها" : "آمار فهرست فعلی، همه وضعیت‌ها"}>{overview.map(group => <article key={group.key} className={`overview-card overview-${group.key}`} aria-label={group.name}><span dir="ltr">{group.label}</span><strong>{group.total.toLocaleString("fa-IR")}</strong><small>{group.done.toLocaleString("fa-IR")} انجام‌شده</small></article>)}</section>
         <section className="content-card program-card"><div className="card-heading"><div><h2>{view === "today" ? "برنامه امروز" : "فهرست برنامه‌ها"}</h2></div><div className="filters"><button className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>همه</button>{(Object.keys(categories) as Category[]).map((key) => <button key={key} className={filter === key ? "active" : ""} onClick={() => setFilter(key)}>{categories[key][0]}</button>)}</div></div>
-          <div ref={listRef} className="task-list" tabIndex={0} role="region" aria-label={view === "today" ? "فهرست قابل پیمایش امروز" : "فهرست قابل پیمایش کارها"}>{loading ? <div className="empty-state">در حال دریافت برنامه…</div> : visible.length === 0 ? <span className="sr-only">برنامه‌ای در این فهرست نیست.</span> : visible.map((item) => { const itemKey = `${item.source}-${item.id}`; const confirming = pendingDelete === itemKey; return <article className={`task-row ${item.done ? "done" : ""}`} key={itemKey}><button className={`check-button ${item.source === "meeting" ? "meeting-check" : ""}`} onClick={() => void toggle(item)} aria-label={item.source === "meeting" ? "جلسه" : "تغییر وضعیت"}>{item.source === "meeting" ? "" : item.done ? "✓" : ""}</button><div className="task-main"><strong>{item.title}</strong><div><span className={`tag ${categories[item.category][1]}`}>{categories[item.category][0]}</span><span className={`tag ${priorities[item.priority][1]}`}>{priorities[item.priority][0]}</span></div></div><div className="task-time"><strong>{itemTime(item)}</strong><small>{itemDate(item)}</small></div><div className="item-actions">{confirming ? <><button className="delete-button confirm-delete" onClick={() => void remove(item)}>تأیید حذف</button><button className="edit-button" onClick={() => setPendingDelete("")}>انصراف</button></> : <><button className="edit-button" onClick={() => openComposer(item)}>ویرایش</button><button className="delete-button" onClick={() => setPendingDelete(itemKey)}>حذف</button></>}</div></article>; })}</div>
+          <div ref={listRef} className="task-list" tabIndex={0} role="region" aria-label={view === "today" ? "فهرست قابل پیمایش امروز" : "فهرست قابل پیمایش کارها"}>{loading ? <div className="empty-state">در حال دریافت برنامه…</div> : visible.length === 0 ? <span className="sr-only">برنامه‌ای در این فهرست نیست.</span> : visible.map((item) => { const itemKey = `${item.source}-${item.id}`; const confirming = pendingDelete === itemKey; return <article className={`task-row ${item.done ? "done" : ""}`} key={itemKey}><button className={`check-button ${item.source === "meeting" ? "meeting-check" : ""}`} onClick={() => void toggle(item)} aria-label={item.source === "meeting" ? item.done ? "بازگرداندن جلسه" : "تکمیل جلسه" : "تغییر وضعیت"}>{item.done ? "✓" : ""}</button><div className="task-main"><strong>{item.title}</strong><div><span className={`tag ${categories[item.category][1]}`}>{categories[item.category][0]}</span><span className={`tag ${priorities[item.priority][1]}`}>{priorities[item.priority][0]}</span></div></div><div className="task-time"><strong>{itemTime(item)}</strong><small>{itemDate(item)}</small></div><div className="item-actions">{confirming ? <><button className="delete-button confirm-delete" onClick={() => void remove(item)}>تأیید حذف</button><button className="edit-button" onClick={() => setPendingDelete("")}>انصراف</button></> : <><button className="edit-button" onClick={() => openComposer(item)}>ویرایش</button><button className="delete-button" onClick={() => setPendingDelete(itemKey)}>حذف</button></>}</div></article>; })}</div>
         </section>
       </>}
     </section>

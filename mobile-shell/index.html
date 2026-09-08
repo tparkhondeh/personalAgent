@@ -12,7 +12,7 @@
   <body>
     <main class="app">
       <header class="topbar">
-        <div class="daily-poem-wrap"><p id="today" class="eyebrow">امروز</p><p id="gregorian-date" class="eyebrow"></p><h1 id="page-title" class="daily-poem" aria-label="شعر روز مولانا"></h1></div>
+        <div class="daily-poem-wrap"><p id="today" class="eyebrow">امروز</p><p id="gregorian-date" class="eyebrow"></p><div class="poem-row"><h1 id="page-title" class="daily-poem" aria-label="شعر روز مولانا"></h1><button id="poem-next" class="poem-next" type="button" aria-label="شعر بعدی" title="شعر بعدی"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m14 6-6 6 6 6M20 12H8"/></svg></button></div></div>
         <div class="top-actions"><button class="round-button" data-panel="settings" type="button" aria-label="تنظیمات" title="تنظیمات"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10 3-1 3-3 1-3-1-1 4 3 2v3l-1 2 3 3 3-1 2 2 4-1 1-3 3-1 1-4-3-2V7l-3-3-3 1Z"/><circle cx="12" cy="12" r="3"/></svg></button><button class="round-button" data-panel="notifications" type="button" aria-label="اعلان‌ها" title="اعلان‌ها"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg></button></div>
       </header>
 
@@ -20,11 +20,7 @@
 
       <section id="today-panel" class="panel active" aria-labelledby="today-title">
         <h2 id="today-title" class="sr-only">برنامه امروز</h2>
-        <div class="summary">
-          <article class="stat"><span>همه برنامه‌ها</span><strong id="all-count">۰</strong></article>
-          <article class="stat"><span>انجام‌شده</span><strong id="done-count">۰</strong></article>
-          <article class="stat"><span>فوری</span><strong id="urgent-count">۰</strong></article>
-        </div>
+        <section id="dashboard-overview" class="dashboard-overview" aria-label="آمار برنامه‌های امروز، همه وضعیت‌ها"></section>
         <div class="section-head"><h2 id="program-list-title">برنامه امروز</h2></div>
         <div class="filters" role="tablist" aria-label="فیلتر برنامه‌ها">
           <button class="chip active" data-filter="all" type="button">همه</button>

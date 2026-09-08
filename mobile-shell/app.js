@@ -13,6 +13,8 @@
   const localNotifications = window.Capacitor?.Plugins?.LocalNotifications;
   const dateTime = new Intl.DateTimeFormat("fa-IR", { dateStyle: "medium", timeStyle: "short", hourCycle:"h23",calendar:"persian" });
   const domain = window.HamrahOffline;
+  const overview = window.HamrahOverview;
+  const poemNavigator = overview.createPoemNavigator(window.HamrahPoems.length, { getItem:key=>localStorage.getItem(key), setItem:(key,value)=>localStorage.setItem(key,value) });
   const preferenceKey = "hamrah-local-reminders-v1";
   let filter = "all";
   let panel = "today";
@@ -94,13 +96,10 @@
     return `<article class="item${task.done ? " done" : ""}" data-id="${escapeText(task.id)}"><button class="check" data-action="toggle" type="button" aria-label="${task.done ? "بازگرداندن برنامه" : "انجام شد"}">${task.done ? "✓" : ""}</button><div><h3>${escapeText(task.title)}</h3><div class="meta"><span class="tag">${labels.category[task.category] || "شخصی"}</span><span class="tag ${escapeText(task.priority)}">${labels.priority[task.priority] || "عادی"}</span>${deadline}</div></div><div class="item-actions">${actions}</div></article>`;
   }
   function render() {
-    const endOfToday = new Date(); endOfToday.setHours(23, 59, 59, 999);
-    const scoped = (panel === "today" ? tasks.filter((task) => !task.done && (!task.deadline || new Date(task.deadline) <= endOfToday)) : tasks).filter(task=>!task.archived);
-    const visible = filter === "all" ? scoped : scoped.filter((task) => task.category === filter);
+    const visible = overview.selectDashboardItems(tasks, panel, filter);
     list.innerHTML = visible.length ? visible.map(taskMarkup).join("") : '<span class="sr-only">برنامه‌ای در این فهرست نیست.</span>';
-    $("#all-count").textContent = toFa(tasks.filter(task=>!task.archived).length);
-    $("#done-count").textContent = toFa(tasks.filter((task) => task.done).length);
-    $("#urgent-count").textContent = toFa(tasks.filter((task) => task.priority === "urgent" && !task.done && !task.archived).length);
+    $("#dashboard-overview").setAttribute("aria-label", panel === "today" ? "آمار برنامه‌های امروز، همه وضعیت‌ها" : "آمار فهرست فعلی، همه وضعیت‌ها");
+    $("#dashboard-overview").innerHTML = overview.summarizeDashboardItems(visible).map(group=>`<article class="overview-card overview-${group.key}" aria-label="${group.name}"><span dir="ltr">${group.label}</span><strong>${toFa(group.total)}</strong><small>${toFa(group.done)} انجام‌شده</small></article>`).join("");
     const dated = tasks.filter((task) => task.deadline && !task.archived).sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
     datedList.innerHTML = dated.length ? dated.map(taskMarkup).join("") : '<div class="empty">برنامه زمان‌داری وجود ندارد.</div>';
     renderCalendar();
@@ -320,7 +319,8 @@
     $("#gregorian-date").textContent = new Intl.DateTimeFormat("fa-IR-u-ca-gregory", { timeZone: "Asia/Tehran", day: "numeric", month: "long", year: "numeric" }).format(now);
     const title = $("#page-title");
     title.classList.toggle("daily-poem", panel === "today");
-    if (panel === "today") { const lines = domain.dailyPoem(window.HamrahPoems, now); title.setAttribute("aria-label", `شعر روز مولانا: ${lines.join("، ")}`); title.innerHTML = [0,2].map(i => `<span class="poem-couplet"><span>${escapeText(lines[i])}</span><span>${escapeText(lines[i+1])}</span></span>`).join(""); }
+    $("#poem-next").hidden = panel !== "today";
+    if (panel === "today") { const lines = window.HamrahPoems[poemNavigator.current()]; title.setAttribute("aria-label", `شعر روز مولانا: ${lines.join("، ")}`); title.innerHTML = [0,2].map(i => `<span class="poem-couplet"><span>${escapeText(lines[i])}</span><span>${escapeText(lines[i+1])}</span></span>`).join(""); }
     else { title.removeAttribute("aria-label"); title.textContent = { tasks: "همه کارها و جلسات", calendar: "تقویم من", assistant: "", settings: "تنظیمات من", notifications: "اعلان‌ها" }[panel]; }
   }
   document.querySelectorAll('[data-appearance]').forEach(button=>button.addEventListener('click',()=>{
@@ -331,6 +331,10 @@
   window.addEventListener('hamrah-appearance',updateAppearance);
   updateAppearance();
   renderHeader();
+  $("#poem-next").addEventListener("click", () => { poemNavigator.next(); renderHeader(); });
+  let renderedDay = overview.tehranDayKey();
+  setInterval(() => { renderHeader(); const day=overview.tehranDayKey(); if(day!==renderedDay){renderedDay=day;render();} }, 30000);
+  window.addEventListener("storage", renderHeader);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) { renderHeader(); render(); } });
   render();
 })();

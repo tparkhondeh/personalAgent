@@ -36,7 +36,7 @@ const meetingFields = {
 
 export const meetingInputSchema = z.object(meetingFields).refine((value) => new Date(value.endsAt) > new Date(value.startsAt), { message: "زمان پایان باید بعد از شروع باشد", path: ["endsAt"] });
 
-export const meetingUpdateSchema = z.object({ ...meetingFields, attendees: meetingAttendeesSchema, timezone: meetingTimezoneSchema }).partial().refine(
+export const meetingUpdateSchema = z.object({ ...meetingFields, attendees: meetingAttendeesSchema, timezone: meetingTimezoneSchema, status: z.enum(["SCHEDULED", "DONE", "CANCELLED"]) }).partial().refine(
   (value) => !value.startsAt || !value.endsAt || new Date(value.endsAt) > new Date(value.startsAt),
   { message: "زمان پایان باید بعد از شروع باشد", path: ["endsAt"] },
 );

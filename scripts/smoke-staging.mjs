@@ -105,6 +105,10 @@ const integrations = await call("/api/integrations");
 if (!integrations.data?.llm?.mode || !integrations.data?.call?.mode) throw new Error("Integration readiness status is incomplete.");
 
 await call(`/api/tasks/${task.data.id}`, { method: "DELETE" }, 204);
+const completedMeeting = await call(`/api/meetings/${meeting.data.id}`, { method: "PATCH", body: JSON.stringify({status:"DONE"}) });
+if(completedMeeting.data.status!=="DONE")throw Error("Meeting completion was not persisted");
+const restoredMeeting = await call(`/api/meetings/${meeting.data.id}`, { method: "PATCH", body: JSON.stringify({status:"SCHEDULED"}) });
+if(restoredMeeting.data.status!=="SCHEDULED")throw Error("Meeting reopening failed");
 await call(`/api/meetings/${meeting.data.id}`, { method: "DELETE" }, 204);
 
 process.stdout.write(`${JSON.stringify({
@@ -113,7 +117,7 @@ process.stdout.write(`${JSON.stringify({
   email,
   login: "persian-rendered",
   task: "created-and-deleted",
-  meeting: "created-and-deleted",
+  meeting: "created-completed-reopened-and-deleted",
   notifications: "reachable",
   reminders: "three-default-offsets-saved",
   assistant: `${agent.data.mode}-response-ok`,

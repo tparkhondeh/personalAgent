@@ -5,6 +5,7 @@ import { waitUntil } from "./qa-wait-until.mjs";
 import { verifyBarAppearance } from "./android-bar-appearance.mjs";
 import { contrastRatio } from "./color-contrast.mjs";
 import { persianSpeechFixtureQa } from "./android-persian-speech-qa.mjs";
+import { dashboardUiQa } from "./dashboard-ui-qa.mjs";
 
 const packageName = process.argv[2];
 const outputPath = resolve(process.argv[3] || "artifacts/android/webview.json");
@@ -144,6 +145,10 @@ async function inspect() {
     writeFileSync(outputPath.replace(/\.json$/,'-contrast.json'),JSON.stringify(contrast.result.result.value,null,2));
   }
   if (result && action === "open-offline") {
+    const dashboard = await evaluate(`(${dashboardUiQa.toString()})()`);
+    if(dashboard.result.exceptionDetails)throw Error('Dashboard/poem QA failed: '+JSON.stringify(dashboard.result.exceptionDetails));
+    mkdirSync(dirname(outputPath), { recursive: true });
+    writeFileSync(outputPath.replace(/\.json$/, '-dashboard.json'), JSON.stringify(dashboard.result.result.value, null, 2));
     // Isolated emulator permission fixture; never applied to a user's phone.
     adb('shell','pm','grant',packageName,'android.permission.RECORD_AUDIO');
     const parity = await evaluate(`(async () => {

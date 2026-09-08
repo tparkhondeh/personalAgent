@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import { escalationAcknowledgeSchema, meetingInputSchema, meetingUpdateSchema, notificationReadSchema, taskInputSchema, taskUpdateSchema, userPreferenceInputSchema } from "./validation";
 
 describe("input validation", () => {
+  it("preserves meeting completion and rejects unknown status values", () => {
+    for (const status of ["SCHEDULED", "DONE", "CANCELLED"]) expect(meetingUpdateSchema.parse({status})).toEqual({status});
+    expect(meetingUpdateSchema.safeParse({status:"TODO"}).success).toBe(false);
+  });
   it("rejects an empty task title", () => {
     expect(taskInputSchema.safeParse({ title: "   " }).success).toBe(false);
   });

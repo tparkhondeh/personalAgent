@@ -1,7 +1,7 @@
 // DOM adapters for the same calendar/clock arithmetic used by React.
 (() => {
   const api=window.HamrahInputs;
-  function input(root,label,value,onChange){const el=document.createElement("input");el.type="text";el.dir="ltr";el.inputMode="numeric";el.setAttribute("aria-label",label);el.value=api.faDigits(value);el.addEventListener("change",()=>onChange(el.value));root.append(el);return el;}
+  function input(root,label,value,onChange){const el=document.createElement("input");el.type="text";el.dir="ltr";el.inputMode="numeric";el.setAttribute("aria-label",label);el.value=api.faDigits(value);el.addEventListener("input",()=>onChange(el.value));el.addEventListener("change",()=>onChange(el.value));root.append(el);return el;}
   function details(root,label){const d=document.createElement("details"),s=document.createElement("summary");s.textContent=label;d.append(s);root.append(d);return d;}
   function button(text,click){const b=document.createElement("button");b.type="button";b.textContent=text;b.onclick=click;return b;}
   function date(root,value,onChange,label="تاریخ شمسی"){
