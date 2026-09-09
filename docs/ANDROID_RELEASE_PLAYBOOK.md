@@ -6,7 +6,13 @@
 - بعد از تکمیل، منتظر کلاس `.done` یا دکمه حذف روی همان ردیف نباشید: ردیف باید ناپدید شود، رکورد ذخیره‌شده `done` بماند و همه اعلان‌های آینده همان ID لغو شوند. سوابق آزمون را برای cold-launch بعدی نگه دارید؛ شمارش را نسبت به baseline بسنجید.
 - کلیک سریع دوباره نباید تکمیل را برگرداند. روی هر سه Android، نبود رکورد تکمیل‌شده در امروز/کارها/تقویم، آمار و بارگذاری دوباره همان داده بررسی شود. نسخه جدید فقط بعد از کنترل همان فایل APK و بازبینی تصاویر منتشر شود.
 
-## نسخه آزمایشی فعلی — ۳۸
+## نسخه آزمایشی فعلی — ۴۰
+
+- نام `tia آزمایشی 40`؛ Package `ir.wealthos.personalagent.stable40`؛ منبع APK/Staging `34180286b90008498c839f3ec3b4fd72749c750a`.
+- SHA `909bf6f8b5dbb46f937210a787215006cfd7b223eaf880a359636fc1b2262fe9`؛ ۶۰٬۰۵۶٬۲۶۹ بایت؛ [دانلود مستقیم](https://github.com/tparkhondeh/personalAgent/releases/download/phone-preview-stable-40/tia-stable-40.apk).
+- هر سه Android در Run `34414607065` موفق؛ ۱۲ تصویر بصری بررسی، ۱۷ فایل Release تطبیق هش و دانلود عمومی مجدد برابر شد. [گزارش دقیق](COMPLETED_ITEMS_2026-09-10.md). پذیرش گوشی واقعی معوق؛ Production تغییر نکرده است.
+
+## سابقه نسخه آزمایشی — ۳۸
 
 - نام `tia آزمایشی 38`؛ Package `ir.wealthos.personalagent.stable38`؛ Commit APK/Staging `e0adc38fd50842877451e831de9bda1431de27e7`.
 - SHA `343e6931ac74c926a226aeb2856b052d7c122ae4723652d606e7bc3d6c766e86`؛ ۶۰٬۰۵۲٬۰۶۱ بایت؛ [دانلود مستقیم](https://github.com/tparkhondeh/personalAgent/releases/download/phone-preview-stable-38/tia-stable-38.apk).
