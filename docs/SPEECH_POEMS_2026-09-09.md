@@ -60,7 +60,27 @@ Their public pages were also checked. Ganjoor classifies all selected items unde
 
 Measured shared layout allocates RTL columns by actual text width, optimizes gap and applies one uniform Vazirmatn size in 0.875–1.125rem (14–18px at default). Font load/resize/text changes retrigger measurement. Very long poems may need natural balanced wrapping at minimum readable size; no clipping, ellipsis, word removal or horizontal scroll. Font zoom remains relative to the user's root size. At 390px: 107/360 poems fit all four hemistichs in one line; others need wrapping. At 320px none fit all four; hiding words or tiny type would be dishonest. Desktop/zoom and Android results recorded at release time.
 
+## Web and staging acceptance
+
+Source `389840d2474b69a44cb0874517541e25636e8f1c`: 275 tests / 41 files, typecheck, lint and optimized build passed locally and in [source CI](https://github.com/tparkhondeh/personalAgent/actions/runs/34387727403). Local HTTP checks: 27 approval + 7 interface/auth + 8 schedule preservation. Real browser: local mobile 390 and desktop 1280; next poem, typing, unauthenticated prevention. Full poem corpus QA: 320/16, 390/16, 1280/16, 1280/32 and 390/32 (width/root font), 360/360 words retained and no horizontal clipping in each. All 360 fit one line per hemistich at desktop 1280/16; 265 fit at 1280/32. Mobile long-poem wrapping is intentional and disclosed above.
+
+Matching Linux server archive SHA `5391e5601325512d2cdae88d3c09a2646ec145e1ede7ba1be4bf7c8509d84bdc` deployed only to Staging. Consistent pre-release backup `pre-release-20260909T182231Z`; previous release `e0adc38fd50842877451e831de9bda1431de27e7` preserved. Initial cold-restart health connection was retried; final health verified new commit. Rollback script and scheduler precaution are unchanged. Main Production proxy/domain untouched.
+
+Staging passed the same 42 HTTP checks plus 9 new voice checks, including actual fixed public FLEURS recording → exact expected Shenava transcript → draft request, with no task/meeting created. This single full HTTP transcription took 0.748 seconds for a 13.44-second clip; not a general latency guarantee. Live browser synthetic-account login showed the healthy service consent control unchecked; navigating away/back reset it, and logout restored guest state. No owner audio was recorded/sent. Loopback service also reproduced the expected public transcript (0.844 seconds in an earlier smoke).
+
+The release APK's gzip asset cannot be compared byte-for-byte with a separate Windows build: tar metadata/compression differ. The first local same-build verifier correctly reported a mismatch when used across those builds. Independent `verify-released-speech-model.py` confirmed **all 18 decoded model files** equal the pinned upstream ZIP and the patched JS engine matches. Keep the stricter byte-for-byte gate inside the same CI build; do not replace it with a loose existence check. Raw APK SHA must still match downloaded/published bytes. Android matrix and image acceptance are recorded below when complete.
+
 ## Reproduction and remaining acceptance
+
+### Exact Android 39 acceptance
+
+[Run 34387758286](https://github.com/tparkhondeh/personalAgent/actions/runs/34387758286) passed on API 33/34/36 with the same APK: `tia آزمایشی 39`, `ir.wealthos.personalagent.stable39`, source `389840d2474b69a44cb0874517541e25636e8f1c`, 60,056,013 bytes, SHA-256 `526f43e92b94bcdbdcbc7e76470af2e7bc63e8c8cca67adfc0e508dc53ec81b3`. Debug-signed preview, not a Production release.
+
+Each API: 11 native tests, real Persian recognition `خوش آمدید` from an attributed synthetic microphone/public fixture through MediaRecorder to assistant, cancellation/no effects before confirmation, all 360 exact poems at CSS width 412 (215 one-line, 145 naturally wrapped), 27 system-UI records and 11 Logcat gates, real keyboard, explicit light/dark persistence and offline/DNS/server/SSL/relaunch recovery. Twelve images (normal, dark settings, keyboard and SSL recovery on each API) were personally visually inspected; none of the accepted images is covered by a system-error dialog. They are attached to the [versioned release](https://github.com/tparkhondeh/personalAgent/releases/tag/phone-preview-stable-39).
+
+The runner could not connect to Staging; Android online against the live server on an owner network remains unverified. Live connected web and its authenticated own-server audio path passed separately. Owner's physical microphone and conversational tasks remain acceptance work, not silently marked done. Earlier APK data remains in its own package; do not uninstall it or promise automatic offline-data migration.
+
+Public Release published 2026-09-09 18:36:58 UTC. The stable unauthenticated download was fetched again as `artifacts/speech-poems/release-39-build/tia-stable-39-public.apk` and its full SHA exactly matches the tested APK above. Final staging `/api/health` returned this same source commit and connected DB. Post-release commits here contain reports/QA helpers, not a different runtime APK.
 
 Public audio stays in ignored artifacts, never app assets. Prepare fixtures with `node scripts/prepare-speech-benchmark.mjs`. Run browser harness `scripts/preview-speech-benchmark.mjs`; supply `SPEECH_BASELINE_PATH` for frozen pre-change source. Server benchmarks have explicit model pins and two threads; `benchmark-noisy-speech.py` uses fixed seed 20260909. `summarize-speech-benchmark.mjs` records hashes and errors, not just successful transcription.
 
