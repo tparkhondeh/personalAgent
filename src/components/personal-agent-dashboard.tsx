@@ -14,7 +14,7 @@ import { NotificationCenter, type AppNotification } from "@/components/notificat
 import { buildEscalationPlan, defaultEscalationPolicy } from "@/lib/escalations";
 import { syncNativeEscalationAlarms, type NativeEscalationAlarm } from "@/lib/native-escalations";
 import { getDailyRumiSelection, getRumiSelection, rumiSelectionCount } from "@/lib/daily-rumi";
-import { createPoemNavigator, selectDashboardItems, summarizeDashboardItems, tehranDayKey } from "@/lib/dashboard-overview";
+import { createPoemNavigator, selectDashboardScope, selectDashboardItems, summarizeDashboardItems, tehranDayKey } from "@/lib/dashboard-overview";
 import { REMINDER_OFFSET_OPTIONS } from "@/lib/reminder-offsets";
 import { AgentAssistant } from "@/components/agent-assistant";
 import { ActionIcon } from "@/components/action-icon";
@@ -242,9 +242,11 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
     return () => controller.abort();
   }, [session?.user]);
 
-  const visible = useMemo(() => selectDashboardItems(items, view, filter, new Date(dashboardDay + "T12:00:00Z")), [items, filter, view, dashboardDay]);
-  const overview = summarizeDashboardItems(visible);
-  const open = items.filter((item) => item.source === "task" && !item.done).length;
+  const scope = useMemo(() => selectDashboardScope(items, view, filter, new Date(dashboardDay + "T12:00:00Z")), [items, filter, view, dashboardDay]);
+  const visible = selectDashboardItems(scope, "tasks");
+  const overview = summarizeDashboardItems(scope);
+  const activeItems = selectDashboardItems(items, "tasks");
+  const open = activeItems.length;
 
   async function toggle(item: Item) {
     const key = `${item.source}:${item.id}`;
@@ -390,7 +392,8 @@ function Composer({ initial, initialDate, defaultReminderOffsets, onClose, onSub
 function Nav({ active, label, badge, onClick }: { active: boolean; label: string; badge?: number; onClick: () => void }) { return <button className={`nav-button ${active ? "active" : ""}`} onClick={onClick}>{label}{badge !== undefined && <small>{badge}</small>}</button>; }
 function Assistant(props: { onAdd: () => void; onChanged: () => Promise<void> }) { return <AgentAssistant {...props} />; }
 
-function Calendar({ items, onEdit, onAdd }: { items: Item[]; onEdit: (item: Item) => void; onAdd: (date: string) => void }) {
+function Calendar({ items: allItems, onEdit, onAdd }: { items: Item[]; onEdit: (item: Item) => void; onAdd: (date: string) => void }) {
+  const items = selectDashboardItems(allItems, "tasks");
   const [weekOffset, setWeekOffset] = useState(0);
   const today = new Date(); const daysSinceSaturday = (today.getDay() + 1) % 7; const weekStart = new Date(today); weekStart.setHours(12, 0, 0, 0); weekStart.setDate(today.getDate() - daysSinceSaturday + weekOffset * 7);
   const week = Array.from({ length: 7 }, (_, index) => { const date = new Date(weekStart); date.setDate(weekStart.getDate() + index); return date; });

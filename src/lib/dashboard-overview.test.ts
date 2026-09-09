@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
-import { createPoemNavigator, dailyPoemIndex, poemPreferenceKey, selectDashboardItems, summarizeDashboardItems, type OverviewItem } from "./dashboard-overview";
+import { createPoemNavigator, dailyPoemIndex, poemPreferenceKey, selectDashboardScope, selectDashboardItems, summarizeDashboardItems, type OverviewItem } from "./dashboard-overview";
 
 const now = new Date("2026-09-08T12:00:00Z");
 const fixtures: OverviewItem[] = [
@@ -14,32 +14,42 @@ const fixtures: OverviewItem[] = [
   { id:"6", category:"personal", archived:true },
 ];
 describe("shared dashboard scope", () => {
-  it("counts exactly today's dated items, including completion, without duplicate meetings", () => {
-    const visible = selectDashboardItems([...fixtures, fixtures[0]],"today","all",now);
-    expect(visible).toHaveLength(3);
-    expect(summarizeDashboardItems(visible).map(g=>[g.total,g.done])).toEqual([[3,1],[1,0],[1,1],[1,0]]);
+  it("shows only today's active items and keeps completed counts without duplicate meetings", () => {
+    const scope = selectDashboardScope([...fixtures, fixtures[0]],"today","all",now);
+    expect(selectDashboardItems(scope,"tasks")).toHaveLength(2);
+    expect(summarizeDashboardItems(scope).map(g=>[g.total,g.done])).toEqual([[2,1],[1,0],[0,1],[1,0]]);
   });
   it("keeps undated and other-day tasks in Tasks, and matches the active filter", () => {
-    expect(selectDashboardItems(fixtures,"tasks")).toHaveLength(6);
-    expect(summarizeDashboardItems(selectDashboardItems(fixtures,"today","work",now)).map(g=>g.total)).toEqual([1,0,1,0]);
+    expect(selectDashboardItems(fixtures,"tasks")).toHaveLength(5);
+    expect(summarizeDashboardItems(selectDashboardScope(fixtures,"today","work",now)).map(g=>[g.total,g.done])).toEqual([[0,1],[0,0],[0,1],[0,0]]);
     expect(selectDashboardItems(fixtures,"tasks","meeting")).toEqual([fixtures[2]]);
   });
   it("updates after create/edit/complete/delete without mutating stored records", () => {
     const original=structuredClone(fixtures);
     const created=[...fixtures,{id:"new",category:"company",deadline:now.toISOString()}];
-    expect(summarizeDashboardItems(selectDashboardItems(created,"today","all",now))[2].total).toBe(2);
+    expect(summarizeDashboardItems(selectDashboardScope(created,"today","all",now))[2].total).toBe(1);
     const edited=created.map(t=>t.id==="new"?{...t,category:"personal",done:true}:t);
-    expect(summarizeDashboardItems(selectDashboardItems(edited,"today","all",now))[1]).toMatchObject({total:2,done:1});
-    expect(selectDashboardItems(edited.filter(t=>t.id!=="new"),"today","all",now)).toHaveLength(3);
+    expect(summarizeDashboardItems(selectDashboardScope(edited,"today","all",now))[1]).toMatchObject({total:1,done:1});
+    expect(selectDashboardItems(edited.filter(t=>t.id!=="new"),"today","all",now)).toHaveLength(2);
     expect(fixtures).toEqual(original);
   });
   it("uses the same executable implementation in bundled Android", () => {
     const context={window:{}};runInNewContext(readFileSync("mobile-shell/content.js","utf8"),context);
-    const api=(context.window as {HamrahOverview:{selectDashboardItems:typeof selectDashboardItems;summarizeDashboardItems:typeof summarizeDashboardItems;dailyPoemIndex:typeof dailyPoemIndex}}).HamrahOverview;
+    const api=(context.window as {HamrahOverview:{selectDashboardScope:typeof selectDashboardScope;selectDashboardItems:typeof selectDashboardItems;summarizeDashboardItems:typeof summarizeDashboardItems;dailyPoemIndex:typeof dailyPoemIndex}}).HamrahOverview;
     for(const view of ["today","tasks"])for(const filter of ["all","personal","work","company","meeting"]){
-      expect(api.summarizeDashboardItems(api.selectDashboardItems(fixtures,view,filter,now))).toEqual(summarizeDashboardItems(selectDashboardItems(fixtures,view,filter,now)));
+      expect(api.selectDashboardItems(fixtures,view,filter,now)).toEqual(selectDashboardItems(fixtures,view,filter,now));
+      expect(api.summarizeDashboardItems(api.selectDashboardScope(fixtures,view,filter,now))).toEqual(summarizeDashboardItems(selectDashboardScope(fixtures,view,filter,now)));
     }
     expect(api.dailyPoemIndex(360,now)).toBe(dailyPoemIndex(360,now));
+  });
+  it("does not resurrect completed records on reload or mix them into calendar/category lists", () => {
+    const completed = fixtures.map(item => ({...item, done: true}));
+    const reloaded = JSON.parse(JSON.stringify(completed));
+    for(const view of ["today","tasks","calendar"]) for(const filter of ["all","personal","work","meeting"]) {
+      expect(selectDashboardItems(reloaded,view,filter,now)).toEqual([]);
+    }
+    expect(summarizeDashboardItems(reloaded).map(g=>[g.total,g.done])).toEqual([[0,6],[0,4],[0,1],[0,1]]);
+    expect(reloaded).toEqual(completed);
   });
 });
 describe("daily poem with a same-day manual preference", () => {

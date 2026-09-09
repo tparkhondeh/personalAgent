@@ -18,7 +18,8 @@ export function overviewCategory(item: OverviewItem) {
   if (item.source === "meeting" || item.category === "meeting") return "meeting";
   return item.category === "work" || item.category === "company" ? "work" : "personal";
 }
-export function selectDashboardItems<T extends OverviewItem>(items: T[], view: string, filter = "all", now = new Date()): T[] {
+// Scope includes completed records for statistics, never for an active list.
+export function selectDashboardScope<T extends OverviewItem>(items: T[], view: string, filter = "all", now = new Date()): T[] {
   const today = tehranDayKey(now), seen = new Set<string>();
   return items.filter(item => {
     const category = overviewCategory(item), key = `${category === "meeting" ? "meeting" : "task"}:${item.id}`;
@@ -30,11 +31,14 @@ export function selectDashboardItems<T extends OverviewItem>(items: T[], view: s
     return Boolean(moment && Number.isFinite(Date.parse(moment)) && tehranDayKey(new Date(moment)) === today);
   });
 }
+export function selectDashboardItems<T extends OverviewItem>(items: T[], view: string, filter = "all", now = new Date()): T[] {
+  return selectDashboardScope(items, view, filter, now).filter(item => !item.done);
+}
 export function summarizeDashboardItems(items: OverviewItem[]) {
-  const unique = selectDashboardItems(items, "tasks");
+  const unique = selectDashboardScope(items, "tasks");
   return dashboardGroups.map(group => {
     const selected = group.key === "all" ? unique : unique.filter(item => overviewCategory(item) === group.key);
-    return { ...group, total: selected.length, done: selected.filter(item => item.done).length };
+    return { ...group, total: selected.filter(item => !item.done).length, done: selected.filter(item => item.done).length };
   });
 }
 export function dailyPoemIndex(length: number, now = new Date()) {

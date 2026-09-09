@@ -5,6 +5,9 @@ export async function dashboardUiQa() {
   const click=selector=>document.querySelector(selector).click();
   const counts=()=>[...document.querySelectorAll('.overview-card strong')].map(el=>Number(el.textContent.replace(/[۰-۹]/g,n=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(n))));
   click('[data-panel="today"]');click('[data-filter="all"]');
+  const stored=JSON.parse(localStorage.getItem('hamrah-local-v2')||'[]');
+  for(const task of stored.filter(t=>t.done))assert(!document.querySelector(`#task-list [data-id="${task.id}"],#dated-list [data-id="${task.id}"]`),'Persisted completed record reappeared after relaunch');
+  const doneBefore=Number(document.querySelector('.overview-meeting small').textContent.replace(/[۰-۹]/g,n=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(n)).match(/\d+/)[0]);
   assert(document.querySelectorAll('.overview-card').length===4,'Four dashboard cards missing');
   assert([...document.querySelectorAll('.overview-card > span')].map(el=>el.textContent).join('|')==='ALL TASKS|PERSONAL|BUSINESS|MEETING','Dashboard labels differ');
   const poem=document.querySelector('#page-title'), before=poem.textContent;
@@ -30,16 +33,24 @@ export async function dashboardUiQa() {
   click('[data-filter="company"]');const business=counts();assert(business[0]===business[2]&&business[1]===0&&business[3]===0,'Filtered counters do not match list');
   click('[data-filter="all"]');
   const find=category=>[...document.querySelectorAll('#task-list .item')].find(el=>el.textContent.includes(prefix+category));
-  find('meeting').querySelector('[data-action="toggle"]').click();
-  await wait(()=>find('meeting').classList.contains('done'));
-  assert(document.querySelector('.overview-meeting small').textContent.includes('۱'),'Completed meeting count missing');
+  const completedId=find('meeting').dataset.id;
+  const complete=find('meeting').querySelector('[data-action="toggle"]');complete.click();complete.click();
+  await wait(()=>!find('meeting'));
+  assert(JSON.parse(localStorage.getItem('hamrah-local-v2')).find(t=>t.id===completedId)?.done,'Completion was not persisted after rapid clicks');
+  assert(counts()[0]===totals[0]-1&&counts()[3]===totals[3]-1,'Completed meeting still in remaining counters');
+  const doneAfter=Number(document.querySelector('.overview-meeting small').textContent.replace(/[۰-۹]/g,n=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(n)).match(/\d+/)[0]);
+  assert(doneAfter===doneBefore+1,'Completed meeting count missing');
+  click('[data-panel="tasks"]');assert(!find('meeting'),'Completed meeting reappeared in Tasks');
+  click('[data-panel="calendar"]');assert(!document.querySelector(`#dated-list [data-id="${completedId}"]`),'Completed meeting remains in calendar');
+  click('[data-panel="today"]');
   const beforeEdit=counts();find('personal').querySelector('[data-action="edit"]').click();
   document.querySelector('#task-category').value='company';document.querySelector('#task-form').requestSubmit();
   await wait(()=>counts()[1]===beforeEdit[1]-1);assert(counts()[2]===beforeEdit[2]+1,'Editing category did not recount');
-  for(const category of ['personal','company','meeting']){
+  for(const category of ['personal','company']){
     find(category).querySelector('[data-action="delete"]').click();
     document.querySelector('[data-action="confirm-delete"]').click();await wait(()=>!find(category));
   }
   assert(counts().every((v,i)=>v===baseline[i]),'Deleting synthetic records did not restore counts');
-  return {fourCards:true,todayScope:true,filteredScope:true,createEditCompleteDelete:true,nextPoem:true,sameDayPersistence:true};
+  assert(JSON.parse(localStorage.getItem('hamrah-local-v2')).some(t=>t.id===completedId&&t.done),'Completed history was deleted');
+  return {fourCards:true,todayScope:true,filteredScope:true,createEditCompleteDelete:true,completedCountsOnly:true,rapidCompletion:true,completedId,nextPoem:true,sameDayPersistence:true};
 }

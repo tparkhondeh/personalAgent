@@ -1,5 +1,8 @@
 # Durable development rules
 
+- Communicate briefly in simple Persian: outcome, essential limitations and owner action only. Keep implementation details in documents unless asked.
+- Completed records are retained, not destroyed. Exclude them from every active list/calendar and remaining count; only completed statistics remain visible. No completed/archive tab. Verify completion, cancellation, rapid-click idempotence and reload parity in web and bundled Android.
+
 - Use the checked-out files and verified release metadata as authority, not chat summaries.
 - Optimize token use through targeted reads, concise evidence logs and parallel independent checks. Never omit security, regression tests or root-cause investigation to save tokens.
 - Keep web `src/app/globals.css` as the palette source. Generate bundled Android theme from it; test matching viewport/theme and inspect screenshots.

@@ -20,6 +20,7 @@
   let filter = "all";
   let panel = "today";
   let pendingDelete = "";
+  const pendingActions = new Set();
   let tasks = loadTasks();
   let reminderOffsets;
   try { reminderOffsets = domain.normalizeOffsets(JSON.parse(localStorage.getItem(preferenceKey) || "null")); }
@@ -97,11 +98,12 @@
     return `<article class="item${task.done ? " done" : ""}" data-id="${escapeText(task.id)}"><button class="check" data-action="toggle" type="button" aria-label="${task.done ? "بازگرداندن برنامه" : "انجام شد"}">${task.done ? "✓" : ""}</button><div><h3>${escapeText(task.title)}</h3><div class="meta"><span class="tag">${labels.category[task.category] || "شخصی"}</span><span class="tag ${escapeText(task.priority)}">${labels.priority[task.priority] || "عادی"}</span>${deadline}</div></div><div class="item-actions">${actions}</div></article>`;
   }
   function render() {
+    const scope = overview.selectDashboardScope(tasks, panel, filter);
     const visible = overview.selectDashboardItems(tasks, panel, filter);
     list.innerHTML = visible.length ? visible.map(taskMarkup).join("") : '<span class="sr-only">برنامه‌ای در این فهرست نیست.</span>';
     $("#dashboard-overview").setAttribute("aria-label", panel === "today" ? "آمار برنامه‌های امروز، همه وضعیت‌ها" : "آمار فهرست فعلی، همه وضعیت‌ها");
-    $("#dashboard-overview").innerHTML = overview.summarizeDashboardItems(visible).map(group=>`<article class="overview-card overview-${group.key}" aria-label="${group.name}"><span dir="ltr">${group.label}</span><strong>${toFa(group.total)}</strong><small>${toFa(group.done)} انجام‌شده</small></article>`).join("");
-    const dated = tasks.filter((task) => task.deadline && !task.archived).sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
+    $("#dashboard-overview").innerHTML = overview.summarizeDashboardItems(scope).map(group=>`<article class="overview-card overview-${group.key}" aria-label="${group.name}"><span dir="ltr">${group.label}</span><strong>${toFa(group.total)}</strong><small>${toFa(group.done)} انجام‌شده</small></article>`).join("");
+    const dated = overview.selectDashboardItems(tasks, "tasks").filter((task) => task.deadline).sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
     datedList.innerHTML = dated.length ? dated.map(taskMarkup).join("") : '<div class="empty">برنامه زمان‌داری وجود ندارد.</div>';
     renderCalendar();
     requestAnimationFrame(()=>window.HamrahCapture.fitProgramList(list,panel==="today"));
@@ -114,7 +116,7 @@
     for (let index = 0; index < (first.getDay() + 1) % 7; index += 1) cells.push("<div></div>");
     for (const { day, date } of days) {
       const key = domain.localDateInput(date).slice(0, 10);
-      const hasTask = tasks.some((task) => !task.archived && task.deadline && domain.localDateInput(task.deadline).slice(0, 10) === key);
+      const hasTask = tasks.some((task) => !task.done && !task.archived && task.deadline && domain.localDateInput(task.deadline).slice(0, 10) === key);
       cells.push(`<div class="day${key === domain.localDateInput(now).slice(0, 10) ? " today" : ""}${hasTask ? " has-task" : ""}">${toFa(day)}</div>`);
     }
     $("#calendar-grid").innerHTML = cells.join("");
@@ -156,14 +158,16 @@
     if (!button) return;
     const id = button.closest("[data-id]")?.dataset.id;
     const task = tasks.find((item) => item.id === id);
-    if (!task) return;
+    if (!task || task.done || pendingActions.has(id)) return;
     if (button.dataset.action === "edit") { openForm(task); return; }
     if (button.dataset.action === "delete") { pendingDelete = id; render(); return; }
     if (button.dataset.action === "cancel-delete") { pendingDelete = ""; render(); return; }
+    pendingActions.add(id);
     try {
-      if (button.dataset.action === "toggle") { await cancelNotifications(task); task.done = !task.done; task.updatedAt=new Date().toISOString(); saveTasks(); if (!task.done) await scheduleNotification(task); }
+      if (button.dataset.action === "toggle") { await cancelNotifications(task); task.done = true; task.updatedAt=new Date().toISOString(); saveTasks(); }
       if (button.dataset.action === "confirm-delete") { await cancelNotifications(task); tasks = tasks.filter((item) => item.id !== id); pendingDelete = ""; }
-    } catch { $("#page-status").textContent = "تنظیم یادآوری کامل نشد؛ دوباره تلاش کن."; render(); return; }
+    } catch { $("#page-status").textContent = "ذخیره یا لغو یادآوری کامل نشد؛ دوباره تلاش کن."; render(); return; }
+    finally { pendingActions.delete(id); }
     saveTasks(); render();
   }
   list.addEventListener("click", handleListAction);

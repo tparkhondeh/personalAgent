@@ -201,9 +201,8 @@ async function inspect() {
       }
       assert(!(await plugin.getPending()).notifications.some((item) => task.notificationIds.includes(item.id)), 'Completed task reminders were not cancelled');
       assert(JSON.parse(localStorage.getItem('hamrah-local-v2')||'[]').find(item=>item.id===task.id)?.done,'Task completion callback not finished');
-      [...document.querySelectorAll('#task-list .item')].find(item=>item.dataset.id===task.id).querySelector('[data-action="delete"]').click();
-      document.querySelector('#task-list [data-action="confirm-delete"]').click();
-      await waitUntil(()=>!JSON.parse(localStorage.getItem('hamrah-local-v2')||'[]').some(item=>item.id===task.id),'Previous explicitly confirmed deletion did not finish');
+      assert(![...document.querySelectorAll('#task-list .item,#dated-list .item')].some(item=>item.dataset.id===task.id),'Completed task remains in an active list');
+      assert(JSON.parse(localStorage.getItem('hamrah-local-v2')||'[]').some(item=>item.id===task.id&&item.done),'Completed task history must remain for statistics');
       const beforeAssistant=JSON.parse(localStorage.getItem('hamrah-local-v2')||'[]').map(item=>item.id).sort();
       assert(window.HamrahPlanner?.planPersian,'Shared Persian planner missing');
       const leadingReminder=window.HamrahPlanner.planPersian('یادم بنداز فردا ساعت پنج عصر جلسه با تیم فروش دارم؛ سه ساعت قبل یادم بنداز',{});
