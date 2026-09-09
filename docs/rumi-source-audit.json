@@ -1,0 +1,3279 @@
+{
+  "checkedAt": "2026-09-09T17:27:36.835Z",
+  "revision": "1afaf46d311d6c6fa953aa7b87f5c6515dc807a6",
+  "total": 360,
+  "changedPoems": 93,
+  "changedLines": 131,
+  "selectionHash": "6c6555b953f837f6612562a6609bc82c2a65010aa773dc5a0f64c2c804d0b4a4",
+  "attribution": "Located in Ganjoor Shams quatrains; not independent manuscript authentication",
+  "entries": [
+    {
+      "id": "29810:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh352",
+      "sha256": "af7901b1ef795f93789be1af854e27745f0f8128c5e87eee1d6879d70187021c",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 2,
+          "before": "ماننده شب گرفته پای روز است",
+          "source": "مانندهٔ شب گرفته پای روز است"
+        }
+      ]
+    },
+    {
+      "id": "30374:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh916",
+      "sha256": "3c2f0a8b9253378e9e83675b40895f283860482b0973e364c4f88b601af4638c",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31323:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1865",
+      "sha256": "bc437c91a83e0395ed761358256f3ea214a1137fa596ffc4b1750248fac964a3",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31071:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1613",
+      "sha256": "0e6734eb716773a818189561bc7694333e79329a0751ad83b594148cddbc24c9",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 2,
+          "before": "وز خاره او این دل من صد پاره",
+          "source": "وز خارهٔ او این دل من صد پاره"
+        }
+      ]
+    },
+    {
+      "id": "29570:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh112",
+      "sha256": "5a9af1d9bfb279f3a1d159534dbd24ea9f84b83660169aa0c5e6b73195bdf0a7",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30972:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1514",
+      "sha256": "34e85e4bcab2df98e8535b78906dfa27edf7e16e0ed7ce67d2fb8f7e63056e7b",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30063:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh605",
+      "sha256": "63bf748133b5fbac53948f397204fcaf7f0506fa100af37bfa1d47afb582e25f",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30739:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1281",
+      "sha256": "1bae93d898587a430b203efd9c2b3fdd95d551c91c7434d0e66adcca69efa970",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30100:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh642",
+      "sha256": "7999f3dbcad85c96c2a479436d7c3605b17ab52ed0dd9e6b6b93c2afac7363c7",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30547:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1089",
+      "sha256": "56bc090e3068dd094bc263618ced833cddde44a1f8c6d3b0cd9ea2747b6d6db2",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31101:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1643",
+      "sha256": "a8f89bbba8087ea9699ebf72ac6ceb3c8ed216a496ca7bf5f6527bb60e7f1cf7",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31359:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1901",
+      "sha256": "13b97d116f585a7c4f138066ee33f352a4f63108d0efed6a1d642516a402ed30",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31322:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1864",
+      "sha256": "c2c04719c6ff54d6a00bf65a1abf16cd7afcf870f95fea2e184927590591b3e3",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30157:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh699",
+      "sha256": "914468751205f726b6ce12f2359c83480911be96cf53437c8dd65e5618c92a76",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 3,
+          "before": "ای زهره عیش کف رحمت بگشای",
+          "source": "ای زهرهٔ عیش کف رحمت بگشای"
+        }
+      ]
+    },
+    {
+      "id": "30216:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh758",
+      "sha256": "6a0d82345edd22dde1cb5ce9359624c5d37ba2358c03a55789b4fa3ffebdef8f",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30855:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1397",
+      "sha256": "d9dbd5d3f95dd0713fbeb6aea112045afc5cdfff68d99e403d41a0839bfd35a5",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29981:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh523",
+      "sha256": "4d6e4550a08e3998268fe1627f554320ccc7807c06d80cc1881a1152a92100c5",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30221:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh763",
+      "sha256": "5ac3c94d03b411701b49957e0f22bd1ba283a6cc34409d2f29cc9edd04bf218b",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 2,
+          "before": "جوینده عشق بیعدد خواهد بود",
+          "source": "جویندهٔ عشق بیعدد خواهد بود"
+        }
+      ]
+    },
+    {
+      "id": "30416:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh958",
+      "sha256": "dec3c5c0014675c989bfa3e4bc67094415cd3e693b913d607e5e5ebeaf6740f4",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30995:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1537",
+      "sha256": "b2847073d80e9eb7861c374866313c652aa534392896a2d52dd00b82fca2bf8c",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30661:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1203",
+      "sha256": "f528bac23f397f7ab614549f7114b5bfcf331215104805ae9b66799a836b3a73",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30826:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1368",
+      "sha256": "51b1f86a50d63aa2d6f040e44ed4d56b9ecbf821682dbce611a9a5a17be989a4",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 1,
+          "before": "هم منزل عشق و هم رهت می‌بینم",
+          "source": "هم منزلِ عشق و هم رهت می‌بینم"
+        }
+      ]
+    },
+    {
+      "id": "30881:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1423",
+      "sha256": "8a03f88cbe6d738f3ba5c1135b8f9ac1c2072f951a229e69148f95924b6f193e",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 3,
+          "before": "ای گلشن جان و دیده روشن من",
+          "source": "ای گلشن جان و دیدهٔ روشن من"
+        }
+      ]
+    },
+    {
+      "id": "31237:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1779",
+      "sha256": "3f2ef46b8ace0c350418d4c8d1440fe9ab3f440be3b3828c4dd2773e8fdc2a7c",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 1,
+          "before": "با خنده بر بسته چرا خرسندی",
+          "source": "با خندهٔ بر بسته چرا خرسندی"
+        }
+      ]
+    },
+    {
+      "id": "29482:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh24",
+      "sha256": "745333487b076e9081cb145e40850c25eb8b1fcd5e779db627cbd51822adb349",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29612:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh154",
+      "sha256": "83b77d2e935e9bcc60e965aa4b11bf0dca041b42ab34a5c86b83a81643c91fd3",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31388:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1930",
+      "sha256": "72ac62ee690e467b29adc26d081b2c1a234c005d061d489559c8109edf160b4d",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30907:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1449",
+      "sha256": "a0a23e7e56023bbf8d397e50d461a7e1b3f30928b1a92fc67673b4af944d64f2",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31032:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1574",
+      "sha256": "404f80ae2cd32ae144f6105e5154e5f13a6f8c3d65db1ad4a8235b47674b6a7d",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 3,
+          "before": "در باطن من ز فر او دریائیست",
+          "source": "در باطن من ز فرّ او دریائیست"
+        },
+        {
+          "line": 4,
+          "before": "کاین جمله کاینات غرقست در او",
+          "source": "کاین جملهٔ کاینات غرقست در او"
+        }
+      ]
+    },
+    {
+      "id": "30964:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1506",
+      "sha256": "95ead5ec76ab9325b9759f211c1160fc7874c351e6a3f015acfb14a0fb006a04",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29988:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh530",
+      "sha256": "fc55cd351fec305cb39f85a81cf7e7547378dba48c600de0b1d33c754d7a4ff3",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30474:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1016",
+      "sha256": "6bee4421be6146e31dc341e2ba15cd5b4530af688cc6fa01d00ec9ab5a8cdd1b",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30925:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1467",
+      "sha256": "519c5c719c475f2198eac004d59691a9f6292fd9654d1859bf45982a8d076fba",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29718:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh260",
+      "sha256": "6167372059f0c72cb0f10f43397f244543710ffdc278586ccbdc33be99954b9e",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 1,
+          "before": "تا چهره آفتاب جان رخشانست",
+          "source": "تا چهرهٔ آفتاب جان رخشانست"
+        },
+        {
+          "line": 3,
+          "before": "گویند که این وسوسه شیطانست",
+          "source": "گویند که این وسوسهٔ شیطانست"
+        },
+        {
+          "line": 4,
+          "before": "شیطان لطیف است و حیات جانست",
+          "source": "شیطانِ لطیف است و حیات جانست"
+        }
+      ]
+    },
+    {
+      "id": "29754:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh296",
+      "sha256": "6b5313ebbd02bccc89db76e673229dad336670d61338a9b8e82dd3b63d1e5796",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30988:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1530",
+      "sha256": "8818fcbb4bdd497754a815de4cb33b0bf753eeba75b211dead958ed2d2cde640",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 1,
+          "before": "آن شاه که هست عقل دیوانه او",
+          "source": "آن شاه که هست عقل دیوانهٔ او"
+        },
+        {
+          "line": 2,
+          "before": "وز عشق دلم شده است همخانه او",
+          "source": "وز عشق دلم شده است همخانهٔ او"
+        },
+        {
+          "line": 4,
+          "before": "صد شمع به نور شد ز پروانه او",
+          "source": "صد شمع به نور شد ز پروانهٔ او"
+        }
+      ]
+    },
+    {
+      "id": "31242:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1784",
+      "sha256": "3dc74f97ec3fdfda0011ee2afd8f1986719fa5f46b83425197e781b800da7a29",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30355:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh897",
+      "sha256": "6c9742470cc2ac1e92585e072a2672dadc786d6bbb39c5a71916fab8c9886f2e",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30865:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1407",
+      "sha256": "234e928e1e532d49ce2d0d299743d31898fd8751c973647a166c3172198e9a11",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30893:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1435",
+      "sha256": "01e5a5f38152ce8f5cf7ba2fa0b76f277ad5307c56f78ccaa2429b4ed895ce2f",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31076:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1618",
+      "sha256": "c8b487a7ad3bccbfafd61c03cae030b5a23ce0b41cd42a4c7bf13e66847870ed",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30140:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh682",
+      "sha256": "2aaf1898f8031f16c5c3ad2e34f71fc57a64fbdf341ea69c6285a1fe49cf93ba",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30032:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh574",
+      "sha256": "5284d0e834fffba15af5aa4857d452548d9b6c5fad80de7e1e544b0805b985d1",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29631:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh173",
+      "sha256": "55905173954e0a5b5be7bd8d77a1a413d8afbc07617e9b0a9e07c5483c30c62d",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 2,
+          "before": "معشوقه خوب ما نگاری دگر است",
+          "source": "معشوقهٔ خوب ما نگاری دگر است"
+        }
+      ]
+    },
+    {
+      "id": "30715:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1257",
+      "sha256": "0d40416bc04e830e31ab309849954efcd7e4e26465aad342316d2347d092b223",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30274:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh816",
+      "sha256": "59151674753056c69bc35d2cc7fb95c234915b7da08ac3b45be9309de87778b0",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29649:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh191",
+      "sha256": "8095e3cc775b0653d8610678744ab3b91c0a5e92cece1dbda5990ad2e69e462a",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30694:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1236",
+      "sha256": "6fceff11f37a745d7a906c6ec22c91f710ad314843e67d9979cb94ceda2ee2ea",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29686:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh228",
+      "sha256": "aa4160984daf965bdc2ef44a94e2cffa53d01a9298426b7555ac585e7d9edde6",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30542:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1084",
+      "sha256": "2e03f55b1c8458c12496020065ff1fd2384c0689f1ea197c4b20d1343652ef61",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31260:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1802",
+      "sha256": "7be692f795987648af290c061b6395ff957fb61dff8df26b533af6b6cf4affc7",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31004:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1546",
+      "sha256": "63c089f683e67aaa8097abade25c3c6939cd3f379429488950ba69d4aeb74a9b",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 2,
+          "before": "آواره عشق چون تو کم نیست برو",
+          "source": "آوارهٔ عشق چون تو کم نیست برو"
+        }
+      ]
+    },
+    {
+      "id": "29785:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh327",
+      "sha256": "b7ac786e420c3d63f8f7b05d6475d2844ec7d860c47f88b51e4701623085715a",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 1,
+          "before": "دل در بر هر که هست، از دلبر ماست",
+          "source": "دل در بَرِ هر که هست، از دلبر ماست"
+        },
+        {
+          "line": 2,
+          "before": "هر جا جهد این برق، از آن گوهر ماست",
+          "source": "هر جا جهَد این برق، از آنْ گوهر ماست"
+        },
+        {
+          "line": 3,
+          "before": "هر زر که در او مهر الست است و بلی",
+          "source": "هر زر که در او مُهر اَلَست است و بَلیٰ"
+        }
+      ]
+    },
+    {
+      "id": "30451:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh993",
+      "sha256": "5c08e788f84642887eb142d7bcc8bcc4a172b516c087667816952f624e635da5",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29766:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh308",
+      "sha256": "0557fcb132d2ae4f331c077e22f45c57705105e732790abd69f76de22fb3a404",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 3,
+          "before": "در خانه نیست هست بینی بسیار",
+          "source": "در خانهٔ نیست هست بینی بسیار"
+        }
+      ]
+    },
+    {
+      "id": "30801:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1343",
+      "sha256": "3a60559aed49dacd56147b9e045db08ed72d73b9d22d9cc8273975c0eb0c0d01",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31185:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1727",
+      "sha256": "d2156f37143d8bac10459422ec385372cd26fee6c2a4ac035b54cbb37465242f",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30930:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1472",
+      "sha256": "d88f6b3c5b9c8a9216c873d27065eb208b27fea9f01679da6f48919466cc9b52",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30616:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1158",
+      "sha256": "119d4400e03d884f53636e8972576516d09eda158954032a00d9d6c0d4145887",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30714:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1256",
+      "sha256": "bb9dc1ee26dab632523f80dc36c098a7446df1382b23e54e7777c5ce4c763d49",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29464:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh6",
+      "sha256": "0c25b0cf0d8ed432d3450b47d9e1db16349ff5b5570ae328374b02686642a3d8",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31351:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1893",
+      "sha256": "e087bbdb1cc5ef44f8b5a64917ac759376a8b7b4ffc1193d313b8499cbd75f4b",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29758:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh300",
+      "sha256": "b95e2f7a2a4f09cad999369a5fd3cb831938e3bd2073de76633c444e6983517c",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 2,
+          "before": "عکس قد و رخساره آن دلدار است",
+          "source": "عکس قد و رخسارهٔ آن دلدار است"
+        }
+      ]
+    },
+    {
+      "id": "30132:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh674",
+      "sha256": "0251581b1801fc131d12711bec09d192894c78a26c8d284ab77130928a8542ff",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30381:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh923",
+      "sha256": "78110fcd72c7f392a523298bd82f0c2835bfc986b84aa6682625fe940313d0b0",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 2,
+          "before": "ماننده چرخیان بگرداند یار",
+          "source": "مانندهٔ چرخیان بگرداند یار"
+        }
+      ]
+    },
+    {
+      "id": "30299:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh841",
+      "sha256": "a6023e8011bf807249e95161944c6ae047817f1cc33eb1d59865fcb4a1b5552c",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 2,
+          "before": "گر خوار شود به خانه پار شود",
+          "source": "گر خوار شود به خانهٔ پار شود"
+        }
+      ]
+    },
+    {
+      "id": "31393:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1935",
+      "sha256": "6b5f38fe4b88b4827807fdf0f60253f746511844d3e1368358ff130870a6b95d",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29486:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh28",
+      "sha256": "814b82bc6dc7f1c7fed12044d36097b3b90c6ff00bc77793922b409bc37da0f7",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 2,
+          "before": "پیدا آرد قراضه پنهان را",
+          "source": "پیدا آرد قراضهٔ پنهان را"
+        }
+      ]
+    },
+    {
+      "id": "30302:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh844",
+      "sha256": "59a7b373ebc2cde7705e17a0922603a53d143ef5e9ad8490f7ad3433090570f2",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 3,
+          "before": "صد آه برآورم ز آیینه دل",
+          "source": "صد آه برآورم ز آیینهٔ دل"
+        },
+        {
+          "line": 4,
+          "before": "آیینه دل ز آه روشن گردد",
+          "source": "آیینهٔ دل ز آه روشن گردد"
+        }
+      ]
+    },
+    {
+      "id": "29702:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh244",
+      "sha256": "365e038b69c6091690260532fe6d4d9e60ba0dbc2fd31862dd1ef529fe1bf575",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31110:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1652",
+      "sha256": "ef74fc8f59e612e3c0321caf0edd7594f6c11bbca69f5975f696b7b9fb4b1a96",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 2,
+          "before": "یک دلبر بدخوی جگرخوارش ده",
+          "source": "یک دلبرِ بدخویِ جگرخوارش ده"
+        }
+      ]
+    },
+    {
+      "id": "30800:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1342",
+      "sha256": "5ae4177b047ed423ae35ffb408b85623d7927d6cf4e7087a7f1074de5b6dd98e",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 3,
+          "before": "در پرده دل خیال تو رقص کند",
+          "source": "در پردهٔ دل خیال تو رقص کند"
+        }
+      ]
+    },
+    {
+      "id": "30220:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh762",
+      "sha256": "86c19a0a9e3aa0a24e3ddbeb1ff4fb83ffff3bb1d4dc6fc39c6c42abd50f3ba7",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 3,
+          "before": "مردانه کسی بود که در شیوه عشق",
+          "source": "مردانه کسی بود که در شیوهٔ عشق"
+        }
+      ]
+    },
+    {
+      "id": "31036:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1578",
+      "sha256": "046d6843a1844cf470b1c8dfd38b9656b3a51a7f84b5b56994d0ecfcdfdd1998",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29984:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh526",
+      "sha256": "9a17e2d1803e53edbfc44c9472c33f90468a3c8146161069d46c529b77b2e8a2",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30719:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1261",
+      "sha256": "1178deead4228e35fee420809f1cf66323ff7f893748fa81bcbb1e7d3e0f06be",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 2,
+          "before": "رخساره عقل و روح را بخراشم",
+          "source": "رخسارهٔ عقل و روح را بخراشم"
+        }
+      ]
+    },
+    {
+      "id": "30401:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh943",
+      "sha256": "f36ed4e1117531297d66b2924f11e568ac7346d8b2f4315a20990c8762a1b767",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29791:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh333",
+      "sha256": "0ea1f4dfa42c46190aae289869e4a5be1e73e212aff8116f60325c3adaea7418",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30583:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1125",
+      "sha256": "650a0b18fa41f1a62fe8d49b2366584a9d1673a002577fb8dce64d4e6f862fd6",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30086:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh628",
+      "sha256": "20877ba3d89a1ea17d39a554b7d40a5ff1739827f673af8004209599e161bfc9",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 1,
+          "before": "جز دمدمه عشق تو در گوش نماند",
+          "source": "جز دمدمهٔ عشق تو در گوش نماند"
+        }
+      ]
+    },
+    {
+      "id": "30458:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1000",
+      "sha256": "a55bc53b4261e9a45b7228c88c6721fcd31535040e0fe1770f04e71e3976bf11",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31192:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1734",
+      "sha256": "1234113e84eb6d6e0b3cba0bf66833d78ad9ba6e116a12fc4274631b00fb1d1d",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 2,
+          "before": "چون نامه من رسد به تو برخوانی",
+          "source": "چون نامهٔ من رسد به تو برخوانی"
+        },
+        {
+          "line": 3,
+          "before": "از بوالعجبی نامه من ندرانی",
+          "source": "از بوالعجبی نامهٔ من ندرانی"
+        }
+      ]
+    },
+    {
+      "id": "30984:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1526",
+      "sha256": "dd997c744d3488b9b2409873881f2e1c1aeceac808476efcdd1518259dd818af",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29788:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh330",
+      "sha256": "3ec0e7633a56bc652c647fcf92d9e08dcce48bfb980fabe042f5a66acef6b27b",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30897:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1439",
+      "sha256": "3568622969a14c33af7ba02334ba49029b9bce15d367db831fa0b4ffd32f2100",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 1,
+          "before": "بر گرد جهان این دل آواره من",
+          "source": "بر گرد جهان این دل آوارهٔ من"
+        },
+        {
+          "line": 2,
+          "before": "بسیار سفر کرد پی چاره من",
+          "source": "بسیار سفر کرد پی چارهٔ من"
+        },
+        {
+          "line": 3,
+          "before": "وان آب حیات خوش و خوشخواره من",
+          "source": "وان آب حیات خوش و خوشخوارهٔ من"
+        },
+        {
+          "line": 4,
+          "before": "جوشید و برآمد ز دل خاره من",
+          "source": "جوشید و برآمد ز دل خارهٔ من"
+        }
+      ]
+    },
+    {
+      "id": "30971:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1513",
+      "sha256": "468958708a02e3b53dd5f1bcfcf18c76b760195b8eeba17a2a78f69c20b58ac8",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29652:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh194",
+      "sha256": "45765f1d3bf34aade9248d843ebca560fa7191d4b1c6ea328e8fbd46eb891837",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30718:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1260",
+      "sha256": "376221206f545c372060c1b9f9dc32de613c98707b3ace2796101a5bcdc8e98a",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30477:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1019",
+      "sha256": "6bb8fd4bee9711f81294f92cc5d8a88dfbb6a37019c98dfff9e848afa7650b37",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29751:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh293",
+      "sha256": "0438e44c3a79351d4da2201e5ff1bc9bd624cdcd3086904ec2c67bd4fde06790",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30487:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1029",
+      "sha256": "28870ba63a065352e54af7219708bfefc92efb8437189896df266e840f7c3026",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30430:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh972",
+      "sha256": "b0f73d077d2ec18301192e9d43395c32fcce5f02fbc5472302a05f0a3112955d",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30011:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh553",
+      "sha256": "01a3980223417f7f296848a4b08919b2777aed525ae7710c1a281a54db12c9e2",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30513:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1055",
+      "sha256": "903a576e696ca4834d0a5f671d0972a956e4fa4f293df7b099f190fe619361a8",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31058:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1600",
+      "sha256": "cb827721ddce0e30e49ac2af7abf30c0c1d2457206a88c41f9b3973c84305948",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31075:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1617",
+      "sha256": "f627cd3c58b490776679056076715e687e6242632b24d5ec09fac5cb89b08fa3",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 3,
+          "before": "ای جان جهان غصه بیگاه شدن",
+          "source": "ای جان جهان غصهٔ بیگاه شدن"
+        }
+      ]
+    },
+    {
+      "id": "30591:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1133",
+      "sha256": "6ac3ff692d6ea7239bbdc3ec32a9e3b6dfe6cffc17f4c899d5fbd2676cd6cb37",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31276:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1818",
+      "sha256": "2afb9d5f3b7838cbbde814eb4870f914321c2831085c784b61442dcf917291e3",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30076:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh618",
+      "sha256": "1443aaafada369d8af8c879430853b7c978dd5645078ee50b754ec6274770444",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29893:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh435",
+      "sha256": "4658ed9cb84749da057b5711cb7a86a7ffbc3e3fcf53c19540ccff79b84b8ada",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30354:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh896",
+      "sha256": "34b8e6349235bf6517cd5c8a50a8ec53c4db00e016dc2d6ddbc266bc158a107a",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 3,
+          "before": "در کعبه عشق سوی میقات نگر",
+          "source": "در کعبهٔ عشق سوی میقات نگر"
+        }
+      ]
+    },
+    {
+      "id": "30670:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1212",
+      "sha256": "03899a63644db7a968381b7c0310044bb2be9a751c0b2187f267f0e0c28738ba",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29597:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh139",
+      "sha256": "ec80cc4dc1887d72e53e0d155812979fddf766cc9544638dd52564154abec444",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30153:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh695",
+      "sha256": "31311fbd9cb9e8785dc3c7fca6503893cb6284d55dfa09d3e7a423c8a102980a",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30127:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh669",
+      "sha256": "1f31334707468cc7bf6a00964c434bd1a0a7ef5343fe2c88a4515e71d34938c6",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30868:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1410",
+      "sha256": "765e2493ca7ff1f1a67d5dde102b2f4d8198d39eb88f965eb886668099eb2bb6",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 1,
+          "before": "ای روی تو کعبه دل و قبله جان",
+          "source": "ای روی تو کعبهٔ دل و قبلهٔ جان"
+        },
+        {
+          "line": 2,
+          "before": "چون شمع ز غم سوختم ای شعله جان",
+          "source": "چون شمع ز غم سوختم ای شعلهٔ جان"
+        },
+        {
+          "line": 4,
+          "before": "تا چاک زند به دست خود خرقه جان",
+          "source": "تا چاک زند به دست خود خرقهٔ جان"
+        }
+      ]
+    },
+    {
+      "id": "30604:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1146",
+      "sha256": "1e6e373594d7e6464bc8416decb3f1aa3e40722b8fc4ccb82cdd03aeb2277f53",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30611:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1153",
+      "sha256": "b2984beff1e79c93c105accf387d8de8c93abcf42bf5d5850c39dd051a9e162f",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31063:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1605",
+      "sha256": "1d9f5610a3602353ca68100e86deb2c80527416eced559dce0bf95c9b8059d24",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30048:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh590",
+      "sha256": "fe9721be66aeaa9cda1ae1947b9e245ac6bebe1321659c39001b115eb7104ced",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30224:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh766",
+      "sha256": "4fdaa762123e45718710ea8ed4863f010c37f5a8e9330558a3b889bfde43e4f5",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 4,
+          "before": "یک خنده تو به رایگان می‌ببرد",
+          "source": "یک خندهٔ تو به رایگان می‌ببرد"
+        }
+      ]
+    },
+    {
+      "id": "30551:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1093",
+      "sha256": "c2b1046dd837c5ed11be4fa73d9288fff2ef06307861af2b23432e904f460896",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31277:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1819",
+      "sha256": "bfd8fbd94aea1b4b89f94ee394bead412475cf828b2fd464e4628e4adf480501",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30459:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1001",
+      "sha256": "cbea63a2c7059401c189977f04acbdba523b4f33fec5dd3a692f93c7e0bc8826",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30323:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh865",
+      "sha256": "7368564bdebaa1b72b7508d914fd1d39808641d12274b4f488a6b6aadcab33f7",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29683:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh225",
+      "sha256": "eb81e0e3fa6bf68ee03eb52774f62e8aa159805831e44b0d7475afe51aabea4f",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29862:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh404",
+      "sha256": "91a621470ccae9a33f65c2e490a5c2db97cce66ec37253850eae5b27367681c5",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31390:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1932",
+      "sha256": "fd5ba52c1538249003ae479a1446b545aca81c800bc9b2e34a65f170a4d6a124",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30904:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1446",
+      "sha256": "5681a1d14c14e8220e2d32e0f9ee5832812c46e69ce580fed42eca03f7109b2a",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29640:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh182",
+      "sha256": "b6311c47b78d2d896cf6bdb0eac72dc58c100780d5aeedc8a3d1dda0b0304e17",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 3,
+          "before": "بر کعبه نیستی طوافی دارد",
+          "source": "بر کعبهٔ نیستی طوافی دارد"
+        }
+      ]
+    },
+    {
+      "id": "30193:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh735",
+      "sha256": "d44431e31c567d7da9f25fd598cabef8be8fdd38526f6694fa379d1395ffce1e",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31054:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1596",
+      "sha256": "05205c9be7cdc1fd613d0213784ff49b5eb3b344805e8b6b44b2d310743c37df",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 1,
+          "before": "از دیده کژ دلبر رعنا را چه",
+          "source": "از دیدهٔ کژ دلبر رعنا را چه"
+        }
+      ]
+    },
+    {
+      "id": "30152:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh694",
+      "sha256": "7a2d50853473d19f68e48311a71acca04a1de6311d4ad35ef69e8fb90839519a",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30680:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1222",
+      "sha256": "26b2b156a33b8adf37b3b12960f6a8eaf31f9be72bc7a1bc072968bc74c1e72c",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30720:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1262",
+      "sha256": "b24b5c8974f9f41b2d1f0ec77f1cb438b57809add44535aec999d273bbf8b583",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30070:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh612",
+      "sha256": "77d4395bf3ad930ad24145a9fde8eb23e536f5a524bcacc4178773fd70dc0df0",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 3,
+          "before": "از نعره او جان و جهان می‌غرد",
+          "source": "از نعرهٔ او جان و جهان می‌غرد"
+        }
+      ]
+    },
+    {
+      "id": "29932:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh474",
+      "sha256": "eb5fe46edc90dd3bbda4806255611488928ddcc6b7b3558baad0192ec2ec8eb1",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30083:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh625",
+      "sha256": "59240a0c378dee5990fe1571a1119ae69151c0763c573370d73ef598b2a1c27e",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 3,
+          "before": "بر باد دهم خویش در این باده عشق",
+          "source": "بر باد دهم خویش در این بادهٔ عشق"
+        }
+      ]
+    },
+    {
+      "id": "30396:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh938",
+      "sha256": "985badd406e7c0ca1c229fe711982205416e060ca69d2c75872ef18067644b80",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30387:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh929",
+      "sha256": "b8d8378a8a63fb105f9092cadea47e3d8dc61f8275626e7fbabdaadda04077df",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30055:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh597",
+      "sha256": "031f93f6653f80b814025bce35dcc16a8fedc935103edaea6cdb71a14a204cd1",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30549:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1091",
+      "sha256": "d525761acae41eb32f7ecbe42dace596811fe851ca710d1ab76aae8718465838",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30097:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh639",
+      "sha256": "80628dd3818454fb3138aebc07a7a92ded1caf38a18c9becd15e6c16a4a088a6",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31360:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1902",
+      "sha256": "8e96f7f7af9d8aa7576922d9592786fd0d37ae7eeb55e404ab245f1ae24185d4",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30173:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh715",
+      "sha256": "256191aa09d779e5bea1bdea913d24b7cf19a1e6d9401a7d2d5173e0d3719375",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29589:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh131",
+      "sha256": "5d0b96e409015dcc0617f1f984532e8749fb8ed1b96ed5f13564c74673c95995",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29950:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh492",
+      "sha256": "3edf3dd7786adc63f1be1cb8e99f938bdeb4f9b6439a31ca8109e4e1d048b642",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31281:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1823",
+      "sha256": "e77d391d371402fe4f79617da26c882a2682e27c0f1acecb9b33227d8a7b368b",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29513:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh55",
+      "sha256": "b0c9d0a556b2026ddf3d04b03212b13a386ceb558131fbe70a1e641a95b82f4c",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 2,
+          "before": "من بنده آن شهید و آن غازی را",
+          "source": "من بندهٔ آن شهید و آن غازی را"
+        }
+      ]
+    },
+    {
+      "id": "30014:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh556",
+      "sha256": "73d3c8e0b91761298a09cac6888edd8dc549b58fe8a4464f9f0c68e1d37e6cb2",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31140:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1682",
+      "sha256": "5edbb71293c06c34ef1ec807b6d121fffee1d6727402ced891f20377c6945807",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29669:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh211",
+      "sha256": "64fb8050998da9a34ea600238e593bf24e1b955eddcfecb84a56cdc00dc3cd13",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30215:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh757",
+      "sha256": "4b179e925045055a7929f94c33664a84adbdbb722af5f86e11a5e6d10a7b97cb",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31041:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1583",
+      "sha256": "2265f09fbc91366c44fc37150f3adf1d5edb025c054929cd91ec7d48ae4de3e6",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29943:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh485",
+      "sha256": "202290327838559f468bf6281a65ee90b455310e31ccacf4e2e95b76a87290b3",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30270:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh812",
+      "sha256": "390e39339174fd8c4589617c88d16519d65c30dcd4822ab5c62e95653ef834ae",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 3,
+          "before": "تا هر دم ما حوصله عشق رود",
+          "source": "تا هر دم ما حوصلهٔ عشق رود"
+        }
+      ]
+    },
+    {
+      "id": "29499:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh41",
+      "sha256": "0c06524ad83ecc0fb1fa55637fff6d097e2d59cd00cc8435371f376af3df40ca",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30019:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh561",
+      "sha256": "ca6d46d6be30c3ec3dddefa18241680af5a3f3d49fdb8a4d222c9f02170337d8",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30244:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh786",
+      "sha256": "70f432827e6abf65f6dcb229af7b11d0b4dbdb1fa00388e1d8d80dad1efee090",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30876:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1418",
+      "sha256": "c62c076cdeed3267b6da13c7fa0118955018fd190cc85cb84e05f86802f1a4e3",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30772:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1314",
+      "sha256": "41932814c25efada3fb368d2872cc4c621acd8fc25adbf6f075383296cfc60b7",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 3,
+          "before": "در عشق که او جان و دل و دیده ماست",
+          "source": "در عشق که او جان و دل و دیدهٔ ماست"
+        }
+      ]
+    },
+    {
+      "id": "30349:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh891",
+      "sha256": "b1285fcd25492a9740ffb058d9329a6eea8b43169e2ed31d2bcbe54efae9f28c",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31000:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1542",
+      "sha256": "faf9cc86cb5b2229f4d8a0d7968aeeb4d31418eaee3741f23fb3a91aa42a4366",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 1,
+          "before": "ای جان جهان، جان و جهان بنده تو",
+          "source": "ای جانِ جهان، جان و جهان بندهٔ تو"
+        },
+        {
+          "line": 2,
+          "before": "شیرین شده عالم ز شکر خنده تو",
+          "source": "شیرین شده عالم ز شکر خندهٔ تو"
+        },
+        {
+          "line": 4,
+          "before": "در گردش روزگار ماننده تو",
+          "source": "در گردش روزگار مانندهٔ تو"
+        }
+      ]
+    },
+    {
+      "id": "30857:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1399",
+      "sha256": "e83e30636114d7190edf075515deaa5d9828df0c6221f20526d5163a1938f27e",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29501:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh43",
+      "sha256": "3e3021ea0318aa72dbb5bc31241a9871f055e520be33a7ce1f56856dd8f3ac4b",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 1,
+          "before": "خود را به حیل درافکنم مست آنجا",
+          "source": "خود را به حیَل درافکنم مست آنجا"
+        }
+      ]
+    },
+    {
+      "id": "31049:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1591",
+      "sha256": "65b0040616c3228714dc41377e667b358c127eae6f532c60f3219c3b7e41b779",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29916:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh458",
+      "sha256": "9144a225d8464d141dc45f77b0cf6b7d17214d225260eda88cf788a7374ea445",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29580:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh122",
+      "sha256": "0555e999eab93f5e0dc7e0a8f4a6d45004cb05bf0cee7e1654e4f6da1e1c904a",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 3,
+          "before": "اندازه جان نیست چنان لطف و جمال",
+          "source": "اندازهٔ جان نیست چنان لطف و جمال"
+        }
+      ]
+    },
+    {
+      "id": "31034:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1576",
+      "sha256": "aac9645bf23c0716afd936fd34b1e87c0e99d7af9ae8719192da2308af9756dc",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 1,
+          "before": "فرزانه عشق را تو دیوانه مگو",
+          "source": "فرزانهٔ عشق را تو دیوانه مگو"
+        },
+        {
+          "line": 2,
+          "before": "هم خرقه روح را تو بیگانه مگو",
+          "source": "هم خرقهٔ روح را تو بیگانه مگو"
+        }
+      ]
+    },
+    {
+      "id": "30966:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1508",
+      "sha256": "87a4683f1ddbfe38fb6b7d9822fca31f6220fa84aa80e73d859fb36491f5da1f",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 1,
+          "before": "مجموع جهان عاشق یک پاره من",
+          "source": "مجموع جهان عاشق یک پارهٔ من"
+        },
+        {
+          "line": 2,
+          "before": "چاره‌گر و چاره‌ساز بیچاره من",
+          "source": "چاره‌گر و چاره‌ساز بیچارهٔ من"
+        },
+        {
+          "line": 3,
+          "before": "خورشید و فلک غلام سیاره من",
+          "source": "خورشید و فلک غلام سیارهٔ من"
+        },
+        {
+          "line": 4,
+          "before": "نظاره‌گر دو کون نظاره من",
+          "source": "نظاره‌گر دو کون نظارهٔ من"
+        }
+      ]
+    },
+    {
+      "id": "29962:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh504",
+      "sha256": "ee5eb541077a0ebac788f1496de7a31e18dab1ea0b37f688e69a8b946167835b",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30525:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1067",
+      "sha256": "d0dfd257d4717a4431acdb4b72be2f3024d498b98f45fca650c2f6c5df479095",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29821:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh363",
+      "sha256": "9f6eefadec723f4474117b4901fba79004c95ec6601071e23c10778aa21de0f8",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30361:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh903",
+      "sha256": "9a2bfd019f4f1022bd583c9b483b5943828bf89c97549abae1ddbae5c80b58df",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30556:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1098",
+      "sha256": "3bb5e30cca767f5f304d570a50003505f6959a2d913dd496da1b251e5b7fd929",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30589:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1131",
+      "sha256": "8136978ddb8fb23cf07086abca8811565d57d5005926cefcfe2c8ea42d482b5c",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29565:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh107",
+      "sha256": "b94df038e5ae498e52e0bb9b90c91793e60f67e7f5d282f58e76a9c1fdefa896",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 3,
+          "before": "بر جمله قاضیان دوانید امروز",
+          "source": "بر جملهٔ قاضیان دوانید امروز"
+        }
+      ]
+    },
+    {
+      "id": "30130:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh672",
+      "sha256": "01bc0c719ebc7963d0096c0580d880bde3b682660c89befca09efd8fbe6ab59e",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29674:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh216",
+      "sha256": "1e1dabfc49a35ab96ae9509bbf5b9a479658f6c4c459e63cfd7988d08527f0ee",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 4,
+          "before": "بشتاب تو جان ، که شمع دل جان طلب است",
+          "source": "بشتاب تو جان ، که شمعِ دل جان طلب است"
+        }
+      ]
+    },
+    {
+      "id": "31341:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1883",
+      "sha256": "8a92c7ac410a7f82384ef053a36bcc79f28104192306147578e7f8029f825bca",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30219:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh761",
+      "sha256": "10e532ea82534f3c120203d22486d67882f7eff04caf20586131b359f5ab255f",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30330:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh872",
+      "sha256": "df0980d0dd9a94573a01d0254c31b8f44f191b9522547e640916594bdf45a8ec",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 4,
+          "before": "یارب تو بده دمدمه پنجه شیر",
+          "source": "یارب تو بده دمدمه پنجهٔ شیر"
+        }
+      ]
+    },
+    {
+      "id": "30015:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh557",
+      "sha256": "ccd0ff4d56859eaeb92bd4905cd4b455836ebb0f3fc905f661f7a6b3917539e4",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30540:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1082",
+      "sha256": "b39ebdd5a172fdca4c596803d6757ab4373fd3a26498226c1e8c73953ed88190",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30563:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1105",
+      "sha256": "61c5e6461aa68f8c8d29ebe22801d19e94b21ed00b95faa5bd4119e0fc5ee082",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31285:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1827",
+      "sha256": "482e960d4a02cce828248671bb1618b16d0f7f6c264987a593065208793b7a39",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30506:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1048",
+      "sha256": "ed38b097c25a59a279085bc224e734b7489fc6ad2debc236352bae954c2edabf",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30764:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1306",
+      "sha256": "d8c9f8136e58080fcd12f1315a2baacd64704311668f97e364f18d562e51153c",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31329:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1871",
+      "sha256": "6e2a931bd9787b87c7034b6cbe0e07c0cdb20198dccbe68e77db0f7e366545f2",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 2,
+          "before": "جان شیفته الست می‌پنداری",
+          "source": "جان شیفتهٔ الست می‌پنداری"
+        }
+      ]
+    },
+    {
+      "id": "31340:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1882",
+      "sha256": "7609e829a93b7bcbfaebb56ff23ead7ec7c9ae068b3ee08e1a86393b32310171",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29577:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh119",
+      "sha256": "ab96c6ee5dfb95377828e27437184a7fd04cb9a557e994fa6faa18b7d7e6a080",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29651:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh193",
+      "sha256": "0aac56679782f44631de48a88618354e06ba943777fcb1f2b4ac05c478e66fe0",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30031:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh573",
+      "sha256": "e18983eb1f6ce940013f0afbb25f5aa6fc61745663b563a9dd9789ae04f33e3b",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29728:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh270",
+      "sha256": "f71f6123f84161cbe6e2a0f90bfd5f261c9c1a5ee11015503655c6b65fadff9f",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30541:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1083",
+      "sha256": "7cb7ccccb0317d4075bca551d1280a8ac4a07c6bcf3d6b7e815d016e03a7ce3b",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29599:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh141",
+      "sha256": "837999e734a0c67c092758fa1cc3c6ba74d29eb650e89e78a483c4deadf53d05",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31001:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1543",
+      "sha256": "9e085c37bd117b7e1f02840108dbfe11587540ac2a7ff5d87995111745d7c99c",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31431:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1973",
+      "sha256": "7262e5a96746715a81e78c422eb396a44d1005630549f1635a18f1d887d1887f",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30814:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1356",
+      "sha256": "29eebf7db4cd5e939d76f3768e72a66dac6e7cf0d5fb66b25b30b0d299b82ddf",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31324:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1866",
+      "sha256": "806d126f17e51a6dfacab37db9090e075284145b478a29e5db77bb46b7d3b722",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31186:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1728",
+      "sha256": "f3d5f873df9502e9886ba33bc13a06c0aec40e0fd6811382cc220350caaa5e24",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29978:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh520",
+      "sha256": "f4bc46be12cb7eecd1f1a23542f729e373ffe5d5784ec64f656af5f14eb8514d",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30064:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh606",
+      "sha256": "a5e1507692f126e30c3ea191293b4f3fbde9d9cd16655af8ddf820c19203325a",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30579:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1121",
+      "sha256": "89bfa4985c2d4471e4bab4dc2497f08a9666bd580485290c892440469b4450c6",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30488:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1030",
+      "sha256": "2a831136defe26c9afa74882edcb38a9d4fbe9f122a950295fb088f46f838111",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30358:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh900",
+      "sha256": "dd394ddf4fb42326bb39f8b080d6ee2f2fa5b9bb4b7c2b35d77c97e451866e3c",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30365:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh907",
+      "sha256": "4b7013df7dbf4ea304be6668f229926f39f6f00bba8eb4d28d9cd8696049700b",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29868:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh410",
+      "sha256": "4a59395138fd8a2a09d5a19d3a13b9fdb9eac7955f3c3d4c9a0f72e39ada09de",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31190:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1732",
+      "sha256": "45b95e253b66351d709771c47fd41e3010e3d8b54c44db23493ef0aa3e8b2a1b",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30683:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1225",
+      "sha256": "44f680170bd99ad1bff40ae0f75fb61f560f154668512c3608b168840c176553",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29806:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh348",
+      "sha256": "0f1eaf532c9e83fc32fd5d946d799b32f0c771e7c834f2df51b9c4faac14deb5",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31209:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1751",
+      "sha256": "7b00c43f0abfc721ee84fb3ba11d2fc40bc3f03899538ca0c1ffa3c323c63737",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30555:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1097",
+      "sha256": "22cd8af495f095e89f7c797eee1c99c2730b4b270123b2eff0336fba5503aaa1",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30528:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1070",
+      "sha256": "9f915797c9b04e84cd057d2ab64d3911a1985493b9e8c6cdf3160e0373da05b6",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29736:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh278",
+      "sha256": "1dbacb1c8a1f239172da3d2eb151b557d490ac1b9425e6f4752d7cb14350a263",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30286:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh828",
+      "sha256": "87b55b45d3e2e7b88eaea19f83aa512aeb7ddf7fe28159c87e5fc0752089569f",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30417:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh959",
+      "sha256": "2afe474a6bdd4623e028446e7c7cb1d81d8a2ade6c0d1491d26d3411d5094325",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30383:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh925",
+      "sha256": "7cf860cf2fbfa60cb6f310f65881445e28401acb16747c92f853d7de70e45ad0",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31394:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1936",
+      "sha256": "93a49819e51d1c1e7cb1ea232b34f013e09fd6e88290445eba21dc82b3c6e863",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29545:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh87",
+      "sha256": "be0ebe65a672c2ce50613fbe5d6a078b4672c6e8943c7badf68ad661baf4b5c7",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29481:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh23",
+      "sha256": "457698074717f5aa5db09dc3e744a70b31ae0bfe023d97813a16e58bf2644a9a",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29715:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh257",
+      "sha256": "461f176230d2ba13f92ae292c07f218833f8e808a41c5c62fe3a8e82ffd75396",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30507:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1049",
+      "sha256": "e0dfbf0b14bcb5f2f1e0190e1b1b63a09c42516a5562100f3b7e713d90ef7177",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31225:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1767",
+      "sha256": "32510f9ee27a9b49bf73774fcc78a73a92ec10d0b60a5c54f58d42d635b5686f",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31256:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1798",
+      "sha256": "a7a0cfd48b9b4cef7ca0dbaaa8b62fbeef16d054ac369e5122946316d6931e56",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31066:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1608",
+      "sha256": "09ea7312693aac94145d152042609661d14ced0f938d7e079f750ad73659f145",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 4,
+          "before": "کز دمدمه گرم کنم آب کره",
+          "source": "کز دمدمهٔ گرم کنم آب کره"
+        }
+      ]
+    },
+    {
+      "id": "29938:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh480",
+      "sha256": "525131d6fa2469f99264cbd6a9b5c2a6b15874d60c4b927562ada38980f7161d",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30618:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1160",
+      "sha256": "db24b624a5f1226f9b756ecd22eda024da7a45aadc78ee0e687ac00e8aefb990",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29496:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh38",
+      "sha256": "37c7bf41dcde909c4a2a78196f6e6eeab949bfd4cd231aac3a7692223ea7c275",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 1,
+          "before": "تا کی باشی ز دور نظاره ما",
+          "source": "تا کی باشی ز دور نظارهٔ ما"
+        },
+        {
+          "line": 3,
+          "before": "جان کیست کمینه طفل گهواره ما",
+          "source": "جان کیست کمینه طفل گهوارهٔ ما"
+        },
+        {
+          "line": 4,
+          "before": "دل کیست یکی غریب آواره ما",
+          "source": "دل کیست یکی غریب آوارهٔ ما"
+        }
+      ]
+    },
+    {
+      "id": "29823:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh365",
+      "sha256": "0ead26f5439f08ffa4d6085f6bed90130c08a889aa8f7f096ea486087b8dda62",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 1,
+          "before": "عشقی نه به اندازه ما در سر ماست",
+          "source": "عشقی نه به اندازهٔ ما در سر ماست"
+        }
+      ]
+    },
+    {
+      "id": "30593:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1135",
+      "sha256": "b91bee5ed56a2988b67d63f562cf1ef20ab6f25dc00fb288ac3af645385aefac",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29752:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh294",
+      "sha256": "839be0538f6255db0ad70a0956260deced47ca9c49e8535eb1582c7071f501d1",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 4,
+          "before": "او غرقه خود هردو جهان غرقه در اوست",
+          "source": "او غرقهٔ خود هردو جهان غرقه در اوست"
+        }
+      ]
+    },
+    {
+      "id": "29968:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh510",
+      "sha256": "204244ce79ccb460070b6416b9724705f26466128fbf8713a18b94b0b7855fca",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30560:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1102",
+      "sha256": "20059476cfe50f9004ca2d843aa7da26c321ff20f98670dd6269fb571247055c",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31157:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1699",
+      "sha256": "4c510a08f5f08deb2409948dc2ff960f801a321f5631481c971832095aa2e6c9",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31286:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1828",
+      "sha256": "904212946286e4393bf229536cdc351fbda44f2d5a1fad44fa2e0d7d60e9d4e1",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30982:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1524",
+      "sha256": "08015b5720e8f42b4fe74af941aea0628032152566e601cc18b66c001bcca405",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31430:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1972",
+      "sha256": "b697e52f71508821d068eb672579f953aad24e6bf773bb3529d0b618bbd57ab0",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 1,
+          "before": "نقاش رخت اگر نه یزدان بودی",
+          "source": "نقّاش رُخَت اگر نه یزدان بودی"
+        }
+      ]
+    },
+    {
+      "id": "30484:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1026",
+      "sha256": "356388a9d97373cfa935f8cba18b13c6fd9f6f9982093282119ce5dd6c839df6",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 1,
+          "before": "بیچاره دل سوخته محنت کش",
+          "source": "بیچاره دل سوختهٔ محنت کش"
+        }
+      ]
+    },
+    {
+      "id": "30543:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1085",
+      "sha256": "6f7f12dd88d50e5e7edba2643d20b245db4620b305cad332108d6d8ee682cde7",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30421:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh963",
+      "sha256": "a2b789ae3c4ad3275a833a4c8567bf1c5c2123fbfc12dc4ccb296e80b0010cc9",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30848:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1390",
+      "sha256": "a9d79be7f7c831537ee749d1c19da0698b2d558a89776a52cdf7274b25b2f209",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30890:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1432",
+      "sha256": "d8fc66abbedf1323a034d86545f6545f030c1c7db46cd6cdb6acc8eebe7e95ee",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31042:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1584",
+      "sha256": "7f4f2e95468480f6246da3169fde1bd2ad52f6c2c1e56a5dbb4c6078b9dc2754",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 1,
+          "before": "ما چاره عالمیم و بیچاره تو",
+          "source": "ما چارهٔ عالمیم و بیچارهٔ تو"
+        },
+        {
+          "line": 2,
+          "before": "ما ناظر روح و روح نظاره تو",
+          "source": "ما ناظر روح و روح نظارهٔ تو"
+        },
+        {
+          "line": 3,
+          "before": "خورشید بگرد خاک سیاره تو",
+          "source": "خورشید بگرد خاک سیارهٔ تو"
+        },
+        {
+          "line": 4,
+          "before": "مه پاره شده ز عشق مه پاره تو",
+          "source": "مه پاره شده ز عشق مه پارهٔ تو"
+        }
+      ]
+    },
+    {
+      "id": "29939:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh481",
+      "sha256": "11326e19c4f8065373cfd244cd0f8bf1390aed68ca7391c5bd0526727de55d56",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29465:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh7",
+      "sha256": "f8ba189b5511c9afc3135412fe382826ea413a3b19b69ef335d3fdb56bd5b3f9",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29944:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh486",
+      "sha256": "83a339d7b6e854719388fece610fdd2d86ab59e2bf7f9f5f55827dc08706ed55",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30496:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1038",
+      "sha256": "4b972d2cd05a92c983b39d22e0b150df153c69a2c016d9714f8762db9100b50c",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30393:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh935",
+      "sha256": "c4616b42f32b1fd292d27c47104665980f74e0ca3dc796cc4dd185a51064d844",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31275:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1817",
+      "sha256": "88d7de3fe62a6174730a0ccdbf4733ef8095c0681ff735751f5f2e379f549996",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30013:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh555",
+      "sha256": "17e9f48382bd25badd733ddddfd1e8d684d1fd00cd496394dfb04f48facbd1ee",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29660:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh202",
+      "sha256": "9b17ac982167b447c6860efabfa8ba04825000da295f93675e4012c25690247a",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31438:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1980",
+      "sha256": "e681c0795f034c355d3b09ee8ce6940de52e0afebe4522f3dca0875b0ac45c1b",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 3,
+          "before": "ای یوسف روزگار، ما یعقوبیم",
+          "source": "ای یوسفِ روزگار، ما یعقوبیم"
+        },
+        {
+          "line": 4,
+          "before": "پیراهن توست چشم را بینایی",
+          "source": "پیراهنِ توست چشم را بینایی"
+        }
+      ]
+    },
+    {
+      "id": "29812:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh354",
+      "sha256": "414792f94a7f90b084099cfd38a1cc05aecf3dde418b061e5e82bbcb9c0d4438",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 2,
+          "before": "زیرا که نهان ز دیده اغیار است",
+          "source": "زیرا که نهان ز دیدهٔ اغیار است"
+        }
+      ]
+    },
+    {
+      "id": "30515:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1057",
+      "sha256": "c66349c00348b696e802b969ddf7912697be29ecf1de2e4eb868400ac2252dff",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31321:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1863",
+      "sha256": "0936231812f7760a2f446b69c0cf36d92fbc4efad29c6c960f443bab3bb412e7",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 2,
+          "before": "در خطه لطف شهره برهان که توی",
+          "source": "در خطهٔ لطف شهره برهان که توی"
+        }
+      ]
+    },
+    {
+      "id": "30292:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh834",
+      "sha256": "3c0163241af58116949b9e95ed78100e9acd8ec8c9b61ab94472b8223fef8476",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31253:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1795",
+      "sha256": "2721bc4cc0413a52efa9a114bc580d82d70d36a14a9a8729198dc62ad5f81add",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30022:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh564",
+      "sha256": "2a473cd6932018071d43f7e89ddab2ddafe4a773a4ab98379088000a002c7e33",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29462:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh4",
+      "sha256": "9d0bf5f896a81652cbdc56e17292a6e8cf104c25d14af229c275bbeb672e3430",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 3,
+          "before": "مایه بخشد مشعله ایمان را",
+          "source": "مایه بخشد مشعلهٔ ایمان را"
+        }
+      ]
+    },
+    {
+      "id": "29845:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh387",
+      "sha256": "6a1192316ffedb3e6d37e01dc389238670501bce43c7bcaec6f92f9bb50d8c26",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 2,
+          "before": "گفتا که بهای بوسه ما جانست",
+          "source": "گفتا که بهای بوسهٔ ما جانست"
+        }
+      ]
+    },
+    {
+      "id": "31037:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1579",
+      "sha256": "2e77c3b8a7c48bd13e11f8c8080140b08ed2071a9bc0cdd488f983f84e16dda1",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29745:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh287",
+      "sha256": "c79a48145a8563030d5b097018b0fd428ca6aadb51a4d2107579b87254072a77",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30529:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1071",
+      "sha256": "ffc14210b524205a071ff13ab91bb3301b6b461718584bf18021e5a6af37d3fa",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30552:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1094",
+      "sha256": "db6212f942c8836564899350feed8cea8b8d91f029c62c4637e5008e7ed5dcdf",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 4,
+          "before": "هم سرمه دیده‌ای و هم قوت دل",
+          "source": "هم سرمهٔ دیده‌ای و هم قوت دل"
+        }
+      ]
+    },
+    {
+      "id": "29927:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh469",
+      "sha256": "e9ca65d374a91a89aa840ba925f6a31b126a75a223ff8fba7202d0c2cd88701b",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 2,
+          "before": "بر نقد زد و سخره امید نشد",
+          "source": "بر نقد زد و سخرهٔ امید نشد"
+        }
+      ]
+    },
+    {
+      "id": "29819:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh361",
+      "sha256": "4b8316be1427e277785b9ff46f9bacb3276c19e4a8166b427bd0a0552f2e1fb8",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29568:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh110",
+      "sha256": "2f6c1a00b861bf63ce62c00dd3daf9d36c47709ee05322e07a69557f8d8ca321",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 2,
+          "before": "وز غصه هجر گشته آزاد امشب",
+          "source": "وز غصهٔ هجر گشته آزاد امشب"
+        }
+      ]
+    },
+    {
+      "id": "31444:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1986",
+      "sha256": "b555a876e2086cf33c9f16b1252c336b236d3993ac3f4f455d9ca84b736cc242",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 3,
+          "before": "ماییم و خیال یار و این گوشه دل",
+          "source": "ماییم و خیالِ یار و این گوشهٔ دل"
+        },
+        {
+          "line": 4,
+          "before": "چون احمد و بوبکر به گوشه غاری",
+          "source": "چون احمد و بوبکر به گوشهٔ غاری"
+        }
+      ]
+    },
+    {
+      "id": "29802:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh344",
+      "sha256": "52ac676fc2f74207116fe3f7c4b4dec4040f58fea0d09c5a62d61be672bb7588",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 3,
+          "before": "عشق مه من کار عظیمی است و لیک",
+          "source": "عشقِ مهِ من کارِ عظیمی است و لیک"
+        },
+        {
+          "line": 4,
+          "before": "من بنده آنم که غلامش عشق است",
+          "source": "من بندهٔ آنم که غلامش عشق است"
+        }
+      ]
+    },
+    {
+      "id": "30081:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh623",
+      "sha256": "9f426c0d56885a933029a3f299afed8c7242f133c4bdd2ec84c3eecd457a238c",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29480:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh22",
+      "sha256": "9c1a566dd399ffde187b33228a707223968736c59731405381cfaa7ff9e2bc1c",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29701:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh243",
+      "sha256": "f38f1e2d02bd71841c5fd83d7d82c5eb16ce94af2e076d2d3d150f7a8a9d6a0d",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30844:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1386",
+      "sha256": "0e6ec5ea04e51054c638777ae1cd8d421cf54334433c9ec5fc662780c1400246",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29970:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh512",
+      "sha256": "dd078274ef8e7a451d525c5cd0eec627a1e2f156999590483ec4579ffad34e1d",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 4,
+          "before": "کز کشته دوست زندگانی خیزد",
+          "source": "کز کشتهٔ دوست زندگانی خیزد"
+        }
+      ]
+    },
+    {
+      "id": "30903:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1445",
+      "sha256": "4e8ee3a3c7aba87874e96836eabc30f40596b48d9d03edbe515b3c314c00e6a5",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 2,
+          "before": "نز کعبه خبر دارم و نز قبله نشان",
+          "source": "نز کعبه خبر دارم و نز قبلهٔ نشان"
+        },
+        {
+          "line": 4,
+          "before": "کاین قبله قالبست و آن قبله جان",
+          "source": "کاین قبلهٔ قالبست و آن قبلهٔ جان"
+        }
+      ]
+    },
+    {
+      "id": "29497:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh39",
+      "sha256": "0f1bbf80a68d677f7c4008b6993271e4c9a7ba27eeae24cfec011c1aa3391ce5",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30003:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh545",
+      "sha256": "c4404b65f0bfab51ed0055ca54e60e3c48a2bd7f757ff1f6eb9b602b91f58fe0",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30748:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1290",
+      "sha256": "76f3bb7755a08361621d07d2a710ccacd590d0a5afed88f9fd80dfbdbd13d628",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29822:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh364",
+      "sha256": "89e7adbf60559a27d7a2df4645e1d00587bd7543dcdb1d87a4ec62711dffc921",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29768:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh310",
+      "sha256": "065f8bff172abe7ecbda589b77ee5f18fe334dc1fc857548ad084a1a1e442633",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30561:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1103",
+      "sha256": "b9828e9e2857d1ce895ac8ce8618b69c711705c2df5b81a236907b59b2d69a01",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30663:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1205",
+      "sha256": "9772b44f1e9a1c4c6778c223f026ded83c4374dcce92e0f264fc05f2a7873f73",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29569:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh111",
+      "sha256": "eb3d2215e5c83247d17d538414a7bc4418828ae53be7dc2cf645afc9d96331b5",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 2,
+          "before": "کش در تسبیح صد سوالست و جواب",
+          "source": "کش در تسبیحِ صد سوالست و جواب"
+        },
+        {
+          "line": 4,
+          "before": "جوشان‌تر از آنیم که در خم شراب",
+          "source": "جوشان‌تر از آنیم که در خمِ شراب"
+        }
+      ]
+    },
+    {
+      "id": "31317:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1859",
+      "sha256": "0102400c2102db18b9cf603a93cfef58378bff68dedec599cd58bdf29ecb37ee",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30635:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1177",
+      "sha256": "2bd1e0b4f4266dc15b16f1d2bcb2fe7ff4394bf254959e634cf4b35f1fbb03d0",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30213:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh755",
+      "sha256": "ba36c14136221d6d9f5a905c566d3a5ff2f9b2ac1074e78192b96dabf6be9e23",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30883:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1425",
+      "sha256": "48dd8ce097ad5802677589b4a13a416bbf78efe8cb9dc1e88786a4bc295b7d4f",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30400:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh942",
+      "sha256": "dc9a39aaf77c46e3867fbb286e8db9e6798789dae520d9cc700966c081cf1969",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29749:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh291",
+      "sha256": "dd380757b4a9c04e806e7eefb484bd77182f56f7e07706314d1d0b1719fd8505",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30544:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1086",
+      "sha256": "8ae47052e92ab12f298ae49c264dfd8461f13b3cbde193d02df8444d4f992166",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31143:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1685",
+      "sha256": "54593831267bfe7b5a6de203bc6bc2c17e3fcdc37cd412e1e353c84600884919",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30874:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1416",
+      "sha256": "2ac9b6a36b5324a18dfce0cde1fed7ff46e0c4ac831f1555fdaf26ccca75ae19",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 2,
+          "before": "نی غصه نان و غصه جان خوردن",
+          "source": "نی غصهٔ نان و غصهٔ جان خوردن"
+        }
+      ]
+    },
+    {
+      "id": "29787:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh329",
+      "sha256": "8e28f99d6908e4f83e9eb0cd57f2ad77a2fda9275932de9f8c8414b9ad9be915",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 1,
+          "before": "دل رفت و سر راه دل‌استان بگرفت",
+          "source": "دل رفت و سرِ راهِ دلْ‌اِستان بگرفت"
+        },
+        {
+          "line": 2,
+          "before": "وز عشق، دو زلف او به دندان بگرفت",
+          "source": "وز عشق، دو زلفِ او به دندان بگرفت"
+        }
+      ]
+    },
+    {
+      "id": "30293:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh835",
+      "sha256": "0f0375c7110b76680007e8b79b53245a9305a1d4889c4c55e06528fa4fb2f895",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30017:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh559",
+      "sha256": "76ac17867331725fffc7c0d4fe676eed39d20da688afb9c63de2334ef03566b7",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 1,
+          "before": "ای عشق که جانها اثر جان توند",
+          "source": "ای عشق که جانها اثرِ جان تُوَند"
+        },
+        {
+          "line": 2,
+          "before": "ای عشق که نمکها ز نمکدان توند",
+          "source": "ای عشق که نمکها ز نمکدان تُوَند"
+        },
+        {
+          "line": 3,
+          "before": "ای عشق که زرها همه از کان توند",
+          "source": "ای عشق که زرها همه از کان تُوَند"
+        },
+        {
+          "line": 4,
+          "before": "پوشیده کسی و جمله عریان توند",
+          "source": "پوشیده کسی و جمله عریان تُوَند"
+        }
+      ]
+    },
+    {
+      "id": "31220:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1762",
+      "sha256": "e16dc8897cb0d6be8dc810c24a593155a2b437b6b2c1ca7d8b3e78c99eba05de",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30370:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh912",
+      "sha256": "a86b53323ef153e12da4aea42fdce37db348b97c4283b6ac2bd1a4f83cc86171",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29638:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh180",
+      "sha256": "8bb30395b73e6fdf71ed7c8279bef0a9b06e5a1e835429809a3e92d4c9dd0ece",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31362:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1904",
+      "sha256": "8a2061db86f05a3d9b28cbf97ea7a850be221c0da58b7218ca1e8908a050f801",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30851:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1393",
+      "sha256": "886cf283f6e5e0bee83148dad2c123ec93ba7b4e87caf8d965b8ba6f6c8d584e",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 2,
+          "before": "ماننده جان جمله نهانند و عیان",
+          "source": "مانندهٔ جان جمله نهانند و عیان"
+        }
+      ]
+    },
+    {
+      "id": "29849:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh391",
+      "sha256": "816446866a0f0dff06d610338ce87aa3c3a52054fe0334fcf20ac1b723aeabf2",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30103:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh645",
+      "sha256": "843ee7d49b50eca11c4a2650dfff54a036e0409ac0e125c42521dd9669418b4c",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30875:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1417",
+      "sha256": "1998f38b31119b0aabc3a7c8e0bb26b8ffda2ddcfc2d6fea7b0ee550cd1cf0f2",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 2,
+          "before": "ای گر ز سخنوران قهاره کن",
+          "source": "ای گر ز سخنوران قهارهٔ کن"
+        }
+      ]
+    },
+    {
+      "id": "31219:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1761",
+      "sha256": "24027122d3faf9d42d859ec8bfefb987a662a9bb669650adab18b98c88d3b15d",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 2,
+          "before": "من بنده آن صبح که خندان برسی",
+          "source": "من بندهٔ آن صبح که خندان برسی"
+        }
+      ]
+    },
+    {
+      "id": "29624:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh166",
+      "sha256": "c27579e886690cbd2f6311a1e92708ec6baad721fe3be5a1c2fd3491ab0f0f92",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 2,
+          "before": "در خانه تن مقام دل را میجست",
+          "source": "در خانهٔ تن مقام دل را میجست"
+        }
+      ]
+    },
+    {
+      "id": "30497:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1039",
+      "sha256": "603e0bdd5091e2da69ae232079f1de14c45a2e6aa227bfc31f322b99d49e7738",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30041:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh583",
+      "sha256": "0274bd8d4b1098b3ebf8c95de296480e5d15206b32be479e793bc9b898d58327",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30526:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1068",
+      "sha256": "35046d7fe641b50832712dc8f77ac5538826ad27b4502fa21d21d476b38c3486",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29892:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh434",
+      "sha256": "0c410f1958868c3250d7255400b1d30b970e0cc5825059a819d13c58922bb779",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 3,
+          "before": "اندازه جان نیست چنان لطف و جمال",
+          "source": "اندازهٔ جان نیست چنان لطف و جمال"
+        }
+      ]
+    },
+    {
+      "id": "29928:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh470",
+      "sha256": "1003f4cb4b469b76142dc2ed7947947f44b9018a1c3b221ac336231b5b2df47f",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30702:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1244",
+      "sha256": "0a6cfb425402f078b1e121ce4acb77bd53d824f5232ff968781fc913acd49736",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29689:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh231",
+      "sha256": "20df81205a1f5ec130137b3c00a0798fef3eb805e3df1403d97506cb7bbcdc81",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30137:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh679",
+      "sha256": "ad1e154a6841118970de1df7aeec6c6658fdc19912bbd6cfaadfbdf20cff88be",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 1,
+          "before": "در مدرسه عشق اگر قال بود",
+          "source": "در مدرسهٔ عشق اگر قال بود"
+        }
+      ]
+    },
+    {
+      "id": "29735:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh277",
+      "sha256": "862c06303c3a8f6df5f4d578a0634737f444a3be2797dabe56f4c386e5c1ff97",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 2,
+          "before": "این حلقه در بزن که در پرده‌در است",
+          "source": "این حلقهٔ در بزن که در پرده‌در است"
+        }
+      ]
+    },
+    {
+      "id": "31354:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1896",
+      "sha256": "1730edef7bddc8ca7a5644efe96941fe81af1df2fed294c02fe3f9320ff04905",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30878:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1420",
+      "sha256": "1f9d89dd4f2c6d2589268846a1df73374b13a573f7d4799156324e9d81250a51",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30058:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh600",
+      "sha256": "0eda4b0c80e001c9edf1c917333fc5bfb3e25cd12275299c81c26d3bf0979db2",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30111:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh653",
+      "sha256": "303e5de77486bf5e5b5ab74bb416974d258df211c45faff574c96666e2e45aae",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30741:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1283",
+      "sha256": "d7b61222e227bea8da0cd6de11f07cfde3386d3255aca2c156a3e03ea0a68894",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 4,
+          "before": "حقا که من از سایه خود میترسم",
+          "source": "حقا که من از سایهٔ خود میترسم"
+        }
+      ]
+    },
+    {
+      "id": "29934:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh476",
+      "sha256": "9a406ce8181aa88e0fe9f88e4757b233991c540330234f36e8f79a373b38c235",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31130:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1672",
+      "sha256": "f4d0b60b5d30ae4b722e5fd39d4379e7ca783f853012eeda3d389748fc5c1886",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 1,
+          "before": "از سایه عاشقان اگر دور شوی",
+          "source": "از سایهٔ عاشقان اگر دور شوی"
+        }
+      ]
+    },
+    {
+      "id": "31205:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1747",
+      "sha256": "ea212ace60bb26dcfc210437eba967228533d02787483032cb54c58370ea05fe",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30351:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh893",
+      "sha256": "3db546b0841f77b69625528cabac9abbeeb2a62df1c6fdd771c04a07d58f8c3d",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30300:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh842",
+      "sha256": "5a194358df6a60ed267ec82e77213298bd2c8581c75181ac018293f4d64fba8b",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31221:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1763",
+      "sha256": "6c003aeeff9c5430f0d4e0b3059f2dc2e8789c862d53404faf123f4be0ad43cc",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 3,
+          "before": "تا خرقه تن دری تو بی‌دل سوزی",
+          "source": "تا خرقهٔ تن دری تو بی‌دل سوزی"
+        }
+      ]
+    },
+    {
+      "id": "30538:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1080",
+      "sha256": "a7a8b7cee555730381dfb012b2b67fcedce61d6576f3862d1fa970eed2986d3a",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 2,
+          "before": "وز پرده همی بیند معشوقه شنگ",
+          "source": "وز پرده همی بیند معشوقهٔ شنگ"
+        },
+        {
+          "line": 3,
+          "before": "این لرزه دلها همه از معشوقیست",
+          "source": "این لرزهٔ دلها همه از معشوقیست"
+        }
+      ]
+    },
+    {
+      "id": "29999:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh541",
+      "sha256": "8b2468a563ce500eff2c94a109dd952055719d96c1224f4dc86b6dfaf4129569",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30027:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh569",
+      "sha256": "c8daa5346c91148f912f662404d926edcf7cebd830b8f59ceff023842af04792",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 3,
+          "before": "این خانه عشق از امل معمور است",
+          "source": "این خانهٔ عشق از امل معمور است"
+        }
+      ]
+    },
+    {
+      "id": "30334:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh876",
+      "sha256": "e0977e107e9da503a753b9d52ef28522e949923ae2d04b184434a8986b061ed8",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 1,
+          "before": "ای دلبر عیار دل نیکوفر",
+          "source": "ای دلبر عیّار دلِ نیکوفر"
+        },
+        {
+          "line": 2,
+          "before": "از جمله نیکوان توی نیکوتر",
+          "source": "از جملهٔ نیکوان توی نیکوتر"
+        }
+      ]
+    },
+    {
+      "id": "30721:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1263",
+      "sha256": "adc307dbc78bab38f7e7c1d19e2e838934bde710aa7917a8131282ea0ce2317f",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30953:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1495",
+      "sha256": "f9da90013815d565f4727fa8340021223582e19bbc5d6625100821147d6893d5",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 3,
+          "before": "من سلسله عشق تو دیدم در خواب",
+          "source": "من سلسلهٔ عشق تو دیدم در خواب"
+        }
+      ]
+    },
+    {
+      "id": "30071:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh613",
+      "sha256": "1acd2830e9ff2079bdfc5acf2c9b458ab839d10c5f354c65ea38c64d7b5b1112",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29571:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh113",
+      "sha256": "f5ffee52dd78b7b049c84105a4535886eeafa990604af9aca0d6931a8a3119e4",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30145:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh687",
+      "sha256": "2a3b40853556f885eae55216ec331058c901210da8893d0646e0c67fd2a7d8b6",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29468:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh10",
+      "sha256": "0cf2ea1177a918c0eac4b0210a88530c8325ed43e7a04b1dca1e616381003505",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30471:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1013",
+      "sha256": "64269879b709891911d0ee58157e6be5afe91464caaca4970be544dc0db2a80c",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30557:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1099",
+      "sha256": "374cb007c0588e8e1dd6de68292d4dc4091fb17c8d5d1c0668d587bbe16b1db9",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30208:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh750",
+      "sha256": "9377933413485bccd2638c86cc607801373b964bea7601992126a31e7db6f738",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30998:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1540",
+      "sha256": "bebadf804041c834686ad40b4a64262b2bfac4b6254a5be8eb3d837d63c5e8fe",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30889:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1431",
+      "sha256": "0239a1e47fbf408ba49ea36465b17c3f6b82aa77502371468fac6a1db2e2390c",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30546:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1088",
+      "sha256": "3c13d71ea5bb50214b106460a8753f501e1a413523f22ce7d8975454d33fbc08",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30280:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh822",
+      "sha256": "d962fceb263240ac95f7654bd585d79e45176598048bbb7ab35c066ce4bcc601",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31228:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1770",
+      "sha256": "0ac366abef9e3ebd06419d50ad378bceb3a9d9fff4aa1af88fa0257688e516cb",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30378:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh920",
+      "sha256": "b8ed97c29e88ba680396346624ea8af0cc5012e48a6b45a65f45ba17bcd99cac",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30411:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh953",
+      "sha256": "db4b243fbc27f07ae9722161b282bbc9e707fa43acd1aa003ed8150ac5250fe8",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29816:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh358",
+      "sha256": "d57a6ec16b7f3bceb0b9ec6fde04901e686491ea69fe5ca0edbfb785218e9620",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 1,
+          "before": "عاشق نبود آن که سبک چون جان نیست",
+          "source": "عاشق نبوَد آن که سبُک چون جان نیست"
+        },
+        {
+          "line": 3,
+          "before": "از من بشنو، این سخن بهتان نیست",
+          "source": "از من بشنو، این سخنِ بهتان نیست"
+        },
+        {
+          "line": 4,
+          "before": "بی‌باد و هوا رقص علم امکان نیست",
+          "source": "بی‌باد و هوا رقص علَم امکان نیست"
+        }
+      ]
+    },
+    {
+      "id": "30511:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1053",
+      "sha256": "4dfca3d6253ca33721e9ac7170379812fc0200ed109d4cb9a68d7a1732435fde",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 1,
+          "before": "ای بنده سردی به زمستان چون زاغ",
+          "source": "ای بندهٔ سردی به زمستان چون زاغ"
+        }
+      ]
+    },
+    {
+      "id": "29763:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh305",
+      "sha256": "09deedf33852f279c5ef927efb2d2056509e1ea7b51d211753f20a65a6945e44",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 2,
+          "before": "در شیوه عشق خویش و بیگانه یکیست",
+          "source": "در شیوهٔ عشق خویش و بیگانه یکیست"
+        }
+      ]
+    },
+    {
+      "id": "29684:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh226",
+      "sha256": "f4000c83180bc086d672d3798bfab44c456093ea7343ca157377fd95b8ec3a21",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31389:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1931",
+      "sha256": "6957ddb5d1870496dbd8dd1249b0f63b2d2a2859fdd3a911463bca610d775579",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 3,
+          "before": "ای دل مبر امید که در روضه جان",
+          "source": "ای دل مبر امید که در روضهٔ جان"
+        }
+      ]
+    },
+    {
+      "id": "30296:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh838",
+      "sha256": "50918aa55e3058b9723a0582199a14d25017678c895d74f76c9d97ef209f4ae6",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29642:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh184",
+      "sha256": "b83fc1d505d73bdcc6a2845c7b81f4b98fb23234d3e7c459579b6615f6701f34",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 3,
+          "before": "زیرا دل من چو آب صافی خوش است",
+          "source": "زیرا دل من چو آب صافیّ خوش است"
+        }
+      ]
+    },
+    {
+      "id": "29606:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh148",
+      "sha256": "dda1b8623320b52aaec3d77f4186f5d41d09c0941d9f462a7ee107451695eadf",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 3,
+          "before": "این جمله نور بلکه نور همه نور",
+          "source": "این جملهٔ نور بلکه نور همه نور"
+        }
+      ]
+    },
+    {
+      "id": "30978:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1520",
+      "sha256": "8f9096cf96086d375bb6d04447b4cc53f2da511414198690d767358f4e533267",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29980:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh522",
+      "sha256": "007fd9d1817c35bd33f4c56ed761fcb8c30414f712631e273786f729fb883ed9",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31406:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1948",
+      "sha256": "a8ee7138bf48bede3edaea2e3b9b11b8c06170423f1f12523d4b1782cddfe0a9",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30999:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1541",
+      "sha256": "260fe2c2904a36e36de77520ea3346a224d52237177fa809aa7d09f2fe7c3a32",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29895:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh437",
+      "sha256": "5a0935f4f55b317ff0b8cf33a3e441bfd02467dc529c442ac118446d8192037f",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31207:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1749",
+      "sha256": "774dbde8fd0acc5e54c41c3d149e828eff4cd187b8a41af25b970d80ef71a3a1",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30562:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1104",
+      "sha256": "53cc3fe77686169f1a3f9d9a44538b61f38c153117031ee987d73aac527c9bca",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29566:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh108",
+      "sha256": "a5a81bd93ddbc0165cd717a3e1ecd4e7e3e929300a9ba6ef2ba179b05056cc70",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "29710:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh252",
+      "sha256": "a78acde0a26318e3ba8a4e98709ff80c36d691960b278c2a6eb64e3f92486696",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31310:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1852",
+      "sha256": "1aa48084b9f23e39dc092c7bba19fc6cba1e16e805435709b63a7fbf894a6baa",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 1,
+          "before": "در بادیه عشق تو کردم سفری",
+          "source": "در بادیهٔ عشق تو کردم سفری"
+        }
+      ]
+    },
+    {
+      "id": "31070:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1612",
+      "sha256": "461f2c517d7c16efd97a04da0c65908f690656d13df4851503fdfd5d94a665d1",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "30175:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh717",
+      "sha256": "28c45893da88aeeae95d1076e12cf5d9fd3c7779f7ef269bfd4a359aa9be694b",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 3,
+          "before": "هر پرده که میزنند در خانه دل",
+          "source": "هر پرده که میزنند در خانهٔ دل"
+        }
+      ]
+    },
+    {
+      "id": "29972:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh514",
+      "sha256": "e487dcd722f2dc8caf888401e4ae1ee7f37208ad94c9e3f4a533e627bd16b58f",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 4,
+          "before": "کز باده عشق مرد بی‌شرم شود",
+          "source": "کز بادهٔ عشق مرد بی‌شرم شود"
+        }
+      ]
+    },
+    {
+      "id": "30703:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1245",
+      "sha256": "0165bfbd7fb3e810c8198214cea37a0ed9d726688e7022ecbc4259a9395a3a5d",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    },
+    {
+      "id": "31407:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh1949",
+      "sha256": "a6143ed7ae7b2f0f7636a047bd3d27c6719770dc915637bd4247b83f95da6c45",
+      "sourceName": "ویکی‌درج",
+      "differences": [
+        {
+          "line": 1,
+          "before": "ماننده گل ز اصل خندان زادی",
+          "source": "مانندهٔ گل ز اصل خندان زادی"
+        }
+      ]
+    },
+    {
+      "id": "29734:0",
+      "url": "https://ganjoor.net/moulavi/shams/robaeesh/sh276",
+      "sha256": "6adde9a75252612f4fa6592c5ea2cdce80f1ea6440560ad9f00f7d2c5eef7d52",
+      "sourceName": "ویکی‌درج",
+      "differences": []
+    }
+  ]
+}

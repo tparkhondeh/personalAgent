@@ -75,6 +75,7 @@ jobs:
           pnpm test
           pnpm build
           pnpm audit --prod --audit-level high
+          python3 scripts/test-tia-speech-service.py
 
       - name: Test server-side approval and cancellation on an isolated database
         # Source and UI/API QA are distinct from proving a paid OpenAI connection.

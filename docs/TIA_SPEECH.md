@@ -1,5 +1,9 @@
 # tia: voice-to-draft, September 2026
 
+## 9 September update
+
+On-device recognition is still the private/offline default, now with a 45-second weights-only warm cache. An optional authenticated own-server Shenava path has recording-specific consent and no external provider. See [measured comparison, limitations and rollback](SPEECH_POEMS_2026-09-09.md). Its UI is offered only when the same deployment reports healthy service readiness; source availability alone is not activation. All other capture/approval and older-WebView rules below remain in force.
+
 ## Root cause and behaviour
 
 APK 34 captured audio but had no enabled transcriber. Its bundled UI explicitly did not offer transcription; the web path depended on paid OpenAI readiness. Capturing a non-empty Blob was never proof of understanding speech.

@@ -1,5 +1,6 @@
 "use client";
 import { TiaMark } from "@/components/tia-mark";
+import { DailyPoem } from "@/components/daily-poem";
 import { PersianDateField, Time24Field } from "@/components/persian-date-time";
 import { planInstant } from "@/lib/agent-planner";
 import { validTime24, persianParts } from "@/lib/persian-inputs";
@@ -355,10 +356,7 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
         <div className={view === "today" ? "daily-poem-wrap" : undefined}>
           <div className="header-date"><p className="eyebrow">{tehranDate.format(new Date())}</p><p className="gregorian-date">{tehranGregorianDate.format(new Date())}</p></div>
           {view === "today" ? <>
-            <div className="poem-row"><h1 className="daily-poem" aria-label={`شعر روز مولانا: ${dailyRumi.lines.join("، ")}`}>
-              <span className="poem-couplet"><span>{dailyRumi.lines[0]}</span><span>{dailyRumi.lines[1]}</span></span>
-              <span className="poem-couplet"><span>{dailyRumi.lines[2]}</span><span>{dailyRumi.lines[3]}</span></span>
-            </h1><button type="button" className="poem-next" aria-label="شعر بعدی" title="شعر بعدی" onClick={() => { if (poemNavigator.current) setDailyRumi(getRumiSelection(poemNavigator.current.next())); }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="m14 6-6 6 6 6M20 12H8" /></svg></button></div>
+            <div className="poem-row"><DailyPoem lines={dailyRumi.lines} /><button type="button" className="poem-next" aria-label="شعر بعدی" title="شعر بعدی" onClick={() => { if (poemNavigator.current) setDailyRumi(getRumiSelection(poemNavigator.current.next())); }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="m14 6-6 6 6 6M20 12H8" /></svg></button></div>
           </> : view !== "assistant" && <h1>{view === "settings" ? "تنظیمات من" : view === "calendar" ? "تقویم من" : "همه کارها و جلسات"}</h1>}
         </div>
         <div className="top-actions"><button className="icon-button" aria-label="تنظیمات" title="تنظیمات" onClick={() => setView("settings")}><ActionIcon name="settings" /></button><button className="icon-button" aria-label={unreadNotifications ? `اعلان‌ها، ${unreadNotifications} خوانده‌نشده` : "اعلان‌ها"} title="مرکز اعلان‌ها" onClick={() => { const next = !notificationCenter; setNotificationCenter(next); if (next) void loadNotifications(); }}><ActionIcon name="bell" />{unreadNotifications > 0 && <span className="unread-dot" aria-hidden="true" />}</button></div>

@@ -6,6 +6,7 @@ import { verifyBarAppearance } from "./android-bar-appearance.mjs";
 import { contrastRatio } from "./color-contrast.mjs";
 import { persianSpeechFixtureQa } from "./android-persian-speech-qa.mjs";
 import { dashboardUiQa } from "./dashboard-ui-qa.mjs";
+import { poemLayoutQa } from "./poem-layout-qa.mjs";
 
 const packageName = process.argv[2];
 const outputPath = resolve(process.argv[3] || "artifacts/android/webview.json");
@@ -281,6 +282,9 @@ async function inspect() {
     writeFileSync(outputPath.replace(/\.json$/, "-parity.json"), JSON.stringify(parity.result.result.value, null, 2));
     process.stdout.write(`Offline parity: ${JSON.stringify(parity.result.result.value)}\n`);
     if(outputPath.endsWith('stable-local-fallback-webview.json')) {
+      const poem=await evaluate(`(${poemLayoutQa.toString()})(window.HamrahPoems)`,180000);
+      if(poem.result.exceptionDetails)throw new Error('All-poem layout QA failed: '+JSON.stringify(poem.result.exceptionDetails));
+      writeFileSync(outputPath.replace(/\.json$/,'-poems.json'),JSON.stringify(poem.result.result.value,null,2));
       // Supply the same real user activation as tapping the voice UI. Programmatic
       // clicks alone can leave fixture audio suspended by WebView's autoplay policy.
       const activation=await evaluate(`(()=>{const b=document.querySelector('[data-panel="assistant"]').getBoundingClientRect();return{x:b.x+b.width/2,y:b.y+b.height/2,w:innerWidth,h:innerHeight};})()`);

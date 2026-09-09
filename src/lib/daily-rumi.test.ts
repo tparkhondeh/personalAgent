@@ -1,8 +1,16 @@
 import { describe, expect, it } from "vitest";
+import {createHash} from 'node:crypto';
+import audit from '../../docs/rumi-source-audit.json';
 import rumiDailyData from "@/data/rumi-daily.json";
 import { getDailyRumiSelection, rumiDailySource } from "@/lib/daily-rumi";
 
 describe("daily Rumi selection", () => {
+  it('matches the reviewed complete corpus, including source diacritics',()=>{
+    expect(createHash('sha256').update(JSON.stringify(rumiDailyData.selections)).digest('hex')).toBe(audit.selectionHash);
+    expect(audit.entries).toHaveLength(360);
+    expect(audit.entries.every((entry,index)=>entry.id===rumiDailyData.selections[index].id&&entry.url===rumiDailyData.selections[index].sourceUrl&&/^[a-f0-9]{64}$/.test(entry.sha256))).toBe(true);
+    expect(rumiDailyData.selections[0].lines[1]).toContain('مانندهٔ');
+  });
   it("contains 360 unique, complete quatrains with traceable Ganjoor sources", () => {
     expect(rumiDailyData.selections).toHaveLength(360);
     expect(new Set(rumiDailyData.selections.map((selection) => selection.id)).size).toBe(360);

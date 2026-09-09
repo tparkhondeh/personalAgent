@@ -1,0 +1,313 @@
+{
+  "date": "2026-09-09",
+  "caveat": "Small public read-speech set; possible training overlap unknown; not physical mic, conversational commands or guaranteed real-world accuracy. Browser warm-cache timing includes model setup; server timing excludes client upload. No personal audio.",
+  "manifest": {
+    "dataset": "Google FLEURS Persian, first 20 rows of public mirror; not representative of all user commands",
+    "source": "https://huggingface.co/datasets/google/fleurs",
+    "mirror": "https://huggingface.co/datasets/Reza2kn/fleurs-fa-benchmark",
+    "license": "Original FLEURS: CC-BY-4.0",
+    "selection": "Fixed first 20; not selected using model outputs",
+    "samples": [
+      {
+        "id": "fleurs-0",
+        "file": "fleurs-0.wav",
+        "text": "پدیده کشند سرخ وقتی رخ می‌دهد که تراکم کارنیا برویس، نوعی جاندار دریایی تک‌سلولی که به‌صورت طبیعی پدید می‌آید، بالاتر از حد عادی باشد.",
+        "sha256": "a45870e6618398a15127bfc6616ea084b411da5d07a215aa932421b864ed5e04",
+        "bytes": 860218,
+        "sourceRow": 0
+      },
+      {
+        "id": "fleurs-1",
+        "file": "fleurs-1.wav",
+        "text": "ADD بر روابط با سایر همسالان تأثیر می‌گذارد زیرا سایر کودکان نمی‌توانند بفهمند که چرا آنها به این روش عمل می‌کند یا چرا به این صورت هجی می‌کنند یا اینکه سطح بلوغ آنها فرق دارد.",
+        "sha256": "fcf1b5d09776b181f56fb9c121a978e25bc9c1cf8eb11d14b60aa09c1a0dbbbc",
+        "bytes": 1244218,
+        "sourceRow": 1
+      },
+      {
+        "id": "fleurs-2",
+        "file": "fleurs-2.wav",
+        "text": "الکساندر، در جایگاه پادشاه، پیشنهاد کرد که هزینه بازسازی مقبره را بپردازد، اما پیشنهادش رد شد. بعدها پس از مرگ الکساندر، مقبره در سال ۳۲۳ قبل از میلاد بازسازی شد.",
+        "sha256": "6f808c46bede27cb82de7a06018c2a8c89f2a5308a79e5749f042792c15560ce",
+        "bytes": 1743418,
+        "sourceRow": 2
+      },
+      {
+        "id": "fleurs-3",
+        "file": "fleurs-3.wav",
+        "text": "توازن قدرت سیستمی بود که در آن دولت‌های اروپایی بدنبال برقراری حق حاکمیت در تمام دولت‌های اروپایی بودند.",
+        "sha256": "307dfb282766c4d5f3aa8de2c931677776e4fda6a3474df279585e99640159d5",
+        "bytes": 660538,
+        "sourceRow": 3
+      },
+      {
+        "id": "fleurs-4",
+        "file": "fleurs-4.wav",
+        "text": "پس از آن آتش‌سوزی، از قلعه حفاظت و نگهداری شد به‌طوری که یکی از برجسته‌ترین جاذبه‌های بوتان برجا ماند.",
+        "sha256": "d12b322336c7679d935eb4d0e5a1004c4cfad9713159b2346afeff554ee5e1cc",
+        "bytes": 714298,
+        "sourceRow": 4
+      },
+      {
+        "id": "fleurs-5",
+        "file": "fleurs-5.wav",
+        "text": "سخنگوی دولت اعلام کرد، «از هر دو منظر بهداشت عمومی و دیدگاه عدالت کیفری مهم این است كه این قانون در اسرع وقت تصویب شود.»",
+        "sha256": "0447a76c57a26207edd9af70c9de60db1329324102ac1e9167f689f35679d2af",
+        "bytes": 1006138,
+        "sourceRow": 5
+      },
+      {
+        "id": "fleurs-6",
+        "file": "fleurs-6.wav",
+        "text": "اگر در شهری که فرهنگ نوشیدنی متنوعی دارند زندگی می کنید، به کافه ها یا بارهای محلاتی بروید که معمولا به آنجا نمی‌روید.",
+        "sha256": "3fc7c0eabd8f5ec8d86c923adc067e023df8ad8ae7e9d0b5552e8bfc6e7df5b5",
+        "bytes": 1198138,
+        "sourceRow": 6
+      },
+      {
+        "id": "fleurs-7",
+        "file": "fleurs-7.wav",
+        "text": "مطابق آخرین خبرنامه، قرائت سطح دریا حاکی از ایجاد یک سونامی بود. فعالیت هایی مربوط به سونامی قطعی در نزدیکی پاگو پاگو و نیوئه ثبت شده بود.",
+        "sha256": "f1da47349528072c75def800f76c677831ea64ec27cc3eef762f46e6e54e68d8",
+        "bytes": 1040698,
+        "sourceRow": 7
+      },
+      {
+        "id": "fleurs-8",
+        "file": "fleurs-8.wav",
+        "text": "گفته می‌شود یکی از اعضای این جمعیت سر یکی از نگهبانان سلطنتی کشته‌شده در ورسای را جلوی ملکۀ وحشت‌زده تکان می‌داد.",
+        "sha256": "cc45055ab9414ec624e80df700d9c282c34793d0f85b147c155b338a5cf979b8",
+        "bytes": 664378,
+        "sourceRow": 8
+      },
+      {
+        "id": "fleurs-9",
+        "file": "fleurs-9.wav",
+        "text": "در مناطق دور افتاده، بدون پوشش تلفن همراه، تلفن ماهواره‌ای می‌تواند تنها گزینه شما باشد.",
+        "sha256": "260876504683b1c35e1ce149cd332286f2dabe1eb32872f4ea4a830e3056d7b7",
+        "bytes": 545338,
+        "sourceRow": 9
+      },
+      {
+        "id": "fleurs-10",
+        "file": "fleurs-10.wav",
+        "text": "ایل-۷۶ از دهه ۱۹۷۰ از عناصر اصلی نیروی نظامی روسیه و شوروی سابق بوده است، و ماه قبل در روسیه شاهد حادثه‌ای جدی بود.",
+        "sha256": "6498d7473bc72f57f62eca9c1f0c45c9a89f38d5d6e9c39657f133e598a71aa8",
+        "bytes": 1159738,
+        "sourceRow": 10
+      },
+      {
+        "id": "fleurs-11",
+        "file": "fleurs-11.wav",
+        "text": "دانشجویان می‌توانند در عوض اینکه تا جلسه حضوری بعدی منتظر بمانند، سؤالاتشان را نیز در هر زمانی از روز ارائه دهند و در حد معقول انتظار پاسخ سریع داشته باشند.",
+        "sha256": "e07f5f07dbdab352fcef20d4acfcb96c37c82f60c10b77dc40e6cd2fcd90fcb0",
+        "bytes": 1059898,
+        "sourceRow": 11
+      },
+      {
+        "id": "fleurs-12",
+        "file": "fleurs-12.wav",
+        "text": "سنتی وجود دارد که شب عید پاک را در نقاطی که در معرض دید است بیدار بگذرانند تا طلوع آفتاب را ببینند.",
+        "sha256": "1f2c9125844b6b22b791847f26e70bd7e8daa83236da1a95fdd4092980721442",
+        "bytes": 537658,
+        "sourceRow": 12
+      },
+      {
+        "id": "fleurs-13",
+        "file": "fleurs-13.wav",
+        "text": "ساختارهای مختلف دارای قابلیت‌های مختلف هستند، به طول موج‌های متفاوت حساسیت نشان می‌دهند و درجات متغیری از حادی دارند؛ همچنین برای فهمیدن ورودی و عملکرد بهینه اعداد مختلف، نیازمند پردازش‌های مختلف هستند.",
+        "sha256": "e0c05207c20b9d1faa5323cf9c06e95684efa8979e620fddd19665adc9bd9d67",
+        "bytes": 2250298,
+        "sourceRow": 13
+      },
+      {
+        "id": "fleurs-14",
+        "file": "fleurs-14.wav",
+        "text": "شرایط رئیس‌جمهور پایدار است، گرچه باید خود را چند روزی در خانه قرنطینه کند.",
+        "sha256": "4d7e44915940df6b0f960a2c50bba0a1e359da0ef0e99ffe5782640e64a22e11",
+        "bytes": 791098,
+        "sourceRow": 14
+      },
+      {
+        "id": "fleurs-15",
+        "file": "fleurs-15.wav",
+        "text": "مولداوی یک جمهوری چند قومیتی است که از درگیری قومی و قبیله‌ای رنج می‌برد.",
+        "sha256": "dd051c3eede1e62ef64906328b277f951b20de7d3c8fbb3cfcd2c68aab08d9a1",
+        "bytes": 445498,
+        "sourceRow": 15
+      },
+      {
+        "id": "fleurs-16",
+        "file": "fleurs-16.wav",
+        "text": "خود بیماری‌های عفونی یا حیوانات خطرناکی که می‌توانند افراد را با قدرت خود مجروح کنند یا بکشند، معمولاً با عنوان بلایا توصیف نمی‌شوند.",
+        "sha256": "4695e792e09f51ca674e0c2454d6d768378dc7b609b0ba52165d91c8e58adecc",
+        "bytes": 990778,
+        "sourceRow": 16
+      },
+      {
+        "id": "fleurs-17",
+        "file": "fleurs-17.wav",
+        "text": "مشخص شد که خلبان رهبر اسكادران، دیلوكریت پاتاوی بوده است.",
+        "sha256": "1f1eb6d3ce834f837acca0bd2112fa9e39a285d5c4a83a7591bd740030a3a369",
+        "bytes": 579898,
+        "sourceRow": 17
+      },
+      {
+        "id": "fleurs-18",
+        "file": "fleurs-18.wav",
+        "text": "اهداف اصلی ایتالیا کشورهای آفریقایی بودند. آنها برای بدست آوردن این کشورها لازم بود یک پایگاه اعزام نیرو داشته باشند تا نیروها بتوانند از راه دریای مدیترانه بروند و به آفریقا حمله کنند.",
+        "sha256": "d96883a29a0b4c27761b59b35550fd18112cae904516a42a81f2ca234e3e924a",
+        "bytes": 1136698,
+        "sourceRow": 18
+      },
+      {
+        "id": "fleurs-19",
+        "file": "fleurs-19.wav",
+        "text": "کلونی‌های مورچه‌های شکارچی نیز به گونه‌های مختلف لشکرکشی و لانه‌سازی می‌کنند.",
+        "sha256": "db25511e21bd661bd9474f52979dfa7848c566454dfae512811025fb0eb6c1b2",
+        "bytes": 683578,
+        "sourceRow": 19
+      }
+    ]
+  },
+  "browser": {
+    "before": {
+      "samples": 20,
+      "words": 489,
+      "wordErrors": 93,
+      "wer": 0.1901840490797546,
+      "cer": 0.08054393305439331,
+      "seconds": 337.9226999999956,
+      "loadingSeconds": 96.6593999999948,
+      "file": "before-1788975557188.json",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36"
+    },
+    "after": {
+      "samples": 20,
+      "words": 489,
+      "wordErrors": 92,
+      "wer": 0.18813905930470348,
+      "cer": 0.0794979079497908,
+      "seconds": 236.40749999999628,
+      "loadingSeconds": 5.253299999998884,
+      "file": "after-1788975918185.json",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36"
+    }
+  },
+  "server": {
+    "vosk": {
+      "model": "vosk-small-fa-0.42",
+      "threads": 2,
+      "loadSeconds": 0.8508650939911604,
+      "peakRssKiB": 382420,
+      "summary": {
+        "samples": 20,
+        "words": 489,
+        "wordErrors": 94,
+        "wer": 0.19222903885480572,
+        "cer": 0.07740585774058577,
+        "seconds": 29.821631053462625
+      }
+    },
+    "whisper": {
+      "model": "Systran/faster-whisper-small",
+      "revision": "536b0662742c02347bc0e980a01041f333bce120",
+      "threads": 2,
+      "precision": "int8",
+      "beam": 5,
+      "loadSeconds": 1.7283809501677752,
+      "peakRssKiB": 1532276,
+      "summary": {
+        "samples": 20,
+        "words": 489,
+        "wordErrors": 292,
+        "wer": 0.5971370143149284,
+        "cer": 0.1997907949790795,
+        "seconds": 137.6002093385905
+      }
+    },
+    "shenava": {
+      "model": "Reza2kn/Shenava-Koochik-v1.0-sherpa-onnx",
+      "revision": "f063f38cb38fe02df39887ac65c441b755ab25a2",
+      "sha256": "6a564b5541920ce1c37bbc91d22e4b3a6838648b9b327eb88997e8db1f90950d",
+      "modelBytes": 458819249,
+      "threads": 2,
+      "loadSeconds": 1.912237649783492,
+      "normalization": "metadata empty; no per-feature normalization; no ITN",
+      "peakRssKiB": 1113252,
+      "summary": {
+        "samples": 20,
+        "words": 489,
+        "wordErrors": 58,
+        "wer": 0.11860940695296524,
+        "cer": 0.04811715481171548,
+        "seconds": 11.034442940726876
+      }
+    }
+  },
+  "conditions": {
+    "clean": {
+      "vosk": {
+        "samples": 4,
+        "words": 117,
+        "wordErrors": 20,
+        "wer": 0.17094017094017094,
+        "cer": 0.0752212389380531,
+        "seconds": 7.1324886325746775
+      },
+      "shenava": {
+        "samples": 4,
+        "words": 117,
+        "wordErrors": 20,
+        "wer": 0.17094017094017094,
+        "cer": 0.061946902654867256,
+        "seconds": 2.874111106619239
+      }
+    },
+    "noise15db": {
+      "vosk": {
+        "samples": 4,
+        "words": 117,
+        "wordErrors": 34,
+        "wer": 0.2905982905982906,
+        "cer": 0.168141592920354,
+        "seconds": 7.707415256649256
+      },
+      "shenava": {
+        "samples": 4,
+        "words": 117,
+        "wordErrors": 24,
+        "wer": 0.20512820512820512,
+        "cer": 0.09292035398230089,
+        "seconds": 2.8509815465658903
+      }
+    },
+    "pauses": {
+      "vosk": {
+        "samples": 4,
+        "words": 117,
+        "wordErrors": 16,
+        "wer": 0.13675213675213677,
+        "cer": 0.06858407079646017,
+        "seconds": 6.600675698369741
+      },
+      "shenava": {
+        "samples": 4,
+        "words": 117,
+        "wordErrors": 22,
+        "wer": 0.18803418803418803,
+        "cer": 0.07743362831858407,
+        "seconds": 3.0673230532556772
+      }
+    }
+  },
+  "evidenceHashes": {
+    "after-1788975918185.json": "761259a5900adcf67e3871bf4e69c4dd16e4327f6e8bf95009a9df6408539989",
+    "before-1788975557188.json": "2bf108238a7bb6186b9dffbc38f56bfe928bd90b9e19792673286cf5cc5544c3",
+    "manifest.json": "3de7867ac4f663aec6bed998d8eacc6e96df8967549459c7f91b654b8f2c5cce",
+    "noise-comparison.json": "84a6093bc0a00199887618d8cc2512c07c710f14fa9fd49167baa01300adb581",
+    "shenava-server.json": "a76c03078982becc155bea1218cf9de66c7f6785305f0b1d54ecefaedb9ad305",
+    "vosk-server.json": "ad671566e336ac8a70c6f6fbd3db07367458f10c52f00abcc81f742859226a08",
+    "whisper-server.json": "fffe8e15da78dbb797c945b3cc5f449c93a85d142e77eec84f18efb38b765eae"
+  }
+}

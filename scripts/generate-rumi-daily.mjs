@@ -105,7 +105,8 @@ function poemCandidate(poem) {
     .filter(([, verses]) => verses.length === 2)
     .map(([index, verses]) => ({
       index,
-      lines: verses.sort((left, right) => left.VOrder - right.VOrder).map((verse) => cleanText(verse.Text)),
+      // Source text is not search-normalized: preserve hamza, vowels and wording.
+      lines: verses.sort((left, right) => left.VOrder - right.VOrder).map((verse) => verse.Text.normalize('NFC').replace(/\s+/g,' ').trim()),
     }));
 
   if (couplets.length !== 2 || couplets[0].index !== 0 || couplets[1].index !== 1) return null;

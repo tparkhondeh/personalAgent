@@ -26,17 +26,21 @@ async function loadSpeechLibrary(signal:AbortSignal):Promise<SpeechLibrary> {
 }
 export function createLocalSpeech() {
   let active:AbortController|null=null;
-  const cancel=()=>{active?.abort();active=null;};
+  let cachedModel:SpeechModel|undefined;
+  let idleTimer:ReturnType<typeof setTimeout>|undefined;
+  const releaseModel=()=>{clearTimeout(idleTimer);cachedModel?.terminate();cachedModel=undefined;};
+  const cancel=()=>{active?.abort();active=null;releaseModel();};
   return {
     cancel,
     async transcribe(clip:Blob,progress:(message:string)=>void):Promise<string> {
       if(active)throw new Error('در حال پردازش صدای قبلی است.');
+      clearTimeout(idleTimer);
       const controller=new AbortController();active=controller;
       // Android OS version does not guarantee a recent WebView. Avoid newer
       // AbortSignal.any/timeout/throwIfAborted helpers; cancellation is baseline.
       const signal=controller.signal;let timedOut=false;
       const deadline=setTimeout(()=>{timedOut=true;controller.abort();},180000);
-      let model:SpeechModel|undefined,recognizer:SpeechRecognizer|undefined;
+      let model:SpeechModel|undefined,recognizer:SpeechRecognizer|undefined,succeeded=false;
       const terminate=()=>{model?.terminate();};
       signal.addEventListener('abort',terminate,{once:true});
       try {
@@ -52,7 +56,8 @@ export function createLocalSpeech() {
         if(Math.sqrt(energy/samples.length)<0.001)throw new Error('silence');
         progress('در حال آماده‌سازی تشخیص فارسی روی دستگاه…');
         const library=await loadSpeechLibrary(signal);checkAbort(signal);
-        model=new library.Model(`${localSpeechOrigin()}/speech/fa-0.42.model`,-2);
+        const warm=Boolean(cachedModel);
+        model=cachedModel??new library.Model(`${localSpeechOrigin()}/speech/fa-0.42.model`,-2);
         const wait=<T,>(listen:(resolve:(value:T)=>void,reject:()=>void)=>void)=>new Promise<T>((resolve,reject)=>{
           const abort=()=>reject(new Error('cancelled'));
           signal.addEventListener('abort',abort,{once:true});
@@ -60,7 +65,7 @@ export function createLocalSpeech() {
           const fail=()=>{signal.removeEventListener('abort',abort);reject(new Error('recognition'));};
           listen(done,fail);if(signal.aborted)abort();
         });
-        await wait<void>((done,fail)=>{model!.on('load',m=>m.result===true?done():fail());model!.on('error',fail);});
+        if(!warm)await wait<void>((done,fail)=>{model!.on('load',m=>m.result===true?done():fail());model!.on('error',fail);});
         checkAbort(signal);progress('در حال تبدیل صدا؛ چیزی هنوز ثبت نشده است…');
         recognizer=new model.KaldiRecognizer(16000);
         const parts:string[]=[];
@@ -72,14 +77,19 @@ export function createLocalSpeech() {
         }
         await wait<void>((done,fail)=>{failed=fail;receive=m=>{if(typeof m.result==='object'&&m.result.text)parts.push(m.result.text);done();};recognizer!.retrieveFinalResult();});
         checkAbort(signal);
-        const text=normalizeVoiceText(parts.join(' '));if(!text)throw new Error('silence');return text;
+        const text=normalizeVoiceText(parts.join(' '));if(!text)throw new Error('silence');succeeded=true;return text;
       } catch(error) {
         if(timedOut)throw new Error('تبدیل صدا بیش از حد طول کشید؛ کوتاه‌تر ضبط کن یا متن را بنویس.');
         if(controller.signal.aborted)throw new Error('ضبط و تبدیل لغو شد؛ چیزی ثبت نشده است.');
         if(error instanceof Error&&error.message==='silence')throw new Error('گفتار واضحی تشخیص داده نشد؛ نزدیک‌تر و شمرده‌تر صحبت کن.');
         throw new Error('تبدیل روی دستگاه کامل نشد؛ دوباره تلاش کن یا متن را بنویس. در وب، بار اول اینترنت برای دریافت مدل لازم است.');
       } finally {
-        clearTimeout(deadline);signal.removeEventListener('abort',terminate);recognizer?.remove();model?.terminate();if(active===controller)active=null;
+        clearTimeout(deadline);signal.removeEventListener('abort',terminate);recognizer?.remove();
+        // Retain weights, never the recognizer/audio. Cancel/error/exit terminates
+        // immediately; idle expiry bounds RAM use on small Android devices.
+        if(succeeded&&!signal.aborted&&active===controller){cachedModel=model;idleTimer=setTimeout(releaseModel,45000);}
+        else {model?.terminate();if(cachedModel===model)cachedModel=undefined;}
+        if(active===controller)active=null;
       }
     },
   };

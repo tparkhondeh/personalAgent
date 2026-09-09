@@ -14,6 +14,7 @@
   const dateTime = new Intl.DateTimeFormat("fa-IR", { dateStyle: "medium", timeStyle: "short", hourCycle:"h23",calendar:"persian" });
   const domain = window.HamrahOffline;
   const overview = window.HamrahOverview;
+  overview.observePoemLayout($("#page-title"));
   const poemNavigator = overview.createPoemNavigator(window.HamrahPoems.length, { getItem:key=>localStorage.getItem(key), setItem:(key,value)=>localStorage.setItem(key,value) });
   const preferenceKey = "hamrah-local-reminders-v1";
   let filter = "all";

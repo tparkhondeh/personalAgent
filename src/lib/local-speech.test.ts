@@ -26,10 +26,17 @@ afterEach(()=>{vi.unstubAllGlobals();vi.useRealTimers();});
 describe('device-only Persian transcription control (engine mocked; actual decoding tested separately)',()=>{
   it('normalizes Persian letters without inventing a title',()=>expect(normalizeVoiceText('  علي  شركت  ۳۶۰  ')).toBe('علی شرکت ۳۶۰'));
   it('keeps the APK asset origin private and the web same-origin',()=>{expect(localSpeechOrigin()).toBe('https://app.example');vi.stubGlobal('window',{Capacitor:{isNativePlatform:()=>true}});expect(localSpeechOrigin()).toBe('https://localhost');});
-  it('collects final text and terminates its worker',async()=>{expect(await createLocalSpeech().transcribe(new Blob(['test']),()=>{})).toBe('فردا ساعت پنج عصر جلسه با تیم فروش');expect(models[0].terminate).toHaveBeenCalled();});
+  it('reuses model weights but creates a fresh recognizer for each clip, then expires',async()=>{
+    vi.useFakeTimers();const speech=createLocalSpeech();
+    expect(await speech.transcribe(new Blob(['first']),()=>{})).toBe('فردا ساعت پنج عصر جلسه با تیم فروش');
+    expect(await speech.transcribe(new Blob(['second']),()=>{})).toBe('فردا ساعت پنج عصر جلسه با تیم فروش');
+    expect(models).toHaveLength(1);expect(models[0].terminate).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(45001);expect(models[0].terminate).toHaveBeenCalledOnce();expect(vi.getTimerCount()).toBe(0);
+  });
+  it('cancellation releases a warm model immediately',async()=>{const speech=createLocalSpeech();await speech.transcribe(new Blob(['test']),()=>{});speech.cancel();expect(models[0].terminate).toHaveBeenCalled();});
   it('works without recent AbortSignal helpers on older Android WebViews',async()=>{
     vi.stubGlobal('AbortSignal',{});
-    expect(await createLocalSpeech().transcribe(new Blob(['test']),()=>{})).toContain('جلسه با تیم فروش');
+    const speech=createLocalSpeech();expect(await speech.transcribe(new Blob(['test']),()=>{})).toContain('جلسه با تیم فروش');speech.cancel();
   });
   it('times out and terminates without leaving a pending timer',async()=>{
     vi.useFakeTimers();load=false;const speech=createLocalSpeech();

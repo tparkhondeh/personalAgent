@@ -79,9 +79,9 @@ const indexPath = path.join(mobileRoot, "index.html");
 const recoveryPath = path.join(mobileRoot, "connection-error.html");
 const poems = JSON.parse(await readFile(path.join(projectRoot, "src/data/rumi-daily.json"), "utf8"));
 // Keep the same curated source and selection order as the web app, without external links.
-const overviewSource = await readFile(path.join(projectRoot, "src/lib/dashboard-overview.ts"), "utf8");
+const overviewSource = (await Promise.all(['dashboard-overview','poem-layout'].map(name=>readFile(path.join(projectRoot, `src/lib/${name}.ts`), 'utf8')))).join('\n');
 const overviewJs = ts.transpileModule(overviewSource.replace(/^export /gm, ""), { compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.None } }).outputText;
-const poemScript = `window.HamrahOverview=(()=>{${overviewJs}\nreturn {selectDashboardItems,summarizeDashboardItems,createPoemNavigator,dailyPoemIndex,tehranDayKey};})();\nwindow.HamrahPoems = ${JSON.stringify(poems.selections.map(({ lines }) => lines)).replaceAll("<", "\\u003c")};\n`;
+const poemScript = `window.HamrahOverview=(()=>{${overviewJs}\nreturn {selectDashboardItems,summarizeDashboardItems,createPoemNavigator,dailyPoemIndex,tehranDayKey,observePoemLayout};})();\nwindow.HamrahPoems = ${JSON.stringify(poems.selections.map(({ lines }) => lines)).replaceAll("<", "\\u003c")};\n`;
 await writeFile(path.join(mobileRoot, "content.js"), poemScript);
 const [indexHtml, appStyles, appScript, recoveryHtml, domainScript] = await Promise.all([
   readFile(indexPath, "utf8"),

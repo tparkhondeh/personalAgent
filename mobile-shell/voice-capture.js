@@ -125,12 +125,16 @@ async function loadSpeechLibrary(signal) {
 }
 function createLocalSpeech() {
     let active = null;
-    const cancel = () => { active?.abort(); active = null; };
+    let cachedModel;
+    let idleTimer;
+    const releaseModel = () => { clearTimeout(idleTimer); cachedModel?.terminate(); cachedModel = undefined; };
+    const cancel = () => { active?.abort(); active = null; releaseModel(); };
     return {
         cancel,
         async transcribe(clip, progress) {
             if (active)
                 throw new Error('در حال پردازش صدای قبلی است.');
+            clearTimeout(idleTimer);
             const controller = new AbortController();
             active = controller;
             // Android OS version does not guarantee a recent WebView. Avoid newer
@@ -138,7 +142,7 @@ function createLocalSpeech() {
             const signal = controller.signal;
             let timedOut = false;
             const deadline = setTimeout(() => { timedOut = true; controller.abort(); }, 180000);
-            let model, recognizer;
+            let model, recognizer, succeeded = false;
             const terminate = () => { model?.terminate(); };
             signal.addEventListener('abort', terminate, { once: true });
             try {
@@ -169,7 +173,8 @@ function createLocalSpeech() {
                 progress('در حال آماده‌سازی تشخیص فارسی روی دستگاه…');
                 const library = await loadSpeechLibrary(signal);
                 checkAbort(signal);
-                model = new library.Model(`${localSpeechOrigin()}/speech/fa-0.42.model`, -2);
+                const warm = Boolean(cachedModel);
+                model = cachedModel ?? new library.Model(`${localSpeechOrigin()}/speech/fa-0.42.model`, -2);
                 const wait = (listen) => new Promise((resolve, reject) => {
                     const abort = () => reject(new Error('cancelled'));
                     signal.addEventListener('abort', abort, { once: true });
@@ -179,7 +184,8 @@ function createLocalSpeech() {
                     if (signal.aborted)
                         abort();
                 });
-                await wait((done, fail) => { model.on('load', m => m.result === true ? done() : fail()); model.on('error', fail); });
+                if (!warm)
+                    await wait((done, fail) => { model.on('load', m => m.result === true ? done() : fail()); model.on('error', fail); });
                 checkAbort(signal);
                 progress('در حال تبدیل صدا؛ چیزی هنوز ثبت نشده است…');
                 recognizer = new model.KaldiRecognizer(16000);
@@ -199,6 +205,7 @@ function createLocalSpeech() {
                 const text = normalizeVoiceText(parts.join(' '));
                 if (!text)
                     throw new Error('silence');
+                succeeded = true;
                 return text;
             }
             catch (error) {
@@ -214,7 +221,17 @@ function createLocalSpeech() {
                 clearTimeout(deadline);
                 signal.removeEventListener('abort', terminate);
                 recognizer?.remove();
-                model?.terminate();
+                // Retain weights, never the recognizer/audio. Cancel/error/exit terminates
+                // immediately; idle expiry bounds RAM use on small Android devices.
+                if (succeeded && !signal.aborted && active === controller) {
+                    cachedModel = model;
+                    idleTimer = setTimeout(releaseModel, 45000);
+                }
+                else {
+                    model?.terminate();
+                    if (cachedModel === model)
+                        cachedModel = undefined;
+                }
                 if (active === controller)
                     active = null;
             }
