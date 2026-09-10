@@ -1,4 +1,7 @@
 const baseUrl = new URL(process.argv[2] || "https://personalagent.wealthos.ir:8443").origin;
+if (!/^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(baseUrl) && baseUrl !== "https://personalagent.wealthos.ir:8443") {
+  throw new Error("Smoke tests can only write to local or isolated Staging, never Production.");
+}
 const email = process.argv[3] || `staging-qa-${Date.now()}@example.invalid`;
 const password = "Staging-only-password-2026";
 const cookies = new Map();

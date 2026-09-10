@@ -16,6 +16,14 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      NEXT_TELEMETRY_DISABLED: 1
+      DATABASE_URL: file:${{ github.workspace }}/data/ci.db
+      BETTER_AUTH_URL: http://localhost:3000
+      BETTER_AUTH_SECRET: ci-build-only-secret-000000000000000000000000
+      OPENAI_API_KEY: ""
+      OPENAI_COST_APPROVED: "false"
+      OUTBOUND_CALLS_MODE: mock
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
@@ -30,13 +38,49 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm db:generate
-        env:
-          DATABASE_URL: file:./data/ci.db
+      - run: pnpm speech:prepare
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test
       - run: pnpm build
-        env:
-          DATABASE_URL: file:./data/ci.db
-          BETTER_AUTH_URL: http://localhost:3000
-          BETTER_AUTH_SECRET: ci-build-only-secret-000000000000000000000000
+      - name: Package web-only staging candidate (never deploy automatically)
+        run: |
+          mkdir -p artifacts/server/.next artifacts/server/prisma artifacts/server/scripts artifacts/web-readiness
+          cp -R .next/standalone/. artifacts/server/
+          cp -R .next/static artifacts/server/.next/static
+          cp -R public artifacts/server/public
+          cp prisma/schema.prisma artifacts/server/prisma/schema.prisma
+          cp -R prisma/migrations artifacts/server/prisma/migrations
+          cp scripts/migrate.mjs scripts/run-schedulers.sh scripts/integration-readiness.mjs artifacts/server/scripts/
+          printf '%s\n' "$GITHUB_SHA" > artifacts/server/BUILD_COMMIT.txt
+          if find artifacts/server -type f \( -name '.env*' -o -name '*.db*' -o -name '*.keystore' -o -name '*.jks' \) | grep -q .; then
+            echo 'Private data found in package'; exit 1
+          fi
+          tar -czf artifacts/web-readiness/hamrah-staging-server.tar.gz -C artifacts/server .
+          sha256sum artifacts/web-readiness/hamrah-staging-server.tar.gz > artifacts/web-readiness/SHA256SUMS.txt
+
+      - name: Test the packaged web server on a separate database
+        run: |
+          mkdir -p data
+          node artifacts/server/scripts/migrate.mjs
+          HOSTNAME=127.0.0.1 PORT=3000 node artifacts/server/server.js > artifacts/web-readiness/server.log 2>&1 &
+          qa_pid=$!
+          trap 'kill "$qa_pid" 2>/dev/null || true' EXIT
+          healthy=false
+          for attempt in {1..40}; do
+            if curl -fsS http://localhost:3000/api/health > artifacts/web-readiness/health.json; then healthy=true; break; fi
+            sleep 1
+          done
+          test "$healthy" = true
+          QA_BASE_URL=http://localhost:3000 node scripts/qa-agent-flow.mjs > artifacts/web-readiness/agent-flow.json
+          QA_BASE_URL=http://localhost:3000 node scripts/qa-schedule-preservation.mjs > artifacts/web-readiness/schedule-preservation.json
+          QA_BASE_URL=http://localhost:3000 node scripts/qa-clean-interface.mjs > artifacts/web-readiness/clean-interface.json
+          QA_BASE_URL=http://localhost:3000 node scripts/qa-completed-items.mjs > artifacts/web-readiness/completed-items.json
+          node scripts/integration-readiness.mjs > artifacts/web-readiness/integrations.json
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: verified-web-${{ github.run_id }}
+          path: artifacts/web-readiness/
+          if-no-files-found: error
+          retention-days: 14
