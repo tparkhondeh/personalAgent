@@ -1,3 +1,4 @@
 # The patch hash is byte-sensitive; keep it stable on Windows and Linux.
 patches/*.patch text eol=lf
 scripts/deploy-staging-release.sh text eol=lf
+public/pwa-recovery.js text eol=lf

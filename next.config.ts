@@ -16,7 +16,13 @@ const nextConfig: NextConfig = {
   distDir: process.env.HAMRAH_ISOLATED_BUILD === "true" ? ".next-build" : ".next",
   poweredByHeader: false,
   async headers() {
-    return [{ source: "/(.*)", headers: securityHeaders }];
+    return [
+      { source: "/(.*)", headers: securityHeaders },
+      { source: "/:worker(sw|pwa-recovery).js", headers: [
+        { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+        { key: "Content-Type", value: "application/javascript; charset=utf-8" },
+      ] },
+    ];
   },
 };
 

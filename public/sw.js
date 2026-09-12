@@ -1,5 +1,6 @@
-const CACHE_NAME = "hamrah-shell-v7-tia-voice";
-const CORE_ASSETS = ["/", "/manifest.webmanifest", "/icon.svg", "/icon-192.png", "/icon-512.png"];
+importScripts('/pwa-recovery.js');
+const CACHE_NAME = "hamrah-shell-v8-safe-recovery";
+const CORE_ASSETS = ["/manifest.webmanifest", "/icon.svg", "/icon-192.png", "/icon-512.png"];
 const IS_LOCAL_DEVELOPMENT = self.location.hostname === "localhost" || self.location.hostname === "127.0.0.1";
 
 self.addEventListener("install", (event) => {
@@ -7,22 +8,22 @@ self.addEventListener("install", (event) => {
     self.skipWaiting();
     return;
   }
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(CORE_ASSETS)),
-  );
+  // Cache availability must never prevent installing the self-contained recovery.
+  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(CORE_ASSETS)).catch(() => undefined));
   self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) => Promise.all(
-      keys
-        .filter((key) => key.startsWith("hamrah-shell-") && (IS_LOCAL_DEVELOPMENT || key !== CACHE_NAME))
-        .map((key) => caches.delete(key)),
-    )),
-  );
-  self.clients.claim();
+  // Preserve legacy caches/data. They are not trusted as an interactive fallback.
+  event.waitUntil(self.clients.claim());
 });
+
+function recovery() {
+  return new Response(self.TIA_RECOVERY_PAGE, { status: 503, headers: {
+    'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store',
+    'Content-Security-Policy': self.TIA_RECOVERY_CSP, 'X-Content-Type-Options': 'nosniff',
+  }});
+}
 
 self.addEventListener("fetch", (event) => {
   // A cached development page can look healthy after `next dev` stops while
@@ -32,30 +33,35 @@ self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (request.method !== "GET") return;
   const url = new URL(request.url);
-  if (url.origin !== self.location.origin || url.pathname.startsWith("/api/")) return;
+  if (url.origin !== self.location.origin || url.pathname === '/api' || url.pathname.startsWith("/api/")) return;
+  // Next RSC/prefetch responses must never replace a cached HTML document.
+  if (request.headers.get('RSC') === '1' || url.searchParams.has('_rsc')) return;
 
   if (request.mode === "navigate") {
     event.respondWith((async () => {
       try {
-        const response = await fetch(request);
-        const cache = await caches.open(CACHE_NAME);
-        if (response.ok) void cache.put(request, response.clone());
-        return response;
+        const response = await fetch(request, { cache: 'no-store', signal: AbortSignal.timeout(12000) });
+        return response.status >= 500 ? recovery() : response;
       } catch {
-        return (await caches.match(request)) || (await caches.match("/")) || Response.error();
+        return recovery();
       }
     })());
     return;
   }
 
+  // Only immutable/static assets may fall back, never account documents, RSC or APIs.
+  if (!url.pathname.startsWith('/_next/static/') && !url.pathname.startsWith('/speech/') && !CORE_ASSETS.includes(url.pathname)) return;
   event.respondWith((async () => {
     try {
       const response = await fetch(request);
-      const cache = await caches.open(CACHE_NAME);
-      void cache.put(request, response.clone());
+      if (response.ok) {
+        const copy = response.clone();
+        event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.put(request, copy)).catch(() => undefined));
+      }
       return response;
     } catch {
-      return (await caches.match(request)) || Response.error();
+      try { return (await caches.open(CACHE_NAME).then(cache => cache.match(request))) || Response.error(); }
+      catch { return Response.error(); }
     }
   })());
 });
