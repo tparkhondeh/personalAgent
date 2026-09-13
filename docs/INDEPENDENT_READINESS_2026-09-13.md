@@ -29,6 +29,7 @@ Push endpoint sources (reviewed 2026-09-13): [Mozilla Autopush API](https://mozi
 - Real browser local 1280×720 and 390×844: existing synthetic account login, settings save, local Persian draft title `جلسه با تیم آزمون مستقل`, tomorrow Jalali date, 17:00, [1440,180,60], enabled Register without editing; one explicit confirmation produced one record/three server reminders. Mobile screenshot shows readable pastel card and accessible Register, no horizontal overflow. Completing that meeting removed it from active list and updated count 6→5 / completed 0→1. Screenshots visually inspected in tool results. This is not a real-device or keyboard/voice acceptance test.
 - Reload verification: the synthetic completed meeting remained absent in tasks and current-week calendar, with 5 remaining / 1 completed retained. Browser viewport restored; no cache or user data cleared.
 - CI now runs the added readiness script against its packaged standalone server, not just source imports. Final run/deployment evidence will be appended after completion.
+- Initial CI run 34752767134 passed code tests/build and the four original HTTP suites, then the new suite hit the sixth signup (the existing limit is five/hour). The harness now explicitly reuses its known synthetic clean-UI account, snapshots existing counts before assertions, and keeps every protection intact; no retry loop, IP rotation, store clearing or higher limit. Its independent fresh-account mode remains available. This was a test-fixture defect, not a deployable passing run.
 
 ## Artifact boundaries
 

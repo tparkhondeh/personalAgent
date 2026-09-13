@@ -10,11 +10,15 @@ async function request(path, method = "GET", body, origin = base, type = "applic
   return fetch(base + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(15000) });
 }
 function check(name, actual, expected) { checks.push({ name, passed: actual === expected, actual, expected }); }
-const signup = await request("/api/auth/sign-up/email", "POST", { name: "آزمون مستقل امنیت", email: `independent-${Date.now()}@example.invalid`, password: "Synthetic-local-QA-only-20260913" });
-assert(signup.ok, "Synthetic account creation failed");
+// CI already creates five synthetic accounts. Reuse its known clean-UI fixture
+// rather than bypassing or weakening the real signup rate limit.
+const reuseCleanAccount = process.env.QA_REUSE_CLEAN_ACCOUNT === "true";
+const signup = await request(reuseCleanAccount ? "/api/auth/sign-in/email" : "/api/auth/sign-up/email", "POST", { name: "آزمون مستقل امنیت", email: reuseCleanAccount ? "clean-ui-20260906@example.invalid" : `independent-${Date.now()}@example.invalid`, password: reuseCleanAccount ? "Synthetic-clean-interface-20260906-only" : "Synthetic-local-QA-only-20260913" });
+assert(signup.ok, `Synthetic authentication failed: ${signup.status}`);
 cookie = signup.headers.getSetCookie().map(value => value.split(";")[0]).join("; ");
 assert(cookie);
 const tasksBefore = (await (await request("/api/tasks")).json()).data.length;
+const meetingsBefore = (await (await request("/api/meetings")).json()).data.length;
 for (const [label, origin] of [["foreign", "https://untrusted.example"], ["missing", null], ["opaque", "null"], ["sibling", "https://other.wealthos.ir:8443"]]) {
   const response = await request("/api/tasks", "POST", { title: "آزمون مبدأ غیرمجاز" }, origin, "text/plain");
   check(`task-${label}-origin`, response.status, 403);
@@ -36,7 +40,7 @@ const proposal = (await proposalResponse.json()).data;
 check("editable-title", proposal?.draft?.plan?.title, "جلسه با تیم فروش");
 check("24-hour-time", proposal?.draft?.plan?.time, "17:00");
 check("three-reminders", JSON.stringify(proposal?.draft?.plan?.reminderOffsets), "[1440,180,60]");
-check("no-meeting-before-confirmation", (await (await request("/api/meetings")).json()).data.length, 0);
+check("no-meeting-before-confirmation", (await (await request("/api/meetings")).json()).data.length, meetingsBefore);
 const logout = await request("/api/auth/sign-out", "POST", {});
 check("sign-out", logout.status, 200);
 check("revoked-session-cannot-create", (await request("/api/tasks", "POST", { title: "نباید ثبت شود" })).status, 401);
