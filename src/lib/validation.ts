@@ -20,7 +20,10 @@ export const taskUpdateSchema = taskInputSchema.partial().extend({
 });
 
 const meetingAttendeesSchema = z.array(z.string().trim().max(200)).max(100);
-const meetingTimezoneSchema = z.string().max(100);
+const meetingTimezoneSchema = z.string().trim().min(1).max(100).refine(value => {
+  try { new Intl.DateTimeFormat("en", { timeZone: value }); return true; }
+  catch { return false; }
+}, "منطقه زمانی معتبر نیست");
 
 const meetingFields = {
   title: z.string().trim().min(1).max(180),
@@ -45,7 +48,7 @@ const clockTimeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "زمان 
 const workingDaySchema = z.enum(["SAT", "SUN", "MON", "TUE", "WED", "THU", "FRI"]);
 
 export const userPreferenceInputSchema = z.object({
-  timezone: z.string().trim().min(1).max(100).default("Asia/Tehran"),
+  timezone: meetingTimezoneSchema.default("Asia/Tehran"),
   locale: z.string().trim().min(2).max(20).default("fa-IR"),
   workdayStartsAt: clockTimeSchema,
   workdayEndsAt: clockTimeSchema,

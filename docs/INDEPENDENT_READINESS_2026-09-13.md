@@ -1,0 +1,42 @@
+# Independent readiness — 2026-09-13
+
+Scope: finish independently testable defects; do not wait for ticket 52407, use paid providers, change Production/shared CDN/DNS, or erase phone data. Baseline clean main `6e3135723a736809c7fe00125707397d27f400e8`; live Staging read-only health at `2026-09-13T10:44:39.540Z` was `be77c3a0d41895fadbf94938b01fa62a1312c5d6` with connected DB.
+
+## Backup and recovery
+
+- Before source changes: `C:/Users/pc/Desktop/project-backups/tia-independent-20260913/` contains verified complete `history.bundle`, source archives and private env copy (never committed/displayed). `source-before.zip` SHA-256 `663b639f20c4fd6f7fa2f2af78c7ba789725bac4715ab5cd98850798ef51d347`.
+- Consistent SQLite snapshot `backups/local/hamrah-2026-09-13T10-34-46-947Z.db`, SHA-256 `edc52226d2455fb4cc640456ec895491ce4777e069f485765896581e8fd98565`.
+- Restore drill `backups/local/restore-drill-0YwKYd/restored.db`: integrity/FK checks passed; all 18 tables unchanged after migrations on the copy, no scheduler/live effects. Checked `2026-09-13T10:35:52.310Z`.
+- No schema migration or existing-record rewrite in this patch. Code rollback must be a separate reviewed release/revert, never restore old DB over newer user data. Preserve all backup directories.
+
+## Confirmed defects and fixes
+
+| Defect | Before | Correction / verification |
+|---|---|---|
+| Browser-origin validation missing on ordinary account mutations | Real HTTP POST with authenticated synthetic cookie and foreign/missing/opaque/sibling origin returned 201; four synthetic records retained, no owner data touched | Existing exact-origin guard now runs before session/data access for 11 methods on tasks, meetings, preferences, notifications, escalations and Push. 77 unit cases cover missing/foreign/wrong-port and approved origins. Authentication and explicit draft confirmation remain required. |
+| Invalid timezone accepted in settings/meeting | Unit and HTTP test accepted `Not/A_Timezone` | Validate with runtime IANA/Intl support before storage; keep existing valid timezone and original instants. No timezone field reintroduced. |
+| AI readiness could report configured with unusable request budget | Five zero/negative/blank/non-integer/invalid-cap regression tests failed | CLI and runtime readiness now both require a valid positive integer limit; report effective cap (maximum 100). No live provider calls, no key output. Request cap is not a monetary budget. |
+| Arbitrary Push endpoint became server-side send target | Eight tests showed unsafe stored endpoints passed to mocked sender | HTTPS/443 documented-provider allowlist at registration and again at send time; credentials/fragments/arbitrary hosts rejected; 10-second transport timeout. Invalid old rows retained but never sent. 12 mocked delivery tests pass; four actual registration rejections pass. |
+
+Push endpoint sources (reviewed 2026-09-13): [Mozilla Autopush API](https://mozilla-services.github.io/autopush-rs/http.html), [Google FCM](https://firebase.google.com/docs/cloud-messaging/web/receive-messages), [Apple Web Push](https://developer.apple.com/documentation/usernotifications/sending-web-push-notifications-in-web-apps-and-browsers), [Microsoft WNS channel validation](https://learn.microsoft.com/en-us/windows/apps/develop/notifications/push-notifications/wns-overview). Accepted destinations: exact `fcm.googleapis.com`, exact `updates.push.services.mozilla.com`, subdomains of `push.apple.com` and `notify.windows.com`. This is an explicit compatibility boundary, not proof of delivery on all browsers. Unknown/self-hosted push providers get a short unsupported-service message and can still use in-app reminders; add providers only after verifying ownership and regression tests. The installed web-push transport uses HTTPS and does not follow redirects. No external Push was sent for these tests.
+
+## Verification
+
+- Type Check, Lint, isolated production Build passed; production-dependency audit reports no known vulnerabilities (not a proof of complete security).
+- 421 tests across 46 files passed, including original voice/poetry/mobile-shell/backup/PWA suites. Source unchanged in native Android, bundled shell, public assets and dependencies.
+- Actual local HTTP: 28 independent readiness checks and 27 existing draft/confirmation/ownership/idempotency/reminder checks passed.
+- Repeated local synthetic signups correctly reached the existing 5/hour limit (429). Do not disable/reroute the protection; complete remaining packaged regression suites with the existing CI's isolated fresh database. No existing records/cache/session store were deleted to reset the limit.
+- Real browser local 1280×720 and 390×844: existing synthetic account login, settings save, local Persian draft title `جلسه با تیم آزمون مستقل`, tomorrow Jalali date, 17:00, [1440,180,60], enabled Register without editing; one explicit confirmation produced one record/three server reminders. Mobile screenshot shows readable pastel card and accessible Register, no horizontal overflow. Completing that meeting removed it from active list and updated count 6→5 / completed 0→1. Screenshots visually inspected in tool results. This is not a real-device or keyboard/voice acceptance test.
+- Reload verification: the synthetic completed meeting remained absent in tasks and current-week calendar, with 5 remaining / 1 completed retained. Browser viewport restored; no cache or user data cleared.
+- CI now runs the added readiness script against its packaged standalone server, not just source imports. Final run/deployment evidence will be appended after completion.
+
+## Artifact boundaries
+
+Latest verified GitHub Release remains [tia آزمایشی 40](https://github.com/tparkhondeh/personalAgent/releases/tag/phone-preview-stable-40), published `2026-09-09T23:17:20Z`; package `ir.wealthos.personalagent.stable40`; source `34180286b90008498c839f3ec3b4fd72749c750a`; APK SHA-256 `909bf6f8b5dbb46f937210a787215006cfd7b223eaf880a359636fc1b2262fe9` equals the newly checked local APK hash and GitHub asset digest. Existing exact-artifact Android 13/14/16 evidence (run 34414607065) remains valid for unchanged native/bundled code. No APK rebuild or relabelled release is needed for these server-only fixes. Connected mode gains them only after server deployment; bundled offline code is unchanged. Never equate emulator success with owner phone acceptance.
+
+## External gates — last, not blockers for the work above
+
+1. Ticket [52407](https://portal.mizbancloud.com/support/tickets/52407): support diagnosis/proposal for forced four-hour cache and inconsistent 8443 TLS; scope-safe resolution and fresh browser/phone delivery verification still required. No repeated polling or shared-zone changes in this task.
+2. Owner phone: accept the existing APK without uninstalling it; test actual voice accuracy, Push delivery, Alarm with closed app, offline/reconnect and data preservation. A displayed button or configured key is insufficient evidence.
+3. LLM: current local report has no key/cost consent; local text/voice paths remain available. Real provider needs private server configuration, approved monetary ceiling and test consent; no key in chat/Git/APK. Optional calls/SMS remain Mock until provider, verified number and explicit consent.
+4. Public signed app / Production: approved identity/signing and migration path, risk/rollback report and final release approval. No endpoint/package change as a shortcut around the Staging blocker.

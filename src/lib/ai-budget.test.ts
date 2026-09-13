@@ -28,6 +28,7 @@ describe("external AI activation and fail-closed reservations", () => {
   });
   it.each(["0", "-1", "NaN", "1.5", " "])("does not spend with invalid/zero limit %s", async limit => {
     vi.stubEnv("OPENAI_DAILY_REQUEST_LIMIT", limit);
+    expect(aiReadiness().enabled).toBe(false);
     expect(await reserveAiRequest("synthetic-user", "text")).toBe(false);
     expect(reserve).not.toHaveBeenCalled();
   });

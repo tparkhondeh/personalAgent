@@ -1,6 +1,7 @@
 import { escalationPreferencesChanged } from "@/lib/escalations";
 import { db } from "@/lib/db";
 import { jsonError, requireApiSession } from "@/lib/api";
+import { validAgentOrigin } from "@/lib/agent-origin";
 import { userPreferenceInputSchema } from "@/lib/validation";
 import { guardUserRateLimit } from "@/lib/rate-limit";
 import { normalizeReminderOffsets, parseStoredReminderOffsets, serializeReminderOffsets } from "@/lib/reminder-offsets";
@@ -19,6 +20,7 @@ export async function GET(request: Request) {
 }
 
 export async function PUT(request: Request) {
+  if (!validAgentOrigin(request)) return jsonError("مبدأ درخواست مجاز نیست", 403);
   const session = await requireApiSession(request.headers);
   if (!session) return jsonError("ابتدا وارد حساب شوید", 401);
   const limited = guardUserRateLimit(session.user.id, "mutations", { limit: 120, windowMs: 60_000 });

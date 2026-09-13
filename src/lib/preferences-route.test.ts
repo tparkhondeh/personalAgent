@@ -27,7 +27,7 @@ const input = {
 };
 const previous = { ...input, id: "legacy-preferences", userId: "preferences-qa", workingDays: "SAT,SUN", defaultReminderOffsets: "1440,180,60", planningProfile: "FOCUS" };
 const request = (body?: unknown) => new Request("http://localhost:3001/api/preferences", {
-  method: body ? "PUT" : "GET", headers: { "content-type": "application/json" },
+  method: body ? "PUT" : "GET", headers: { "content-type": "application/json", origin: "http://localhost:3001" },
   ...(body ? { body: JSON.stringify(body) } : {}),
 });
 beforeEach(() => {

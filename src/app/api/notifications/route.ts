@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { jsonError, requireApiSession } from "@/lib/api";
+import { validAgentOrigin } from "@/lib/agent-origin";
 import { notificationReadSchema } from "@/lib/validation";
 import { guardUserRateLimit } from "@/lib/rate-limit";
 
@@ -11,6 +12,7 @@ export async function GET(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  if (!validAgentOrigin(request)) return jsonError("مبدأ درخواست مجاز نیست", 403);
   const session = await requireApiSession(request.headers);
   if (!session) return jsonError("ابتدا وارد حساب شوید", 401);
   const limited = guardUserRateLimit(session.user.id, "mutations", { limit: 120, windowMs: 60_000 });

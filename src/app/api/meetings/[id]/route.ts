@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { jsonError, requireApiSession } from "@/lib/api";
+import { validAgentOrigin } from "@/lib/agent-origin";
 import { meetingUpdateSchema } from "@/lib/validation";
 import { reminderIdempotencyKey } from "@/lib/reminders";
 import { guardUserRateLimit } from "@/lib/rate-limit";
@@ -7,6 +8,7 @@ import { parseStoredReminderOffsets } from "@/lib/reminder-offsets";
 import { storedReminderSchedule } from "@/lib/stored-reminder-schedule";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  if (!validAgentOrigin(request)) return jsonError("مبدأ درخواست مجاز نیست", 403);
   const session = await requireApiSession(request.headers);
   if (!session) return jsonError("ابتدا وارد حساب شوید", 401);
   const limited = guardUserRateLimit(session.user.id, "mutations", { limit: 120, windowMs: 60_000 });
@@ -47,6 +49,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  if (!validAgentOrigin(request)) return jsonError("مبدأ درخواست مجاز نیست", 403);
   const session = await requireApiSession(request.headers);
   if (!session) return jsonError("ابتدا وارد حساب شوید", 401);
   const limited = guardUserRateLimit(session.user.id, "mutations", { limit: 120, windowMs: 60_000 });

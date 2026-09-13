@@ -3,7 +3,9 @@ import { db } from "@/lib/db";
 export function aiReadiness() {
   const key = Boolean(process.env.OPENAI_API_KEY?.trim()), approved = process.env.OPENAI_COST_APPROVED === "true";
   const supported = (process.env.AI_PROVIDER ?? "openai") === "openai";
-  return { enabled: key && approved && supported, keyConfigured: key, costApproved: approved, model: process.env.OPENAI_MODEL || "gpt-5-mini", voiceModel: process.env.OPENAI_TRANSCRIBE_MODEL || "gpt-transcribe" };
+  const limit = Number(process.env.OPENAI_DAILY_REQUEST_LIMIT ?? 20);
+  const requestLimitValid = Number.isSafeInteger(limit) && limit > 0;
+  return { enabled: key && approved && supported && requestLimitValid, keyConfigured: key, costApproved: approved, requestLimitValid, model: process.env.OPENAI_MODEL || "gpt-5-mini", voiceModel: process.env.OPENAI_TRANSCRIBE_MODEL || "gpt-transcribe" };
 }
 // Persistent reservation before sending, including failures. This caps requests,
 // not dollars: the owner's provider-side budget must also be configured.

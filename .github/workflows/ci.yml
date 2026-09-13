@@ -76,6 +76,7 @@ jobs:
           QA_BASE_URL=http://localhost:3000 node scripts/qa-schedule-preservation.mjs > artifacts/web-readiness/schedule-preservation.json
           QA_BASE_URL=http://localhost:3000 node scripts/qa-clean-interface.mjs > artifacts/web-readiness/clean-interface.json
           QA_BASE_URL=http://localhost:3000 node scripts/qa-completed-items.mjs > artifacts/web-readiness/completed-items.json
+          QA_BASE_URL=http://localhost:3000 node scripts/qa-independent-readiness.mjs > artifacts/web-readiness/independent-readiness.json
           node scripts/integration-readiness.mjs > artifacts/web-readiness/integrations.json
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

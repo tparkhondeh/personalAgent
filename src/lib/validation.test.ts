@@ -2,6 +2,16 @@ import { describe, expect, it } from "vitest";
 import { escalationAcknowledgeSchema, meetingInputSchema, meetingUpdateSchema, notificationReadSchema, taskInputSchema, taskUpdateSchema, userPreferenceInputSchema } from "./validation";
 
 describe("input validation", () => {
+  it.each(["Not/A_Timezone", "", "  ", "Asia/Tehran-mistyped"])("rejects invalid scheduling timezone %s", timezone => {
+    const meeting = { title: "جلسه", startsAt: "2026-09-20T12:00:00.000Z", endsAt: "2026-09-20T13:00:00.000Z", timezone };
+    expect(meetingInputSchema.safeParse(meeting).success).toBe(false);
+    expect(meetingUpdateSchema.safeParse({ timezone }).success).toBe(false);
+    expect(userPreferenceInputSchema.safeParse({ timezone, workdayStartsAt: "09:00", workdayEndsAt: "18:00", workingDays: ["SAT"], defaultReminderMins: 60, quietHoursStartsAt: "00:00", quietHoursEndsAt: "00:00" }).success).toBe(false);
+  });
+  it.each(["Asia/Tehran", "UTC", "Europe/Berlin"])("preserves valid timezone %s without changing saved instants", timezone => {
+    const startsAt = "2026-09-20T12:00:00.000Z";
+    expect(meetingInputSchema.parse({ title: "جلسه", startsAt, endsAt: "2026-09-20T13:00:00.000Z", timezone })).toMatchObject({ timezone, startsAt });
+  });
   it("preserves meeting completion and rejects unknown status values", () => {
     for (const status of ["SCHEDULED", "DONE", "CANCELLED"]) expect(meetingUpdateSchema.parse({status})).toEqual({status});
     expect(meetingUpdateSchema.safeParse({status:"TODO"}).success).toBe(false);
