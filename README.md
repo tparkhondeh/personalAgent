@@ -4,10 +4,11 @@ tia یک دستیار شخصی فارسی و مینیمال برای کارها�
 
 ## آخرین APK قابل‌آزمایش — نسخه ۴۰، ۱۰ سپتامبر ۲۰۲۶ تهران
 
-- [لوکال این دستگاه](http://localhost:3001/) و [Staging پایدار](https://personalagent.wealthos.ir:8443/)
+- [لوکال این دستگاه](http://localhost:3001/) و [Staging با آدرس ثابت؛ اتصال بیرونی هنوز مشکل دارد](https://personalagent.wealthos.ir:8443/)
 - [دانلود tia آزمایشی 40](https://github.com/tparkhondeh/personalAgent/releases/download/phone-preview-stable-40/tia-stable-40.apk)
 - [هویت فایل، شواهد، پشتیبان، بازگشت و محدودیت‌ها](docs/COMPLETED_ITEMS_2026-09-10.md)
 - [آمادگی نهایی، تست کوتاه گوشی و شرایط انتشار](docs/FINAL_READINESS_2026-09-10.md)
+- [آخرین معیارهای تحویل، پاسخ تیکت و اقدام مدیر سرور — ۱۳ سپتامبر](docs/DELIVERY_ACCEPTANCE_2026-09-13.md)
 - [معماری و مجوزهای صوت محلی](docs/TIA_SPEECH.md)
 
 APK از `34180286b90008498c839f3ec3b4fd72749c750a` است؛ Package برابر `ir.wealthos.personalagent.stable40` است. همان فایل روی Android 13/14/16 در اجرای `34414607065` آزموده، ۱۲ تصویر آن بازبینی و دانلود عمومی مجدد با فایل آزموده‌شده برابر شد. SHA-256: `909bf6f8b5dbb46f937210a787215006cfd7b223eaf880a359636fc1b2262fe9`. وضعیت کد سرور و انتشارهای بعدی، جداگانه در PROJECT_STATUS ثبت می‌شود؛ تغییر سرور، فایل داخل APK را عوض نمی‌کند.
