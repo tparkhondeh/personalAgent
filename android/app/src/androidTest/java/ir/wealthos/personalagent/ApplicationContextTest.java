@@ -283,9 +283,20 @@ public class ApplicationContextTest {
         if (server == null) return;
 
         URL configuredUrl = new URL(server.getString("url"));
-        assertEquals("https", configuredUrl.getProtocol());
-        assertEquals("personalagent.wealthos.ir", configuredUrl.getHost());
-        assertEquals(8443, configuredUrl.getPort());
+        // Only the dedicated CI runner may opt into its exact host-loopback URL.
+        // This test argument never changes the APK's network/security policy.
+        boolean emulatorServer = "true".equals(InstrumentationRegistry.getArguments().getString("allowEmulatorServer"));
+        if (emulatorServer) {
+            assertTrue("Emulator exception requires a debug build", BuildConfig.DEBUG);
+            assertEquals("ir.wealthos.personalagent", appContext.getPackageName());
+            assertEquals("http://10.0.2.2:3001", configuredUrl.toExternalForm());
+            assertTrue(server.getBoolean("cleartext"));
+        } else {
+            assertEquals("https", configuredUrl.getProtocol());
+            assertEquals("personalagent.wealthos.ir", configuredUrl.getHost());
+            assertEquals(8443, configuredUrl.getPort());
+            assertFalse(server.optBoolean("cleartext", false));
+        }
         assertEquals("connection-error.html", server.getString("errorPath"));
         JSONArray allowNavigation = server.getJSONArray("allowNavigation");
         assertEquals(1, allowNavigation.length());
@@ -302,6 +313,7 @@ public class ApplicationContextTest {
                 assertTrue(response.contains("\"database\":\"connected\""));
             }
         } catch (IOException unavailableFromRunnerNetwork) {
+            if (emulatorServer) throw unavailableFromRunnerNetwork;
             try (InputStream stream = appContext.getAssets().open("public/index.html")) {
                 assertTrue(stream.available() > 0);
             }

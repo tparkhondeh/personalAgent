@@ -29,7 +29,8 @@ adb install -r "$apk_path"
 adb shell pm grant "$package_name" android.permission.POST_NOTIFICATIONS || true
 adb shell appops set "$package_name" SCHEDULE_EXACT_ALARM allow || true
 
-./android/gradlew -p android --no-daemon :app:connectedDebugAndroidTest
+./android/gradlew -p android --no-daemon :app:connectedDebugAndroidTest \
+  -Pandroid.testInstrumentationRunnerArguments.allowEmulatorServer=true
 
 adb install -r "$apk_path"
 adb shell pm grant "$package_name" android.permission.POST_NOTIFICATIONS || true
