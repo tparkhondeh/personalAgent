@@ -8,7 +8,7 @@ import { validTime24, persianParts } from "@/lib/persian-inputs";
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { authClient } from "@/lib/auth-client";
-import { enablePushNotifications } from "@/lib/push-client";
+import { enableNotificationsForDevice } from "@/lib/notification-access";
 import { defaultPreferences, PreferencesPanel, type UserPreferences } from "@/components/preferences-panel";
 import { NotificationCenter, type AppNotification } from "@/components/notification-center";
 import { buildEscalationPlan, defaultEscalationPolicy } from "@/lib/escalations";
@@ -107,7 +107,9 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
   const [pendingDelete, setPendingDelete] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
-  const [notificationStatus, setNotificationStatus] = useState("فعال‌سازی اعلان‌ها");
+  const [notificationStatus, setNotificationStatus] = useState("");
+  const [notificationEnabling, setNotificationEnabling] = useState(false);
+  const notificationActivation = useRef(false);
   const [notificationCenter, setNotificationCenter] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
@@ -281,8 +283,13 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
   }
 
   async function enableNotifications() {
-    try { const result = await enablePushNotifications(); setNotificationStatus(result.mode === "push" ? "اعلان‌های کامل فعال است" : "اعلان محلی فعال است"); }
+    if (notificationActivation.current) return;
+    notificationActivation.current = true;
+    setNotificationEnabling(true);
+    setNotificationStatus("");
+    try { const result = await enableNotificationsForDevice(); setNotificationStatus(result.message); }
     catch (error) { setNotificationStatus(error instanceof Error ? error.message : "فعال‌سازی اعلان ناموفق بود"); }
+    finally { notificationActivation.current = false; setNotificationEnabling(false); }
   }
 
   async function markNotificationsRead(id?: string) {
@@ -373,7 +380,7 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
     </section>
     <nav className="mobile-nav"><Nav active={view === "today"} label="امروز" onClick={() => { setView("today"); setFilter("all"); }} /><Nav active={view === "tasks"} label="کارها" onClick={() => setView("tasks")} /><button className="mobile-add" aria-label="برنامه جدید" title="برنامه جدید" onClick={() => openComposer()}><ActionIcon name="plus" /></button><Nav active={view === "calendar"} label="تقویم" onClick={() => setView("calendar")} /><Nav active={view === "assistant"} label="tia" onClick={() => setView("assistant")} /></nav>
     {composer && <Composer initial={editing} initialDate={composerDate} defaultReminderOffsets={preferences?.defaultReminderOffsets ?? defaultPreferences.defaultReminderOffsets} onClose={closeComposer} onSubmit={save} />}
-    {notificationCenter && <NotificationCenter notifications={notifications} signedIn={signedIn} pushStatus={notificationStatus} onClose={() => setNotificationCenter(false)} onEnablePush={() => void enableNotifications()} onRead={(id) => void markNotificationsRead(id)} />}
+    {notificationCenter && <NotificationCenter notifications={notifications} signedIn={signedIn} pushStatus={notificationStatus} enabling={notificationEnabling} onClose={() => setNotificationCenter(false)} onEnablePush={() => void enableNotifications()} onRead={(id) => void markNotificationsRead(id)} />}
   </main>;
 }
 

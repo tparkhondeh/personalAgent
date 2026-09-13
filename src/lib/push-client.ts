@@ -6,7 +6,7 @@ export function urlBase64ToUint8Array(value: string) {
 }
 
 export async function enablePushNotifications() {
-  if (!("serviceWorker" in navigator) || !("PushManager" in window)) throw new Error("مرورگر از اعلان پشتیبانی نمی‌کند");
+  if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) throw new Error("این مرورگر از Push پشتیبانی نمی‌کند؛ اعلان‌های داخل برنامه همچنان در دسترس‌اند.");
   const registration = await navigator.serviceWorker.register("/sw.js", { scope: "/", updateViaCache: "none" });
   const permission = await Notification.requestPermission();
   if (permission !== "granted") throw new Error("اجازه اعلان داده نشد");

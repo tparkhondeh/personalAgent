@@ -14,6 +14,9 @@ const nextConfig: NextConfig = {
   devIndicators: false,
   output: "standalone",
   distDir: process.env.HAMRAH_ISOLATED_BUILD === "true" ? ".next-build" : ".next",
+  // This shared Windows host reports many CPUs but can run out of commit memory
+  // when every page worker starts at once. Keep CI/runtime defaults unchanged.
+  ...(process.env.HAMRAH_ISOLATED_BUILD === "true" ? { experimental: { cpus: 2 } } : {}),
   poweredByHeader: false,
   async headers() {
     return [
