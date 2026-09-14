@@ -1,6 +1,9 @@
 # Durable development rules
 
 - Communicate briefly in simple Persian: outcome, essential limitations and owner action only. Keep implementation details in documents unless asked.
+- Personal-use scope (2026-09-14): store onboarding/listings/publication-specific tests are deferred, not personal-use blockers. Preserve app identity, signing and local/online data boundaries; never infer a successful upgrade from a fresh install.
+- Manual-create retries: retain one form key across uncertain responses; persist an owned request receipt in the SAME transaction as task/meeting/calendar/reminders. Reject changed payload/kind for that key; never resurrect completion/cancellation. Missing keys on legacy clients do not provide this guarantee.
+- Recovery email remains off without complete approved TLS SMTP configuration and an explicit durable daily cap. Do not log reset tokens, SMTP replies or addresses; use fragments, no-referrer and one-time expiring auth-library tokens. Synthetic mail-sink acceptance is not inbox delivery. Encrypted backup tooling does not imply approved key custody, off-host transfer or scheduled disaster recovery.
 - Completed records are retained, not destroyed. Exclude them from every active list/calendar and remaining count; only completed statistics remain visible. No completed/archive tab. Verify completion, cancellation, rapid-click idempotence and reload parity in web and bundled Android.
 
 - Use the checked-out files and verified release metadata as authority, not chat summaries.

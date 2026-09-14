@@ -5,6 +5,7 @@ import { taskInputSchema } from "@/lib/validation";
 import { reminderIdempotencyKey } from "@/lib/reminders";
 import { guardUserRateLimit } from "@/lib/rate-limit";
 import { buildReminderSchedule, parseStoredReminderOffsets } from "@/lib/reminder-offsets";
+import { createExactlyOnce, createFailure, createRequestIdentity } from "@/lib/create-request";
 
 export async function GET(request: Request) {
   const session = await requireApiSession(request.headers);
@@ -24,13 +25,16 @@ export async function POST(request: Request) {
   const preference = await db.userPreference.findUnique({ where: { userId: session.user.id }, select: { defaultReminderMins: true, defaultReminderOffsets: true } });
   const { reminderMinutes, ...taskInput } = parsed.data;
   const reminderOffsets = reminderMinutes !== undefined ? [reminderMinutes] : parseStoredReminderOffsets(preference?.defaultReminderOffsets, preference?.defaultReminderMins);
-  const task = await db.$transaction(async (tx) => {
+  try {
+  const identity = createRequestIdentity(request.headers.get("idempotency-key"), session.user.id, "Task", parsed.data);
+  const task = await createExactlyOnce(db, identity, async (tx) => {
     const created = await tx.task.create({ data: { ...taskInput, startAt: taskInput.startAt ? new Date(taskInput.startAt) : null, dueAt: taskInput.dueAt ? new Date(taskInput.dueAt) : null, userId: session.user.id } });
     if (created.dueAt) {
       await tx.reminder.createMany({ data: buildReminderSchedule(created.dueAt, reminderOffsets).map(({ scheduledFor }) => ({ userId: session.user.id, taskId: created.id, scheduledFor, channel: "PUSH", idempotencyKey: reminderIdempotencyKey(session.user.id, created.id, scheduledFor, "PUSH") })) });
     }
     await tx.auditLog.create({ data: { userId: session.user.id, action: "TASK_CREATED", entityType: "Task", entityId: created.id, input: JSON.stringify({ title: created.title, category: created.category, priority: created.priority }) } });
     return created;
-  });
+  }, (tx, id) => tx.task.findFirst({ where: { id, userId: session.user.id } }));
   return Response.json({ data: task, meta: { remindersScheduled: task.dueAt ? reminderOffsets.length : 0 } }, { status: 201 });
+  } catch (error) { return createFailure(error); }
 }

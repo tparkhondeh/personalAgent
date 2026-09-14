@@ -21,6 +21,11 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       { source: "/(.*)", headers: securityHeaders },
+      { source: "/:path(forgot-password|reset-password)", headers: [
+        { key: "Referrer-Policy", value: "no-referrer" },
+        { key: "Cache-Control", value: "no-store" },
+      ] },
+      { source: "/api/auth/:path*", headers: [{ key: "Referrer-Policy", value: "no-referrer" }, { key: "Cache-Control", value: "no-store" }] },
       { source: "/:worker(sw|pwa-recovery).js", headers: [
         { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
         { key: "Content-Type", value: "application/javascript; charset=utf-8" },

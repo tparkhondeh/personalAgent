@@ -42,6 +42,7 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test
+      - run: node scripts/qa-private-backup.mjs
       - run: pnpm build
       - name: Package web-only staging candidate (never deploy automatically)
         run: |
@@ -75,6 +76,7 @@ jobs:
           QA_BASE_URL=http://localhost:3000 node scripts/qa-agent-flow.mjs > artifacts/web-readiness/agent-flow.json
           QA_BASE_URL=http://localhost:3000 node scripts/qa-schedule-preservation.mjs > artifacts/web-readiness/schedule-preservation.json
           QA_BASE_URL=http://localhost:3000 node scripts/qa-clean-interface.mjs > artifacts/web-readiness/clean-interface.json
+          QA_BASE_URL=http://localhost:3000 node scripts/qa-create-retries.mjs > artifacts/web-readiness/create-retries.json
           QA_BASE_URL=http://localhost:3000 node scripts/qa-completed-items.mjs > artifacts/web-readiness/completed-items.json
           QA_BASE_URL=http://localhost:3000 QA_REUSE_CLEAN_ACCOUNT=true node scripts/qa-independent-readiness.mjs > artifacts/web-readiness/independent-readiness.json
           node scripts/integration-readiness.mjs > artifacts/web-readiness/integrations.json

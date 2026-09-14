@@ -7,6 +7,7 @@ import { validTime24, persianParts } from "@/lib/persian-inputs";
 
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createSubmissionController } from "@/lib/create-submission";
 import { authClient } from "@/lib/auth-client";
 import { enableNotificationsForDevice } from "@/lib/notification-access";
 import { defaultPreferences, PreferencesPanel, type UserPreferences } from "@/components/preferences-panel";
@@ -98,6 +99,8 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
   const [view, setView] = useState<View>(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("view") === "assistant" ? "assistant" : "today");
   const [filter, setFilter] = useState<Category | "all">("all");
   const [composer, setComposer] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const submission = useRef(createSubmissionController(() => crypto.randomUUID()));
   const [editing, setEditing] = useState<Item | null>(null);
   const [composerDate, setComposerDate] = useState<string>();
   const [pendingDelete, setPendingDelete] = useState("");
@@ -310,11 +313,12 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
     }
   }
 
-  function openComposer(item: Item | null = null, date?: string) { document.dispatchEvent(new Event("tia-cancel-voice")); setEditing(item); setComposerDate(date); setComposer(true); }
-  function closeComposer() { setEditing(null); setComposerDate(undefined); setComposer(false); }
+  function openComposer(item: Item | null = null, date?: string) { if (!submission.current.reset()) return; document.dispatchEvent(new Event("tia-cancel-voice")); setEditing(item); setComposerDate(date); setComposer(true); }
+  function closeComposer() { if (submission.current.isPending()) return; setEditing(null); setComposerDate(undefined); setComposer(false); }
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submission.current.isPending()) return;
     const form = event.currentTarget;
     const data = new FormData(form);
     const title = String(data.get("title") || "").trim();
@@ -328,9 +332,11 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
     if (!title) return;
     setMessage("");
     if (!signedIn) {
+      if (!submission.current.begin()) return;
       const duration = editing?.source === "meeting" && editing.startsAt && editing.endsAt ? (Date.parse(editing.endsAt)-Date.parse(editing.startsAt))/60000 : 60;
       const nextItem: Item = { id: editing?.id || crypto.randomUUID(), title, category, priority, source: category === "meeting" ? "meeting" : "task", startsAt: category === "meeting" ? startsAt : undefined, endsAt: category === "meeting" && startsAt ? new Date(new Date(startsAt).getTime() + duration * 60_000).toISOString() : undefined, dueAt: category === "meeting" ? undefined : startsAt, done: editing?.done || false };
-      if (!commitGuestItems(editing ? items.map(item=>item.id===editing.id&&item.source===editing.source?nextItem:item) : [nextItem,...items])) return;
+      if (!commitGuestItems(editing ? items.map(item=>item.id===editing.id&&item.source===editing.source?nextItem:item) : [nextItem,...items])) { submission.current.finish(false); return; }
+      submission.current.finish(true);
       form.reset(); closeComposer(); return;
     }
     const isMeeting = category === "meeting";
@@ -340,13 +346,17 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
     const body = isMeeting
       ? { title, startsAt: startsAt!, endsAt: new Date(new Date(startsAt!).getTime() + duration * 60_000).toISOString(), timezone: editing?.timezone || preferences?.timezone || "Asia/Tehran", ...(editing ? {} : { attendees: [] }) }
       : { title, category: category === "work" ? "WORK" : "PERSONAL", priority: priority.toUpperCase(), dueAt: startsAt ?? null };
+    const requestKey = submission.current.begin();
+    if (!requestKey) return;
+    setSaving(true);
     try {
-      const response = await fetch(endpoint, { method: editing ? "PATCH" : "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+      const response = await fetch(endpoint, { method: editing ? "PATCH" : "POST", headers: { "content-type": "application/json", ...(!editing ? { "idempotency-key": requestKey } : {}) }, body: JSON.stringify(body) });
       if (!response.ok) { const result = await response.json().catch(() => null); setMessage(result?.error || "ثبت برنامه انجام نشد."); return; }
-      form.reset(); closeComposer(); await loadRemote();
+      submission.current.finish(true);
+      form.reset(); closeComposer(); void loadRemote();
     } catch {
-      setMessage("ارتباط با برنامه برقرار نشد؛ دوباره تلاش کن.");
-    }
+      setMessage("نتیجه ثبت مشخص نشد؛ همین فرم را بدون تغییر دوباره ثبت کن.");
+    } finally { submission.current.finish(false); setSaving(false); }
   }
 
   const unreadNotifications = notifications.filter((notification) => !notification.readAt).length;
@@ -386,12 +396,12 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
       </>}
     </section>
     <nav className="mobile-nav"><Nav active={view === "today"} label="امروز" onClick={() => { setView("today"); setFilter("all"); }} /><Nav active={view === "tasks"} label="کارها" onClick={() => setView("tasks")} /><button className="mobile-add" aria-label="برنامه جدید" title="برنامه جدید" onClick={() => openComposer()}><ActionIcon name="plus" /></button><Nav active={view === "calendar"} label="تقویم" onClick={() => setView("calendar")} /><Nav active={view === "assistant"} label="tia" onClick={() => setView("assistant")} /></nav>
-    {composer && <Composer initial={editing} initialDate={composerDate} defaultReminderOffsets={preferences?.defaultReminderOffsets ?? defaultPreferences.defaultReminderOffsets} onClose={closeComposer} onSubmit={save} />}
+    {composer && <Composer initial={editing} initialDate={composerDate} defaultReminderOffsets={preferences?.defaultReminderOffsets ?? defaultPreferences.defaultReminderOffsets} saving={saving} error={message} onClose={closeComposer} onSubmit={save} />}
     {notificationCenter && <NotificationCenter notifications={notifications} signedIn={signedIn} pushStatus={notificationStatus} enabling={notificationEnabling} onClose={() => setNotificationCenter(false)} onEnablePush={() => void enableNotifications()} onRead={(id) => void markNotificationsRead(id)} />}
   </main>;
 }
 
-function Composer({ initial, initialDate, defaultReminderOffsets, onClose, onSubmit }: { initial: Item | null; initialDate?: string; defaultReminderOffsets: number[]; onClose: () => void; onSubmit: (event: FormEvent<HTMLFormElement>) => void }) {
+function Composer({ initial, initialDate, defaultReminderOffsets, saving, error, onClose, onSubmit }: { initial: Item | null; initialDate?: string; defaultReminderOffsets: number[]; saving: boolean; error: string; onClose: () => void; onSubmit: (event: FormEvent<HTMLFormElement>) => void }) {
   const [category, setCategory] = useState<Category>(initial?.category || "personal");
   const moment = initial ? itemMoment(initial) : undefined;
   useEffect(() => {
@@ -400,7 +410,7 @@ function Composer({ initial, initialDate, defaultReminderOffsets, onClose, onSub
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [onClose]);
   const titleId = "composer-title";
-  return <div className="modal-backdrop" onMouseDown={onClose}><form className="composer" role="dialog" aria-modal="true" aria-labelledby={titleId} onSubmit={onSubmit} onMouseDown={(event) => event.stopPropagation()}><div className="composer-heading"><div><small>{initial ? "به‌روزرسانی برنامه" : "یک قدم تازه"}</small><h2 id={titleId}>{initial ? category === "meeting" ? "ویرایش جلسه" : "ویرایش کار" : category === "meeting" ? "جلسه جدید" : "کار جدید"}</h2></div><button type="button" onClick={onClose}>بستن</button></div><label>عنوان<input name="title" autoFocus required defaultValue={initial?.title} placeholder={category === "meeting" ? "مثلاً جلسه با تیم فروش" : "مثلاً تماس با تیم فروش"} /></label><div className="field-grid"><label>دسته‌بندی<select name="category" value={category} onChange={(event) => setCategory(event.target.value as Category)}>{initial?.source === "meeting" ? <option value="meeting">جلسه</option> : <><option value="personal">شخصی</option><option value="work">شرکتی</option>{!initial && <option value="meeting">جلسه</option>}</>}</select></label><label>اولویت<select name="priority" disabled={category === "meeting"} defaultValue={initial?.priority || "normal"}><option value="normal">عادی</option><option value="important">مهم</option><option value="urgent">فوری</option></select></label></div><div className="field-grid"><label>{category === "meeting" ? "تاریخ" : "تاریخ (اختیاری)"}<PersianDateField name="date" defaultValue={moment ? dateKey(moment) : initialDate || (initial ? "" : localDateInput())} required={category === "meeting"} /></label><label>ساعت<Time24Field name="time" defaultValue={localTimeInput(moment)} required={category === "meeting"} /></label></div><div className="composer-reminder-summary"><strong>یادآوری‌های فعال</strong><span>{reminderOffsetsLabel(defaultReminderOffsets)}</span><small>از بخش تنظیمات برنامه‌ریزی قابل تغییر است.</small></div><button className="submit-button">{initial ? "ذخیره تغییرات" : "ثبت در برنامه"}</button></form></div>;
+  return <div className="modal-backdrop" onMouseDown={onClose}><form className="composer" role="dialog" aria-modal="true" aria-busy={saving} aria-labelledby={titleId} onSubmit={onSubmit} onMouseDown={(event) => event.stopPropagation()}><div className="composer-heading"><div><small>{initial ? "به‌روزرسانی برنامه" : "یک قدم تازه"}</small><h2 id={titleId}>{initial ? category === "meeting" ? "ویرایش جلسه" : "ویرایش کار" : category === "meeting" ? "جلسه جدید" : "کار جدید"}</h2></div><button type="button" disabled={saving} onClick={onClose}>بستن</button></div><label>عنوان<input name="title" autoFocus required defaultValue={initial?.title} placeholder={category === "meeting" ? "مثلاً جلسه با تیم فروش" : "مثلاً تماس با تیم فروش"} /></label><div className="field-grid"><label>دسته‌بندی<select name="category" value={category} onChange={(event) => setCategory(event.target.value as Category)}>{initial?.source === "meeting" ? <option value="meeting">جلسه</option> : <><option value="personal">شخصی</option><option value="work">شرکتی</option>{!initial && <option value="meeting">جلسه</option>}</>}</select></label><label>اولویت<select name="priority" disabled={category === "meeting"} defaultValue={initial?.priority || "normal"}><option value="normal">عادی</option><option value="important">مهم</option><option value="urgent">فوری</option></select></label></div><div className="field-grid"><label>{category === "meeting" ? "تاریخ" : "تاریخ (اختیاری)"}<PersianDateField name="date" defaultValue={moment ? dateKey(moment) : initialDate || (initial ? "" : localDateInput())} required={category === "meeting"} /></label><label>ساعت<Time24Field name="time" defaultValue={localTimeInput(moment)} required={category === "meeting"} /></label></div><div className="composer-reminder-summary"><strong>یادآوری‌های فعال</strong><span>{reminderOffsetsLabel(defaultReminderOffsets)}</span><small>از بخش تنظیمات برنامه‌ریزی قابل تغییر است.</small></div>{error && <p className="form-error" role="alert">{error}</p>}<button className="submit-button" disabled={saving}>{saving ? "در حال ثبت…" : initial ? "ذخیره تغییرات" : "ثبت در برنامه"}</button></form></div>;
 }
 
 function Nav({ active, label, badge, onClick }: { active: boolean; label: string; badge?: number; onClick: () => void }) { return <button className={`nav-button ${active ? "active" : ""}`} onClick={onClick}>{label}{badge !== undefined && <small>{badge}</small>}</button>; }
