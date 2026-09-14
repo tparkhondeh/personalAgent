@@ -63,6 +63,10 @@ Type Check، Lint، ۴۵۴ آزمون/۵۳ فایل و Build مجزای وب م�
 
 پیشنهاد آیکون ۵۱۲ و گرافیک ۱۰۲۴×۵۰۰ از نشان موجود tia ساخته و بصری بررسی شد؛ در `artifacts/store-drafts/tia-IuonfJ` با manifest هش قرار دارد. دو تصویر واقعی APK40 بدون داده شخصی مالک فقط به‌عنوان پیش‌نویس حفظ شدند، نه تصاویر نسخه نهایی. مجوز نصب‌شده web-push برابر MPL-2.0 بود؛ اشتباه MIT در مستند قدیمی اصلاح شد و بازبینی NOTICE نسخه نهایی باقی است.
 
+تأیید بعد از Push کد `8bab4df48d5f8ac72c85a0ad7e5dc0d75ec0afea`: [CI34830214606](https://github.com/tparkhondeh/personalAgent/actions/runs/34830214606) و آزمون همان بسته وب روی DB جدا موفق؛ [Android34830214587](https://github.com/tparkhondeh/personalAgent/actions/runs/34830214587) با ۱۱ آزمون/صفر خطا/صفر skipped موفق. Artifact شواهد `10341333982` در `artifacts/store-readiness-20260914-ci` نگه‌داری شد؛ تصویر `android/artifacts/android/emulator.png` نمایش واقعی فارسی و چهار شمارنده صفرِ شروع خالی را بدون پوشش خطای سیستم نشان داد. این APK Debug داخلی برای آزمون ساخته شد و جایگزین Release40 یا آزمون ارتقای گوشی مالک نیست. CI تازه سرور را Deploy نکرد.
+
+Logcat اجرای داخلی هیچ تطبیقی برای FATAL EXCEPTION، E AndroidRuntime یا Uncaught TypeError/ReferenceError نداشت؛ **بی‌خطایی مطلق لاگ ادعا نمی‌شود**. WebView اخطار شناخته‌نشدن payment/usb در Permissions-Policy و دو پیام caught با مضمون `Error injecting safe area CSS` داشت. نمایش فارسی/نوار پایین و ۱۱ آزمون موفق بودند؛ بازبینی safe-area روی گوشی و بسته عمومی در پذیرش نهایی باقی است. برای حذف اخطار، سیاست امنیتی ضعیف نشد. SHA فایل داخلی آزمون `b771da5202a3fce6995b4beae1181f8f307262230398d3b01362737d42f3fbea` است؛ آن را با SHA فایل تحویلی۴۰ یکی نگیرید.
+
 | مانع | اقدام لازم | مسئول | زمان مشروط، نه تعهد |
 |---|---|---|---|
 | مسیر پایدار و نسخه صحیح/کش | تصمیم محدود برای origin، پشتیبان، تأیید انتقال و smoke HTTPS | مدیر سرور + مالک برای تأیید؛ عامل برای آزمون | حدود نیم تا یک روز کاری پس از دسترسی/تصمیم مسیر |
