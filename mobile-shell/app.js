@@ -1,6 +1,13 @@
 (() => {
   "use strict";
-  const storageKey = "hamrah-local-v2";
+  const taskStore = window.HamrahStorage.createTaskStore({
+    getItem: key => localStorage.getItem(key), setItem: (key, value) => localStorage.setItem(key, value),
+  });
+  const storageWarning = document.createElement("p");
+  storageWarning.setAttribute("role", "alert");
+  storageWarning.className = "status";
+  storageWarning.hidden = true;
+  document.querySelector(".app").prepend(storageWarning);
   const channelId = "urgent-overdue";
   const labels = { category: { personal: "شخصی", company: "شرکتی", meeting: "جلسه" }, priority: { normal: "عادی", important: "مهم", urgent: "فوری" } };
   const $ = (selector) => document.querySelector(selector);
@@ -27,8 +34,25 @@
   catch { reminderOffsets = domain.normalizeOffsets(null); }
   const offsetLabels = { 1440: "۱ روز قبل", 180: "۳ ساعت قبل", 60: "۱ ساعت قبل" };
 
-  function loadTasks() { try { const value = JSON.parse(localStorage.getItem(storageKey) || "[]"); return Array.isArray(value) ? value : []; } catch { return []; } }
-  function saveTasks() { localStorage.setItem(storageKey, JSON.stringify(tasks)); }
+  function storageFailure(reason) {
+    storageWarning.hidden = false;
+    storageWarning.textContent = reason === "changed"
+      ? "اطلاعات در پنجره دیگری تغییر کرده؛ برای جلوگیری از بازنویسی، صفحه را دوباره باز کنید. چیزی ذخیره نشد."
+      : "خواندن یا ذخیره اطلاعات گوشی ممکن نیست. اطلاعات قبلی پاک نشده؛ حافظه برنامه را پاک نکنید. تغییر جدید ذخیره نشده است.";
+    if (modal.classList.contains("open")) $("#form-reminders").textContent = storageWarning.textContent;
+  }
+  function loadTasks() {
+    const result = taskStore.load();
+    if (!result.ok) storageFailure(result.reason);
+    return result.tasks;
+  }
+  function saveTasks(next = tasks) {
+    const result = taskStore.save(next);
+    if (!result.ok) { tasks = taskStore.snapshot(); storageFailure(result.reason); return false; }
+    tasks = next;
+    storageWarning.hidden = true;
+    return true;
+  }
   function notificationId() { return (crypto.getRandomValues(new Uint32Array(1))[0] % 2000000000) + 1; }
   function toFa(value) { return Number(value).toLocaleString("fa-IR"); }
   function escapeText(value) { const span = document.createElement("span"); span.textContent = value; return span.innerHTML; }
@@ -83,7 +107,7 @@
     const usedIds = new Set(tasks.flatMap(domain.notificationIds));
     task.notificationIds = times.map(() => { let id; do { id = notificationId(); } while (usedIds.has(id)); usedIds.add(id); return id; });
     // Persist IDs before scheduling so completion/retry can cancel a partial native delivery.
-    if (kind !== "test") saveTasks();
+    if (kind !== "test" && !saveTasks()) throw new Error("شناسه یادآوری ذخیره نشد؛ اعلان جدید تنظیم نشد.");
     await localNotifications.schedule({ notifications: times.map((time, index) => ({ id: task.notificationIds[index], title: kind === "test" ? "آزمایش هشدار tia" : "یادآوری برنامه", body: task.title, largeBody: task.title, channelId:selectedChannel, ...(alarm?{sound:"urgent_alarm.wav"}:{}), smallIcon: "ic_stat_hamrah", iconColor: "#5C70B4", autoCancel: true, schedule: { at: new Date(time), allowWhileIdle: alarm }, extra: { owner: "hamrah-local", kind } })) });
     return true;
   }
@@ -135,6 +159,10 @@
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
+    const submitButton = form.querySelector('[type="submit"]');
+    if (submitButton.disabled) return;
+    submitButton.disabled = true;
+    try {
     const data = new FormData(form);
     const title = String(data.get("title") || "").trim();
     if (!title) return;
@@ -145,13 +173,15 @@
     const task = { ...existing, id: existing?.id || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())), title, category: String(data.get("category") || "personal"), priority: String(data.get("priority") || "normal"), deadline: deadlineValue ? new Date(deadlineValue).toISOString() : null, reminderOffsets: existing?.approvedPlan ? existing.approvedPlan.reminderOffsets : domain.normalizeOffsets(existing?.reminderOffsets || reminderOffsets), notificationIds: [], done: existing?.done || false, updatedAt:new Date().toISOString() };
     if(task.approvedPlan){task.approvedPlan={...task.approvedPlan,quietStart:"00:00",quietEnd:"00:00"};}
     if(task.approvedPlan?.durationMinutes && task.deadline)task.endsAt=new Date(Date.parse(task.deadline)+task.approvedPlan.durationMinutes*60000).toISOString();
-    tasks = existing ? tasks.map((item) => item.id === task.id ? task : item) : [task, ...tasks];
-    saveTasks(); render(); closeForm();
+    const next = existing ? tasks.map((item) => item.id === task.id ? task : item) : [task, ...tasks];
+    if (!saveTasks(next)) { render(); return; }
+    render(); closeForm();
     $("#page-status").textContent = "برنامه ذخیره شد.";
     if (task.deadline && !task.done) {
       try { const scheduled = await scheduleNotification(task); $("#page-status").textContent = scheduled ? "برنامه ذخیره و یادآوری‌ها تنظیم شدند." : "برنامه ذخیره شد؛ یادآوری به زمان آینده و اجازه اعلان نیاز دارد."; }
       catch { $("#page-status").textContent = "برنامه ذخیره شد، اما تنظیم یادآوری کامل نشد؛ از تنظیمات دوباره تلاش کن."; }
     }
+    } finally { submitButton.disabled = false; }
   });
   async function handleListAction(event) {
     const button = event.target.closest("button[data-action]");
@@ -164,11 +194,18 @@
     if (button.dataset.action === "cancel-delete") { pendingDelete = ""; render(); return; }
     pendingActions.add(id);
     try {
-      if (button.dataset.action === "toggle") { await cancelNotifications(task); task.done = true; task.updatedAt=new Date().toISOString(); saveTasks(); }
-      if (button.dataset.action === "confirm-delete") { await cancelNotifications(task); tasks = tasks.filter((item) => item.id !== id); pendingDelete = ""; }
+      if (button.dataset.action === "toggle") {
+        await cancelNotifications(task);
+        if (!saveTasks(tasks.map(item => item.id === id ? { ...item, done: true, updatedAt: new Date().toISOString() } : item))) { render(); return; }
+      }
+      if (button.dataset.action === "confirm-delete") {
+        await cancelNotifications(task);
+        if (!saveTasks(tasks.filter(item => item.id !== id))) { render(); return; }
+        pendingDelete = "";
+      }
     } catch { $("#page-status").textContent = "ذخیره یا لغو یادآوری کامل نشد؛ دوباره تلاش کن."; render(); return; }
     finally { pendingActions.delete(id); }
-    saveTasks(); render();
+    render();
   }
   list.addEventListener("click", handleListAction);
   datedList.addEventListener("click", handleListAction);
@@ -252,7 +289,12 @@
         const instant=planner.planInstant(p.date,p.time,p.timezone);
         const task={...existing,id:existing?.id||agentDraft.id,title:p.title,category:p.entity==="MEETING"?"meeting":p.category==="WORK"?"company":"personal",priority:p.priority.toLowerCase(),deadline:instant?.toISOString()??null,endsAt:instant&&p.durationMinutes?new Date(instant.getTime()+p.durationMinutes*60000).toISOString():null,reminderOffsets:p.reminderOffsets,notificationIds:[],done:p.operation==="COMPLETE",archived:p.operation==="DELETE",updatedAt:new Date().toISOString(),approvedPlan:p};
         const series=p.operation==="CREATE"&&p.recurrence!=="NONE"?planner.planOccurrences(p).map((o,i)=>({...task,id:i?task.id+"-"+i:task.id,deadline:o.instant,notificationIds:[],endsAt:o.instant&&p.durationMinutes?new Date(Date.parse(o.instant)+p.durationMinutes*60000).toISOString():null})):[task];
-        tasks=existing?tasks.map(t=>t.id===task.id?task:t):[...series,...tasks];saveTasks();
+        const next=existing?tasks.map(t=>t.id===task.id?task:t):[...series,...tasks];
+        if(!saveTasks(next)) {
+          agentDraft.status="PENDING";
+          localStorage.setItem(draftKey,JSON.stringify(agentDraft));
+          throw new Error("ثبت انجام نشد؛ اطلاعات قبلی حفظ شده است. پیام حافظه را بررسی کنید.");
+        }
         agentDraft.status="EXECUTED";localStorage.setItem(draftKey,JSON.stringify(agentDraft));agentDraft=null;
         let result="ثبت محلی انجام شد؛ هنوز با حساب سرور همگام نشده است.";
         if(p.channels.includes("PUSH"))result+=" Push در حالت آفلاین ارسال نمی‌شود.";

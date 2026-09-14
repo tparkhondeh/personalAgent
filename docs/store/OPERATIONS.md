@@ -2,6 +2,8 @@
 
 Status: preparation only, 2026-09-14. No public release approval. See [readiness](READINESS_2026-09-14.md).
 
+Follow-up: [bundled storage protection](OFFLINE_STORAGE_2026-09-14.md) now refuses corrupt/unreadable data and detected stale overwrites and preserves the last saved UI state after quota failure. It is not yet in released APK40. It does not implement export/import, online reconciliation, native-notification transaction recovery or final package/origin migration; keep those gates open.
+
 ## Separate empty environment
 
 Run `node scripts/prepare-clean-environment.mjs` from the repository. Every run allocates a new ignored `backups/clean-start/tia-*` directory, runs existing migrations against its explicit database, verifies integrity/foreign keys and zero business rows, and writes a hash manifest. It never empties an existing database, creates an account/key, starts a service or enables a provider. No live `.env` is copied. On Windows, Unix permission bits are not an ACL guarantee: the operator must validate inherited ACLs before personal data is added.

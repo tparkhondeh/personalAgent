@@ -15,10 +15,14 @@ export async function prepareStoreAssets(parent = path.join(project, "artifacts"
   const feature = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500" viewBox="0 0 1024 500"><defs><linearGradient id="bg"><stop stop-color="#f7f7ff"/><stop offset="1" stop-color="#e3f5ef"/></linearGradient></defs><rect width="1024" height="500" fill="url(#bg)"/><text x="225" y="303" font-family="Arial,sans-serif" font-size="160" font-weight="600" fill="#344767">tia</text></svg>`);
   const mark=await sharp(icon).resize(300,300).png().toBuffer();
   await sharp(feature).composite([{input:mark,left:565,top:100}]).flatten({background:"#f7f7ff"}).png().toFile(path.join(directory,"feature-1024x500.png"));
+  // Bazaar's header uses 5:2, not Google Play's 1024x500 feature-graphic ratio.
+  const bazaar = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="720" height="288"><rect width="720" height="288" fill="#f7f7ff"/><text x="148" y="184" font-family="Arial,sans-serif" font-size="112" font-weight="600" fill="#344767">tia</text></svg>');
+  const bazaarMark = await sharp(icon).resize(216,216).png().toBuffer();
+  await sharp(bazaar).composite([{input:bazaarMark,left:402,top:36}]).png().toFile(path.join(directory,"bazaar-header-720x288.png"));
   const files=[];
-  for(const name of ["icon-512.png","feature-1024x500.png"]){
+  for(const name of ["icon-512.png","feature-1024x500.png","bazaar-header-720x288.png"]){
     const bytes=await readFile(path.join(directory,name)); const info=await sharp(bytes).metadata();
-    files.push({name,width:info.width,height:info.height,sha256:createHash("sha256").update(bytes).digest("hex")});
+    files.push({name,width:info.width,height:info.height,bytes:bytes.length,sha256:createHash("sha256").update(bytes).digest("hex")});
   }
   // Optional, visibly reviewed screenshots of the exact preview APK, not the final binary.
   for(const mode of ["local-fallback","dark-local"]){

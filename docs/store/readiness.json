@@ -7,7 +7,7 @@
   "gates": [
     {"id":"fresh-data", "targets":["personal","public","play","bazaar"], "state":"pending", "evidence":"Fresh empty schema prepared; no running owner environment/account yet."},
     {"id":"https-version-cache", "targets":["personal","public","play","bazaar"], "state":"blocked", "evidence":"8443 TLS fails from Windows; worker cache max-age=14400; 443 serves old production assets, not current tia."},
-    {"id":"data-recovery-upgrade", "targets":["personal","public","play","bazaar"], "state":"blocked", "evidence":"DB restore verified and web guest corruption guarded; bundled phone storage recovery/export/import and package/endpoint migration remain unimplemented/unaccepted."},
+    {"id":"data-recovery-upgrade", "targets":["personal","public","play","bazaar"], "state":"blocked", "evidence":"DB restore verified; web and bundled source refuse corrupt/quota-limited storage. Bundled fix is unreleased; export/import, reconciliation, native notification transaction recovery and package/endpoint migration remain unimplemented/unaccepted."},
     {"id":"phone-acceptance", "targets":["personal","public","play","bazaar"], "state":"pending", "evidence":"Owner notification fix, Alarm/background delivery and microphone acceptance unverified."},
     {"id":"account-lifecycle", "targets":["public","play","bazaar"], "state":"blocked", "evidence":"No verified email reset/verification transport, deletion flow or public privacy/deletion URL."},
     {"id":"operator-retention-support", "targets":["public","play","bazaar"], "state":"pending", "evidence":"Legal operator, support channel and data/backup deletion retention require owner's decision."},

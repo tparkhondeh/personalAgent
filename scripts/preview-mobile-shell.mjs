@@ -2,7 +2,7 @@ import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
-const files = new Set(["index.html", "connection-error.html", "appearance.js", "voice-capture.js", "app.css", "theme.css", "app.js", "domain.js", "planner.js", "input-controls.js", "content.js", "Vazirmatn.woff2", "speech/vosk-0.0.8.js", "speech/fa-0.42.model"]);
+const files = new Set(["index.html", "connection-error.html", "appearance.js", "voice-capture.js", "app.css", "theme.css", "app.js", "storage.js", "domain.js", "planner.js", "input-controls.js", "content.js", "Vazirmatn.woff2", "speech/vosk-0.0.8.js", "speech/fa-0.42.model"]);
 const types = { html: "text/html; charset=utf-8", css: "text/css; charset=utf-8", js: "text/javascript; charset=utf-8", woff2: "font/woff2", model: "application/gzip" };
 const root = new URL("../mobile-shell/", import.meta.url);
 createServer(async (request, response) => {

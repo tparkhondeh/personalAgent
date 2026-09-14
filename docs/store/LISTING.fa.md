@@ -20,6 +20,8 @@
 
 ## تصاویر
 
+بازبینی ۱۴ سپتامبر: تصویر سرصفحه بازار جداست؛ طبق [راهنمای رسمی پیشخان](https://developers.cafebazaar.ir/fa/guidelines/developers-panel/overview)، نسبت ۵:۲، حداقل ۷۲۰×۲۸۸ و PNG زیر یک مگابایت لازم است. ابزار موجود اکنون `bazaar-header-720x288.png` را نیز از نشان فعلی تولید می‌کند؛ تصویر ۱۰۲۴×۵۰۰ گوگل‌پلی جایگزین آن نیست. این‌ها پیش‌نویس‌اند و هیچ‌کدام ارسال نشده‌اند.
+
 `node scripts/prepare-store-assets.mjs` در پوشه تازه و نادیده‌گرفته‌شده `artifacts/store-drafts/tia-*` آیکون ۵۱۲×۵۱۲ و گرافیک ۱۰۲۴×۵۰۰ از نشان فعلی tia می‌سازد. تصاویر موجود و بصری بررسی‌شده APK40، در صورت وجود، فقط با برچسب پیش‌نویس و هش نسخه منبع کپی می‌شوند؛ هیچ اطلاعات شخصی مالک استفاده نمی‌شود. پیش از ارسال باید تصاویر صفحه واقعی همان نسخه عمومی نهایی (روشن، کارها/تقویم و تأیید دستیار) جایگزین شوند. تصاویر شبیه‌سازی‌شده یا APK قدیمی نباید به‌عنوان نسخه جدید معرفی شوند.
 
 [الزامات صفحه برنامه گوگل‌پلی](https://support.google.com/googleplay/android-developer/answer/9859152?hl=en)، [راهنمای تصاویر](https://support.google.com/googleplay/android-developer/answer/9866151?hl=en)، [پیشخان بازار و APK/App Bundle](https://developers.cafebazaar.ir/fa/guidelines/developers-panel/overview#Study-the-contract).

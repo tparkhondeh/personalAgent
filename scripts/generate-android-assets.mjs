@@ -104,6 +104,7 @@ const captureSources=await Promise.all(["voice-capture","list-viewport","local-s
 const captureJs=ts.transpileModule(captureSources.join("\n").replace(/^export /gm,""),{compilerOptions:{target:ts.ScriptTarget.ES2020,module:ts.ModuleKind.None}}).outputText;
 const captureScript=`window.HamrahCapture=(()=>{${captureJs}\nreturn {createVoiceCapture,fitProgramList,createLocalSpeech,normalizeVoiceText};})();`;
 await writeFile(path.join(mobileRoot,"voice-capture.js"),captureScript);
+const storageScript = await readFile(path.join(mobileRoot, "storage.js"), "utf8");
 const bundledDocument = indexHtml
   .replace('<script src="./appearance.js"></script>',()=>`<script>${appearance}</script>`)
   .replace('<link rel="stylesheet" href="./app.css" />', () => `<style>${appStyles}\n${sharedTheme}</style>`)
@@ -113,9 +114,10 @@ const bundledDocument = indexHtml
   .replace('<script src="./planner.js"></script>', "")
   .replace('<script src="./input-controls.js"></script>', "")
   .replace('<script src="./voice-capture.js"></script>', "")
+  .replace('<script src="./storage.js"></script>', "")
   .replace('<script src="./app.js"></script>', "");
 const serializedDocument = JSON.stringify(bundledDocument).replaceAll("</", "<\\/");
-const serializedScript = JSON.stringify(`${poemScript}\n${domainScript}\n${plannerScript}\n${inputControls}\n${captureScript}\n${appScript}`).replaceAll("</", "<\\/");
+const serializedScript = JSON.stringify(`${poemScript}\n${domainScript}\n${plannerScript}\n${inputControls}\n${captureScript}\n${storageScript}\n${appScript}`).replaceAll("</", "<\\/");
 const offlineDocumentMarker = /^(\s*)const bundledDocument = .*; \/\/ generated-offline-document$/m;
 const offlineScriptMarker = /^(\s*)const bundledScript = .*; \/\/ generated-offline-script$/m;
 if (!offlineDocumentMarker.test(recoveryHtml)) {
