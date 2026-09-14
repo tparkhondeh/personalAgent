@@ -12,7 +12,11 @@ describe("dashboard account boundary", () => {
   it("does not reclassify account data as demo items during sign-out", () => {
     const dashboard = source.split("function SessionDashboard")[1].split("function Assistant")[0];
     expect(dashboard).toContain('session: ReturnType<typeof authClient.useSession>["data"]');
-    expect(dashboard).toContain('useState<Item[]>(() => session?.user ? [] : demoItems)');
+    expect(dashboard).toContain('useState<Item[]>([])');
+    expect(source).not.toContain('const demoItems');
+    expect(dashboard).toContain('if (signedIn) return false;');
+    expect(dashboard).toContain('if (!guestStorageReady || !saveGuestItems(');
+    expect(dashboard).toContain('if (!hydrated || (!signedIn && !guestStorageReady)) return;');
     expect(dashboard).not.toContain('const { data: session } = authClient.useSession()');
   });
 });

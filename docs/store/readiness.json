@@ -1,0 +1,20 @@
+{
+  "checkedOn": "2026-09-14",
+  "name": "tia",
+  "proposedPackageId": "ir.wealthos.personalagent",
+  "packageReserved": false,
+  "publicReleaseApproved": false,
+  "gates": [
+    {"id":"fresh-data", "targets":["personal","public","play","bazaar"], "state":"pending", "evidence":"Fresh empty schema prepared; no running owner environment/account yet."},
+    {"id":"https-version-cache", "targets":["personal","public","play","bazaar"], "state":"blocked", "evidence":"8443 TLS fails from Windows; worker cache max-age=14400; 443 serves old production assets, not current tia."},
+    {"id":"data-recovery-upgrade", "targets":["personal","public","play","bazaar"], "state":"blocked", "evidence":"DB restore verified and web guest corruption guarded; bundled phone storage recovery/export/import and package/endpoint migration remain unimplemented/unaccepted."},
+    {"id":"phone-acceptance", "targets":["personal","public","play","bazaar"], "state":"pending", "evidence":"Owner notification fix, Alarm/background delivery and microphone acceptance unverified."},
+    {"id":"account-lifecycle", "targets":["public","play","bazaar"], "state":"blocked", "evidence":"No verified email reset/verification transport, deletion flow or public privacy/deletion URL."},
+    {"id":"operator-retention-support", "targets":["public","play","bazaar"], "state":"pending", "evidence":"Legal operator, support channel and data/backup deletion retention require owner's decision."},
+    {"id":"production-operations", "targets":["personal","public","play","bazaar"], "state":"pending", "evidence":"Existing production nightly 02:17 +03:30 same-host backup verified; encrypted off-host copy, monitoring and selected final environment recovery not verified."},
+    {"id":"final-binary-signing", "targets":["public","play","bazaar"], "state":"pending", "evidence":"Current APK 40 is debug-signed; permanent signing custody, reviewed AAB/APK and update migration not approved."},
+    {"id":"play-account", "targets":["play"], "state":"unknown", "evidence":"Owner's developer account/legal registration jurisdiction unknown; Iran absent from Google's supported registration list."},
+    {"id":"play-closed-test", "targets":["play"], "state":"unknown", "evidence":"New personal accounts require 12 testers continuously for 14 days before production-access application; applicability/account status unverified."},
+    {"id":"bazaar-account-review", "targets":["bazaar"], "state":"unknown", "evidence":"Owner account, identity, current invoice and review status unverified."}
+  ]
+}

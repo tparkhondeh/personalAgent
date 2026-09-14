@@ -20,21 +20,16 @@ import { AgentAssistant } from "@/components/agent-assistant";
 import { ActionIcon } from "@/components/action-icon";
 import { fitProgramList } from "@/lib/list-viewport";
 import { clearApprovedDeviceReminders, syncApprovedDeviceReminders } from "@/lib/approved-device-reminders";
+import { readGuestItems, saveGuestItems, type GuestItem as Item } from "@/lib/guest-items";
 
 type Category = "personal" | "work" | "meeting";
 type Priority = "urgent" | "important" | "normal";
 type View = "today" | "tasks" | "calendar" | "assistant" | "settings";
-type Item = { id: string; title: string; category: Category; priority: Priority; source: "task" | "meeting"; startsAt?: string; endsAt?: string; timezone?: string; dueAt?: string; done: boolean };
 type ApiTask = { id: string; title: string; category: "PERSONAL" | "WORK"; priority: "URGENT" | "IMPORTANT" | "NORMAL"; status: string; startAt?: string | null; dueAt?: string | null };
 type ApiMeeting = { id: string; title: string; startsAt: string; endsAt: string; timezone?: string; status?: string };
 
 const categories: Record<Category, [string, string]> = { personal: ["شخصی", "mint"], work: ["شرکتی", "lavender"], meeting: ["جلسه", "peach"] };
 const priorities: Record<Priority, [string, string]> = { urgent: ["فوری", "rose"], important: ["مهم", "amber"], normal: ["عادی", "sage"] };
-const demoItems: Item[] = [
-  { id: "demo-1", title: "مرور گزارش فروش ماهانه", category: "work", priority: "urgent", source: "task", done: false },
-  { id: "demo-2", title: "جلسه برنامه‌ریزی محصول", category: "meeting", priority: "important", source: "meeting", done: false },
-  { id: "demo-3", title: "۳۰ دقیقه پیاده‌روی", category: "personal", priority: "normal", source: "task", done: false },
-];
 const tehranDate = new Intl.DateTimeFormat("fa-IR-u-ca-persian", { timeZone: "Asia/Tehran", weekday: "long", day: "numeric", month: "long" });
 const tehranGregorianDate = new Intl.DateTimeFormat("fa-IR-u-ca-gregory", { timeZone: "Asia/Tehran", day: "numeric", month: "long", year: "numeric" });
 const tehranShortDate = new Intl.DateTimeFormat("fa-IR-u-ca-persian", { timeZone: "Asia/Tehran", month: "short", day: "numeric" });
@@ -98,7 +93,8 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
     sync(); const interval=setInterval(sync,30000); window.addEventListener("focus",sync);
     return()=>{clearInterval(interval);window.removeEventListener("focus",sync);void clearApprovedDeviceReminders().catch(()=>{});};
   },[session?.user.id]);
-  const [items, setItems] = useState<Item[]>(() => session?.user ? [] : demoItems);
+  const [items, setItems] = useState<Item[]>([]);
+  const [guestStorageReady, setGuestStorageReady] = useState(false);
   const [view, setView] = useState<View>(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("view") === "assistant" ? "assistant" : "today");
   const [filter, setFilter] = useState<Category | "all">("all");
   const [composer, setComposer] = useState(false);
@@ -124,7 +120,9 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
   useEffect(() => {
     const timer = window.setTimeout(() => {
       if (!signedIn) {
-        try { const saved = localStorage.getItem("hamrah.items.v2"); if (saved) setItems(JSON.parse(saved)); } catch {}
+        const saved = readGuestItems({ getItem: key => localStorage.getItem(key) });
+        if (saved.ok) { setItems(saved.items); setGuestStorageReady(true); }
+        else setMessage("اطلاعات قبلی خوانده نشد؛ برای حفظ آن‌ها ذخیره محلی متوقف است. حافظه برنامه را پاک نکن.");
       }
       setHydrated(true);
     }, 0);
@@ -157,7 +155,16 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
     return () => { window.clearTimeout(initial); window.clearInterval(timer); window.removeEventListener("focus", refresh); window.removeEventListener("storage", refresh); document.removeEventListener("visibilitychange", refresh); };
   }, []);
 
-  useEffect(() => { if (hydrated && !signedIn) localStorage.setItem("hamrah.items.v2", JSON.stringify(items)); }, [items, hydrated, signedIn]);
+  function commitGuestItems(next: Item[]) {
+    if (signedIn) return false;
+    if (!guestStorageReady || !saveGuestItems({getItem:key=>localStorage.getItem(key),setItem:(key,value)=>localStorage.setItem(key,value)},next)) {
+      setGuestStorageReady(false);
+      setMessage("ذخیره روی این دستگاه انجام نشد؛ اطلاعات قبلی حفظ شده است. حافظه برنامه را پاک نکن.");
+      return false;
+    }
+    setItems(next);
+    return true;
+  }
 
   const loadRemote = useCallback(async () => {
     if (!session?.user) return;
@@ -172,7 +179,7 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
   }, [session?.user]);
 
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || (!signedIn && !guestStorageReady)) return;
     let cancelled = false;
     async function syncEscalations() {
       if (signedIn) {
@@ -209,7 +216,7 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
     }
     void syncEscalations().catch(() => undefined);
     return () => { cancelled = true; };
-  }, [escalationRevision, hydrated, items, preferences, signedIn]);
+  }, [escalationRevision, hydrated, items, preferences, signedIn, guestStorageReady]);
 
   const loadNotifications = useCallback(async () => {
     if (!session?.user) return;
@@ -256,8 +263,8 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
     toggling.current.add(key);
     const nextDone = !item.done;
     const matches = (candidate: Item) => candidate.id === item.id && candidate.source === item.source;
+    if (!signedIn) { commitGuestItems(items.map(candidate=>matches(candidate)?{...candidate,done:nextDone}:candidate)); toggling.current.delete(key); return; }
     setItems((all) => all.map((candidate) => matches(candidate) ? { ...candidate, done: nextDone } : candidate));
-    if (!signedIn) { toggling.current.delete(key); return; }
     try {
       const response = await fetch(`/api/${item.source === "meeting" ? "meetings" : "tasks"}/${item.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ status: nextDone ? "DONE" : item.source === "meeting" ? "SCHEDULED" : "TODO" }) });
       if (!response.ok) throw new Error("STATUS_UPDATE_FAILED");
@@ -270,7 +277,7 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
   }
 
   async function remove(item: Item) {
-    if (!signedIn) { setItems((all) => all.filter((candidate) => candidate.id !== item.id)); setPendingDelete(""); return; }
+    if (!signedIn) { if (commitGuestItems(items.filter(candidate=>candidate.id!==item.id))) setPendingDelete(""); return; }
     const endpoint = item.source === "meeting" ? `/api/meetings/${item.id}` : `/api/tasks/${item.id}`;
     try {
       const response = await fetch(endpoint, { method: "DELETE" });
@@ -323,7 +330,7 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
     if (!signedIn) {
       const duration = editing?.source === "meeting" && editing.startsAt && editing.endsAt ? (Date.parse(editing.endsAt)-Date.parse(editing.startsAt))/60000 : 60;
       const nextItem: Item = { id: editing?.id || crypto.randomUUID(), title, category, priority, source: category === "meeting" ? "meeting" : "task", startsAt: category === "meeting" ? startsAt : undefined, endsAt: category === "meeting" && startsAt ? new Date(new Date(startsAt).getTime() + duration * 60_000).toISOString() : undefined, dueAt: category === "meeting" ? undefined : startsAt, done: editing?.done || false };
-      setItems((all) => editing ? all.map((item) => item.id === editing.id && item.source === editing.source ? nextItem : item) : [nextItem, ...all]);
+      if (!commitGuestItems(editing ? items.map(item=>item.id===editing.id&&item.source===editing.source?nextItem:item) : [nextItem,...items])) return;
       form.reset(); closeComposer(); return;
     }
     const isMeeting = category === "meeting";

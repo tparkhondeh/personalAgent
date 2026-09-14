@@ -4,6 +4,7 @@
 - Completed records are retained, not destroyed. Exclude them from every active list/calendar and remaining count; only completed statistics remain visible. No completed/archive tab. Verify completion, cancellation, rapid-click idempotence and reload parity in web and bundled Android.
 
 - Use the checked-out files and verified release metadata as authority, not chat summaries.
+- Real-use/store preparation: fresh guest starts must be empty, never seed sample tasks. Preserve legacy records; unreadable/quota-limited storage must not be overwritten with an empty array or reported as saved. Never change a phone package, signing identity or origin without a tested preservation path. A clean database without an account/service is preparation, not a live environment. Store policy/listing drafts are not compliance certification; account deletion/recovery, backup custody, legal developer eligibility and exact-binary acceptance remain evidence gates. See docs/store/OPERATIONS.md.
 - Optimize token use through targeted reads, concise evidence logs and parallel independent checks. Never omit security, regression tests or root-cause investigation to save tokens.
 - Keep web `src/app/globals.css` as the palette source. Generate bundled Android theme from it; test matching viewport/theme and inspect screenshots.
 - Assistant output is an untrusted draft. Execution requires an owned, current server-side revision and explicit confirmation. Voice capture consent is not execution consent.
