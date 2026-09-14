@@ -5,6 +5,7 @@
 | Next.js | برنامه Full-stack | MIT | استفاده مستقیم؛ پایه رسمی و بالغ |
 | Prisma 7 | ORM و Migration | Apache-2.0 | استفاده مستقیم؛ Type-safe و مستند |
 | Better Auth | ورود و Session | MIT | استفاده مستقیم؛ رمز عبور و Cookie امن |
+| Nodemailer 10.0.1 | ایمیل بازیابی رمز، فقط پس از تنظیم و رضایت | MIT-0 | نسخه و مجوز از package نصب‌شده احراز شد؛ TLS اجباری و محدودیت ارسال در برنامه |
 | Vercel AI SDK | اتصال Provider-agnostic LLM | Apache-2.0 | استفاده مستقیم؛ خروجی ساختاریافته |
 | Zod | Schema Validation | MIT | استفاده مستقیم در APIها |
 | RRule | کارهای تکرارشونده | BSD-3-Clause | استفاده مستقیم |

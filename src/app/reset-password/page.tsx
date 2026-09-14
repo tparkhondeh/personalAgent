@@ -1,2 +1,7 @@
 import { RecoveryForm } from "@/components/recovery-form";
-export default function ResetPasswordPage() { return <RecoveryForm reset/>; }
+import { connection } from "next/server";
+
+export default async function ResetPasswordPage() {
+  await connection();
+  return <RecoveryForm reset />;
+}

@@ -21,6 +21,20 @@
 
 ## وضعیت مستقل سرور و APK
 
+### آزمون و انتشار محدود همین مرحله
+
+کد `b4d4178c8f40f7d43972d7ed78b133cd8d9e14b8` Commit/Push شد. [CI وب34849717765](https://github.com/tparkhondeh/personalAgent/actions/runs/34849717765) موفق و JSON شش مجموعه جمعاً۱۳۳کنترل HTTP را تأیید کرد. بسته وب SHA `caca303ee46986669c936b95d34ff4db9d974c21f513831ec18e207698d421ca`، BUILD_COMMIT و نبود فایل محرمانه در بسته بررسی شدند.
+
+در13:38Z فقط Staging3010 با اسکریپت موجود به این release منتقل شد. پشتیبان قبل تغییر: `/home/wealthos_dev/.staging/personal-agent/data/backups/pre-release-20260914T133840Z`، SQLite integrity/FK سالم؛ release برگشت `94adb4b3ba02764283ee088a95e52c55738ab1b3`. دستور پس از چاپ نتیجه موفق به‌علت CR اضافی انتقال PowerShell کدخروج1 داشت؛ انتشار تکرار یا rollback حدسی نشد. بررسی مستقل current/health سپس commit جدید و DB سالم را ثابت کرد. Production همچنان `49cceed` بود. ۲۸کنترل HTTP از خود سرور با HTTPS8443 و حساب ساختگی موجود موفق شد؛ بازیابی available=false و هر دو صفحه فارسی200 بودند. هیچ سرویس واقعی یا حساب تازه‌ای فعال نشد.
+
+[Android34849717862](https://github.com/tparkhondeh/personalAgent/actions/runs/34849717862) روی16: XML شامل۱۱تست/صفرخطا/صفرskipped، Lint صفرخطا و۳هشدار غیرمسدودکننده، screenshot واقعی متن فارسی بدون پنجره خطای سیستم بازبینی شد. Logcat چند renderer exit هنگام DESTROYED در instrumentation دارد؛ این‌ها پنهان نشده‌اند. اجرای نهایی PID4955 پس از cold launch خطای fatal یا renderer crash ثبت‌شده ندارد. APK داخلی CI SHA `b0aaa654990f5e62f7aecbc5f988b95213ee507027666e40f6aae91ab7b7ea42` به سرور شبیه‌ساز متصل است؛ APK تحویلی یا آزمون۱۳/۱۴/گوشی مالک محسوب نمی‌شود. مدرک محلی در `artifacts/personal-use-34849717862-evidence` نگه داشته شد.
+
+### اصلاح دوم کش — آزمون نهایی هنوز باید ثبت شود
+
+بعد از انتشار، بررسی واقعی مرورگر8443 ابتدا Loading و سپس داشبورد قدیمی بدون چهار باکس/شعر بعدی نشان داد. chunkهای DOM با HTML جدیدی که همان زمان از سرور خوانده شد متفاوت بود؛ علت دقیق ذخیره قدیمیِ مرورگر در برابر لایه CDN بدون پاک‌کردن اطلاعات قطعی اعلام نشد. worker عمومی همچنان hash قدیمی Production داشت. هم‌زمان **origin3010 خود برای `/` هدر s-maxage=31536000 داشت**؛ مشکل فقط به CDN نسبت داده نشد.
+
+طبق راهنمای نصب‌شده Next16، صفحات اصلی/ورود/بازیابی با `connection()` درخواست‌محور و پاسخ‌های API صریحاً no-store شدند؛ فایل‌های CSS/JS hashدار همچنان immutable می‌مانند. آزمون HTTP خواندنی `qa-cache-policy.mjs` در CI روی همان بسته قابل‌انتشار اضافه شد. پشتیبان incremental `b4d4178-increment.bundle` با پیش‌نیاز ec9ab6c در کنار bundle کامل قبلی verify شد. نتیجه Build/CI/انتشار این اصلاح پس از پایان جدا ثبت می‌شود؛ تغییر header نسخه جدید، کپی قدیمی CDN/مرورگر را خودکار بازیابی نمی‌کند.
+
 در12:55Z و13:09Z، Staging/current و health داخلی3010 برابر `94adb4b3ba02764283ee088a95e52c55738ab1b3` و DB سالم بود. پورت3011 و443 سالم ولی نسخه قدیمی Production بودند. HTTPS8443 از Windows همچنان curl35/handshake failure دارد. هیچ گواهی یا محدودیت شبکه دور زده نشد.
 
 بررسی محتوایی بعدی از خود سرور نشان داد `/api/health` عمومی8443 به Staging صحیح می‌رسد، ولی `sw.js` عمومی روی **هر دو پورت** بایت‌های Production قدیمی را می‌دهد:
