@@ -1,11 +1,12 @@
 // Only these public categories leave the server; never relay provider text,
 // request bodies, headers, account identifiers or credentials to the client.
-export type ProviderFailure = "credentials" | "credit" | "rate-limit" | "timeout" | "connection" | "invalid-response" | "context-limit" | "test-budget";
+export type ProviderFailure = "credentials" | "credit" | "rate-limit" | "timeout" | "connection" | "invalid-response" | "context-limit" | "test-budget" | "monthly-budget";
 
 export function providerFailure(error: unknown): ProviderFailure {
   if (!error || typeof error !== "object") return "connection";
   const value = error as { statusCode?: unknown; name?: unknown; cause?: { name?: unknown }; data?: { error?: { code?: unknown } } };
   if (value.name === "TiaCredentialError" || value.cause?.name === "TiaCredentialError") return "credentials";
+  if (value.name === "TiaMonthlyBudgetError" || value.cause?.name === "TiaMonthlyBudgetError") return "monthly-budget";
   if (value.name === "TiaTestBudgetError" || value.cause?.name === "TiaTestBudgetError") return "test-budget";
   if (value.name === "TiaContextLimitError" || value.cause?.name === "TiaContextLimitError") return "context-limit";
   if (value.statusCode === 401 || value.statusCode === 403) return "credentials";
@@ -17,6 +18,7 @@ export function providerFailure(error: unknown): ProviderFailure {
 
 export function providerFailureLabel(reason: unknown): string {
   const messages: Record<ProviderFailure, string> = {
+    "monthly-budget": "بودجه ماهانه GPT پر شده یا قابل بررسی نیست؛ پیشنهاد با پردازش محلی آماده شد.",
     "test-budget": "مجوز یا ظرفیت آزمون GPT تمام شده؛ پیشنهاد با پردازش محلی آماده شد.",
     credentials: "اتصال GPT نیاز به بررسی کلید دارد؛ پیشنهاد با پردازش محلی آماده شد.",
     credit: "اعتبار سرویس GPT کافی نیست؛ پیشنهاد با پردازش محلی آماده شد.",

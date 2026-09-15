@@ -2,9 +2,10 @@ import "server-only";
 import { createOpenAI } from "@ai-sdk/openai";
 import { recordSyntheticUsage, reserveSyntheticTest } from "./ai-test-policy";
 import { loadOpenAICredential } from "./openai-credential";
+import { reserveMonthlyRequest, settleMonthlyRequest } from "./ai-monthly-budget";
 
 export const MAX_AGENT_REQUEST_BYTES = 64_000;
-export const boundedOpenAiFetch: typeof fetch = async (url, init) => {
+export const createBoundedOpenAiFetch = (userId?: string): typeof fetch => async (url, init) => {
   // Bound the entire serialized payload, including schema/history, before egress.
   // Fail closed instead of truncating a user's meaning or leaking provider details.
   if (typeof init?.body !== "string" || new TextEncoder().encode(init.body).byteLength > MAX_AGENT_REQUEST_BYTES) {
@@ -12,21 +13,24 @@ export const boundedOpenAiFetch: typeof fetch = async (url, init) => {
     error.name = "TiaContextLimitError";
     throw error;
   }
+  const monthly = await reserveMonthlyRequest(userId, String(url), init.body);
   const reservation = await reserveSyntheticTest(String(url), init.body);
   try {
     const response = await fetch(url, init);
     await recordSyntheticUsage(reservation, response);
+    await settleMonthlyRequest(monthly, response);
     return response;
   } catch (error) {
     await recordSyntheticUsage(reservation);
     throw error;
   }
 };
+export const boundedOpenAiFetch = createBoundedOpenAiFetch();
 
-export async function getLanguageModel() {
+export async function getLanguageModel(userId?: string) {
   const provider = process.env.AI_PROVIDER ?? "openai";
   if (provider !== "openai") throw new Error(`Unsupported AI provider: ${provider}`);
-  return createOpenAI({ apiKey: await loadOpenAICredential(), fetch: boundedOpenAiFetch }).responses(process.env.OPENAI_MODEL ?? "gpt-5-mini");
+  return createOpenAI({ apiKey: await loadOpenAICredential(), fetch: createBoundedOpenAiFetch(userId) }).responses(process.env.OPENAI_MODEL ?? "gpt-5-mini");
 }
 
 export const agentSystemPrompt = `

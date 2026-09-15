@@ -32,6 +32,12 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllEnvs());
 
 describe("assistant external path, synthetic provider with no network", () => {
+  it("does not make final approval boilerplate block an otherwise valid draft", async () => {
+    mocks.generate.mockResolvedValue({ output: { reply: "بررسی کن", plan: planPersian(message, { timezone: "Asia/Tehran", items: [] }).plan, questions: ["می‌خواهید این پیش‌نویس تأیید و ساخته شود؟", "کدام علی؟", "آیا این پیشنهاد را برای جمعه تأیید می‌کنید؟"] } });
+    const response = await POST(request()); expect(response.status).toBe(200);
+    expect(mocks.save.mock.calls[0][4]).toEqual(["کدام علی؟", "آیا این پیشنهاد را برای جمعه تأیید می‌کنید؟"]);
+    expect((await response.json()).data.proposal.needsApproval).toBe(true);
+  });
   it("does not turn a model's non-action reply into the local candidate or a draft", async () => {
     mocks.generate.mockResolvedValue({ output: { reply: "سلام، چه کاری را برنامه‌ریزی کنیم؟", plan: null, questions: [] } });
     const response = await POST(request({ message: "خوش آمدید" }));

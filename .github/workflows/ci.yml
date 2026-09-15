@@ -53,6 +53,7 @@ jobs:
           cp prisma/schema.prisma artifacts/server/prisma/schema.prisma
           cp -R prisma/migrations artifacts/server/prisma/migrations
           cp scripts/migrate.mjs scripts/run-schedulers.sh scripts/integration-readiness.mjs artifacts/server/scripts/
+          cp scripts/prepare-ai-monthly-budget.mjs scripts/ai-monthly-schema.sql artifacts/server/scripts/
           printf '%s\n' "$GITHUB_SHA" > artifacts/server/BUILD_COMMIT.txt
           if find artifacts/server -type f \( -name '.env*' -o -name '*.db*' -o -name '*.keystore' -o -name '*.jks' \) | grep -q .; then
             echo 'Private data found in package'; exit 1

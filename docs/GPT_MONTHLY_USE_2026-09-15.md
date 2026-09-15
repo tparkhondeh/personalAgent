@@ -1,0 +1,48 @@
+# Personal GPT monthly allowance — 2026-09-15
+
+## Approved scope and actual activation
+
+The owner approved **$2 total per calendar month for tia**, including new synthetic tests. Only text/relevant planning context explicitly opted into in tia may leave the app. No raw personal audio, auto-recharge, credit purchase, public release or Production mutation is authorized by this approval.
+
+The existing restricted replacement key remains DPAPI-encrypted outside the workspace. No keys were created, revoked, copied to the browser/APK or transferred to another host in this stage.
+
+A non-synthetic local account named `taha` was found using a minimal read-only account-metadata query. Its masked email was presented for confirmation; it was **not inferred from the OpenAI identity or automatically allowlisted**. Until that identity is confirmed, paid activation is off; only the existing synthetic fixture was temporarily enabled for QA. The spending permission itself does not need to be asked again.
+
+## Durable monetary guard
+
+- Optional personal-use configuration requires an exact $2 cap, an explicit account-ID allowlist and one pre-initialized private SQLite ledger outside the workspace. `OPENAI_PERSONAL_USE=true` fails closed if its other settings disappear. Existing synthetic-only/legacy deployments retain their separate gates; do not activate a personal deployment without this guard.
+- The ledger is independent of the application's database so restoring app data cannot reset spend. All funded instances must use **one authoritative ledger**; do not activate the same key on separate local/Staging copies. The Windows protected key is not portable to Linux by copying its ciphertext.
+- A write transaction checks the shared amount and durably reserves $0.025 **before network egress**. It includes all allowed accounts, retries and pending requests. SQLite contention/errors reject external processing; neither partial transactions nor missing/corrupt ledgers are automatically reinitialized.
+- A successful numeric usage receipt replaces the reservation with a conservative per-call rounded estimate. Missing, failed, timed-out or unreadable usage retains the full reservation. Settlement is idempotent and stores only IDs/timestamps/token numbers, never prompts, response bodies, audio or credentials.
+- UTC calendar months are explicit. Unresolved reservations carry into later months. A midnight-spanning call retains its original month's reservation and books measured usage in the ending month. Clock rollback cannot restore allowance. Unexpected usage beyond the reserved assumptions halts later requests.
+- The request is restricted to the documented Responses endpoint, `gpt-5-mini`, default tier, text-only, `store:false`, no tools, hidden conversation, background or streaming; maximum serialized request 64,000 UTF-8 bytes and output 2,200 tokens. The input bound includes 4,096 framing tokens. Unknown models/capabilities are rejected before spending.
+- Pricing basis: [official GPT-5-mini documentation](https://developers.openai.com/api/docs/models/gpt-5-mini), input $0.25/M, cached input $0.025/M, output $2/M. This is a conservative application guard under those verified assumptions, **not a provider billing invoice or an unconditional provider-enforced dollar limit**. Recheck pricing before any model/tier change; a request-count cap is not the monetary cap.
+- The local ledger was explicitly initialized with **$0.15 prior conservative reservations**, retaining the older one-off receipts. No previous spend was reset. Its current accounted amount after four new responses is **$0.156119**. New measured usage is **$0.006119**; older plus newer measured usage is $0.012610. The difference is the intentionally conservative prior charge, not an invoice discrepancy.
+- Paid raw-audio transcription is disabled whenever this text-only monthly policy is configured, even if another audio flag is accidentally set. The browser exposes only safe aggregate readiness/accounted amount to an authorized account. Budget denial falls back with a clear local-processing label.
+
+## Actual QA
+
+- Four new real GPT responses used the explicitly synthetic account, not the owner's stored tasks. First/follow-up produced `جلسه با تیم فروش`, 2026-09-17 17:00, offsets1440/180/60, then the same draft/revision+1 with `جلسه هماهنگی فروش`/16:00. Both were cancelled without task/meeting creation.
+- A browser response exposed an additional defect: GPT put a final-approval question into missing-field questions, blocking Register. Only complete approval boilerplate is now removed; dated boilerplate is removed only when its date/time/entity exactly match the reviewed plan. Real missing details, changed dates and ambiguous identity questions remain blocking. Server ownership/revision/explicit-confirmation checks remain unchanged.
+- One later real browser proposal for `بازبینی گزارش آزمایش بودجه`, business/important, 26Shahrivar1405/18:00 and all three reminders was **registered directly without editing**. UI reported one confirmed record and three reminders; the active count moved from6 to7. Synthetic records remain retained, not substituted for the owner's data.
+- Actual screenshots at1280×900 and390×844 showed the real-GPT label, correct Persian date/time, three reminders and accessible Register. No horizontal overflow. The test account was signed out through normal UI and viewport override reset; no user cache/cookies/history were cleared.
+- 22 new monetary tests use real temporary SQLite files: concurrent users, separate-process races/restarts, missing/tampered ledger, settlement replay, unknown charges, month rollover/clock rollback and unpriced wire formats. No paid requests are made by unit tests.
+- Initial full suite:730 passed/7 skipped because the existing Better Auth setup hook timed out under concurrent checks. A full serial rerun, without increasing deadlines or weakening tests, passed **737/737 in73files**. The subsequent approval regression changes passed **33 tests in2 affected files**, bringing distinct covered tests to740. Remote full-suite evidence will be recorded separately.
+- Type Check, full ESLint, isolated web Build and27 real HTTP checks succeeded. The HTTP checks cover no pre-confirm effects, ownership, revisions, same-entity retry, three reminders, cancellation and future-alarm cancellation. A raw/base64 exact-secret scan over337 eligible source/public/bundled/build/document files found no match; this is a scoped check, not a whole-machine guarantee.
+
+## Backups and preserved data
+
+Starting main `139a9123809d78561fadf0f54d9732e65ef49d73`, clean. `C:/Users/pc/Desktop/project-backups/tia-monthly-gpt-20260915/` contains the source archive, verified incremental bundle (requires preserved56cf01d history) and pre-edit local environment file. Source ZIP SHA-256: `97a4600fecc094ff047e02600a6ebca7cb3d221e2ce59203a97ea40dcc8a1546`.
+
+Consistent SQLite snapshot `backups/local/hamrah-2026-09-15T19-36-57-018Z.db`, SHA-256 `deed7c46561110f4ccc02bc4e986e5a0fc20b724c0d1eab3d494a7c928e94ad2`, was restored into a separate new directory. Integrity, foreign keys, migrations and all18 existing tables matched. No live data was restored over, histories rewritten, or old backups removed.
+
+## Versions and remaining handoff
+
+- Local web: current worktree at [localhost3001](http://localhost:3001/?view=assistant); real GPT and monthly accounting tested, **daily personal activation pending account confirmation**. Paid QA is off. Do not claim that the visible local mode means the new key failed.
+- Read-only origin check at19:45UTC found Staging3010 healthy at `289a76fbc30f9a0c18519fab0cc2cfd9ec690ccb`. Public [Staging8443](https://personalagent.wealthos.ir:8443/) failed TLS negotiation from this Windows host. Do not bypass validation or claim public availability based on loopback health. Later deployment evidence, if successful, supersedes this source checkpoint, not the observed public TLS limitation.
+- Latest published Android remains **tia آزمایشی40**, prerelease, `ir.wealthos.personalagent.stable40`, source `34180286b90008498c839f3ec3b4fd72749c750a`. [Permanent APK](https://github.com/tparkhondeh/personalAgent/releases/download/phone-preview-stable-40/tia-stable-40.apk),60056269bytes; GitHub asset SHA-256 `909bf6f8b5dbb46f937210a787215006cfd7b223eaf880a359636fc1b2262fe9` verified against current release metadata. It is **not a new daily-GPT release**. The `/releases/latest` endpoint excludes these prereleases and returned404; listing/tag metadata was used instead.
+- Current changes are server-side; rebuilding the APK would not fix public TLS, move the protected key or authorize its account. Offline Android stays offline/local. The earlier app-upgrade signing/data-preservation gate remains; no package/signing/origin change or untested upgrade is delivered.
+
+Next: confirm the existing tia account (or identify the actual account/origin), then replace the synthetic allowlist with that verified owner, retire the old one-off test scope without deleting its receipts, and enable the same monthly ledger. Preserve the existing key and cap. Moving funded execution to Staging requires an atomic one-host cutover of key custody/ledger and account verification, never two independent allowances. Production remains a separate risk/rollback approval.
+
+Rollback: disable paid activation first, preserve both spend ledgers and encrypted credential, then use a reviewed code revert if needed. App-database backups must never overwrite newer spend receipts. Restore an old environment file only with paid activation still off. No assertion of complete project/phone acceptance is made.

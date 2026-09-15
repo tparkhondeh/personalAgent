@@ -2,16 +2,18 @@ import "server-only";
 import { db } from "@/lib/db";
 import { syntheticTestPolicy } from "./ai-test-policy";
 import { hasOpenAICredential } from "./openai-credential";
+import { monthlyPolicy } from "./ai-monthly-budget";
 export function aiReadiness(userId?: string) {
   const key = hasOpenAICredential(), approved = process.env.OPENAI_COST_APPROVED === "true";
   const supported = (process.env.AI_PROVIDER ?? "openai") === "openai";
   const limit = Number(process.env.OPENAI_DAILY_REQUEST_LIMIT ?? 20);
   const requestLimitValid = Number.isSafeInteger(limit) && limit > 0;
   const test = syntheticTestPolicy(userId);
-  const enabled = key && approved && supported && requestLimitValid && test.allowed;
+  const monthly = monthlyPolicy(userId);
+  const enabled = key && approved && supported && requestLimitValid && test.allowed && monthly.allowed;
   const voiceModel = process.env.OPENAI_TRANSCRIBE_MODEL?.trim() || "";
   // A Responses-only key must never advertise paid audio transcription as active.
-  const voiceEnabled = enabled && !test.configured && process.env.OPENAI_VOICE_ENABLED === "true" && Boolean(voiceModel);
+  const voiceEnabled = enabled && !test.configured && !monthly.configured && process.env.OPENAI_VOICE_ENABLED === "true" && Boolean(voiceModel);
   return { enabled, voiceEnabled, keyConfigured: key, costApproved: approved, requestLimitValid, model: process.env.OPENAI_MODEL || "gpt-5-mini", voiceModel };
 }
 // Persistent reservation before sending, including failures. This caps requests,
