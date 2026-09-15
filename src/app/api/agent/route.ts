@@ -35,7 +35,7 @@ export async function POST(request: Request) {
   let reply = local.reply, plan: Plan | null = local.plan, questions = local.questions;
   let mode = "local";
   let fallbackReason: ProviderFailure | undefined;
-  if (data.externalConsent && !data.localOnly && aiReadiness().enabled) {
+  if (data.externalConsent && !data.localOnly && aiReadiness(userId).enabled) {
     if (await reserveAiRequest(userId, "text")) {
       try {
         if (request.signal.aborted) return jsonError("درخواست لغو شد؛ چیزی ثبت نشد", 408);

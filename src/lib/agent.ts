@@ -1,5 +1,6 @@
 import "server-only";
 import { createOpenAI } from "@ai-sdk/openai";
+import { recordSyntheticUsage, reserveSyntheticTest } from "./ai-test-policy";
 
 export const MAX_AGENT_REQUEST_BYTES = 64_000;
 export const boundedOpenAiFetch: typeof fetch = async (url, init) => {
@@ -10,7 +11,15 @@ export const boundedOpenAiFetch: typeof fetch = async (url, init) => {
     error.name = "TiaContextLimitError";
     throw error;
   }
-  return fetch(url, init);
+  const reservation = await reserveSyntheticTest(String(url), init.body);
+  try {
+    const response = await fetch(url, init);
+    await recordSyntheticUsage(reservation, response);
+    return response;
+  } catch (error) {
+    await recordSyntheticUsage(reservation);
+    throw error;
+  }
 };
 
 export function getLanguageModel() {

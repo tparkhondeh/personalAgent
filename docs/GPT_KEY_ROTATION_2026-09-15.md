@@ -1,5 +1,7 @@
 # GPT key replacement checkpoint — 2026-09-15
 
+> Historical checkpoint, superseded by [the later synthetic-test checkpoint](GPT_SYNTHETIC_TEST_GATE_2026-09-15.md): the key now shows Inactive; the owner requests Never expiration, not 30 days. Preserve the record below as history, not current instructions.
+
 ## Current state: blocked at required browser security confirmation
 
 Supersedes the pending-budget statement in the earlier activation checkpoint. The owner explicitly approved **$0.25 total for synthetic live tests**, not ongoing usage, account recharge, personal text/context/audio transmission or Production activation.

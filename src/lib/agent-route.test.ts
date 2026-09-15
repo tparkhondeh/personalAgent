@@ -114,6 +114,7 @@ describe("assistant external path, synthetic provider with no network", () => {
     [{ statusCode: 429, data: { error: { code: "insufficient_quota" } } }, "credit"],
     [{ statusCode: 429 }, "rate-limit"], [{ name: "TimeoutError" }, "timeout"],
     [{ name: "TiaContextLimitError" }, "context-limit"],
+    [{ name: "TiaTestBudgetError" }, "test-budget"],
   ])("returns a safe category for provider failure %j", async (failure, reason) => {
     mocks.generate.mockRejectedValue({ ...failure, message: "private-provider-detail" });
     const data = (await (await POST(request())).json()).data;

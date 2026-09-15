@@ -1,6 +1,7 @@
 # Durable development rules
 
 - Treat any API key pasted into chat or a screenshot as exposed: never reuse it. Match its exact account/project/key metadata before targeting revocation; preserve unrelated keys, follow action-time browser confirmation rules and store a scoped replacement only server-side. Paid synthetic-test approval is separate from ongoing spend and personal-data consent. Record actual token usage, uncertain-call reservations and remaining approved allowance; do not describe request counts as a hard currency cap.
+- Owner's 2026-09-15 key policy: do not add an arbitrary credential expiry or token quota; Never is acceptable when supported and explicitly authorized. Keep bounded request timeouts, payloads, cancellation and spend safety. A synthetic test-session deadline is not key expiry. Test-only activation must exclude personal accounts, keep durable spent reservations across restarts, and be ended by disabling paid activation/removing the runtime secret, not by removing isolation flags alone. Never claim an Inactive key was revoked by this agent without observing the action.
 
 - Communicate briefly in simple Persian: outcome, essential limitations and owner action only. Keep implementation details in documents unless asked.
 - Personal-use scope (2026-09-14): store onboarding/listings/publication-specific tests are deferred, not personal-use blockers. Preserve app identity, signing and local/online data boundaries; never infer a successful upgrade from a fresh install.

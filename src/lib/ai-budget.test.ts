@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import os from "node:os";
+import path from "node:path";
 
 const state = vi.hoisted(() => ({ total: 0, fail: false }));
 const reserve = vi.hoisted(() => vi.fn(async () => { state.total++; }));
@@ -55,6 +57,19 @@ describe("external AI activation and fail-closed reservations", () => {
     expect(aiReadiness()).toMatchObject({ enabled: true, voiceEnabled: false });
     expect(await reserveAiRequest("synthetic-user", "voice")).toBe(false);
     expect(reserve).not.toHaveBeenCalled();
+  });
+  it("a synthetic-test configuration never enables another user's GPT or paid audio", async () => {
+    vi.stubEnv("OPENAI_TEST_USER_ID", "synthetic-user");
+    vi.stubEnv("OPENAI_TEST_LEDGER_DIR", path.join(os.tmpdir(), "approved-synthetic-ledger"));
+    vi.stubEnv("OPENAI_TEST_EXPIRES_AT", new Date(Date.now() + 60000).toISOString());
+    vi.stubEnv("OPENAI_VOICE_ENABLED", "true"); vi.stubEnv("OPENAI_TRANSCRIBE_MODEL", "test-audio-model");
+    expect(aiReadiness().enabled).toBe(false);
+    expect(aiReadiness("synthetic-user")).toMatchObject({ enabled: true, voiceEnabled: false });
+    expect(aiReadiness("personal-user").enabled).toBe(false);
+    expect(await reserveAiRequest("personal-user", "text")).toBe(false);
+    expect(await reserveAiRequest("synthetic-user", "voice")).toBe(false);
+    expect(reserve).not.toHaveBeenCalled();
+    expect(await reserveAiRequest("synthetic-user", "text")).toBe(true);
   });
   it("requires an explicit audio model as well as separate activation", () => {
     vi.stubEnv("OPENAI_VOICE_ENABLED", "true");

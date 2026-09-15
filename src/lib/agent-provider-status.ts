@@ -1,10 +1,11 @@
 // Only these public categories leave the server; never relay provider text,
 // request bodies, headers, account identifiers or credentials to the client.
-export type ProviderFailure = "credentials" | "credit" | "rate-limit" | "timeout" | "connection" | "invalid-response" | "context-limit";
+export type ProviderFailure = "credentials" | "credit" | "rate-limit" | "timeout" | "connection" | "invalid-response" | "context-limit" | "test-budget";
 
 export function providerFailure(error: unknown): ProviderFailure {
   if (!error || typeof error !== "object") return "connection";
   const value = error as { statusCode?: unknown; name?: unknown; cause?: { name?: unknown }; data?: { error?: { code?: unknown } } };
+  if (value.name === "TiaTestBudgetError" || value.cause?.name === "TiaTestBudgetError") return "test-budget";
   if (value.name === "TiaContextLimitError" || value.cause?.name === "TiaContextLimitError") return "context-limit";
   if (value.statusCode === 401 || value.statusCode === 403) return "credentials";
   if (value.statusCode === 429) return value.data?.error?.code === "insufficient_quota" ? "credit" : "rate-limit";
@@ -15,6 +16,7 @@ export function providerFailure(error: unknown): ProviderFailure {
 
 export function providerFailureLabel(reason: unknown): string {
   const messages: Record<ProviderFailure, string> = {
+    "test-budget": "مجوز یا ظرفیت آزمون GPT تمام شده؛ پیشنهاد با پردازش محلی آماده شد.",
     credentials: "اتصال GPT نیاز به بررسی کلید دارد؛ پیشنهاد با پردازش محلی آماده شد.",
     credit: "اعتبار سرویس GPT کافی نیست؛ پیشنهاد با پردازش محلی آماده شد.",
     "rate-limit": "سرویس GPT موقتاً محدود شده؛ پیشنهاد با پردازش محلی آماده شد.",

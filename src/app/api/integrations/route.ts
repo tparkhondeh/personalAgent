@@ -10,15 +10,16 @@ export async function GET(request: Request) {
   if (!session) return jsonError("ابتدا وارد حساب شوید", 401);
   const preference = await db.userPreference.findUnique({ where: { userId: session.user.id }, select: { emergencyPhone: true } });
   const call = getVoiceCallReadiness(preference?.emergencyPhone);
+  const readiness = aiReadiness(session.user.id);
   return Response.json({
     data: {
       llm: {
-        mode: aiReadiness().enabled ? "configured" : "local",
+        mode: readiness.enabled ? "configured" : "local",
         provider: process.env.AI_PROVIDER || "openai",
         model: process.env.OPENAI_MODEL || "gpt-5-mini",
       },
       call,
-      voice: { enabled: aiReadiness().voiceEnabled, provider: "OpenAI", maxSeconds: 60, costApproved: aiReadiness().costApproved },
+      voice: { enabled: readiness.voiceEnabled, provider: "OpenAI", maxSeconds: 60, costApproved: readiness.costApproved },
     },
   });
 }
