@@ -1,5 +1,7 @@
 # Durable development rules
 
+- Treat any API key pasted into chat or a screenshot as exposed: never reuse it. Match its exact account/project/key metadata before targeting revocation; preserve unrelated keys, follow action-time browser confirmation rules and store a scoped replacement only server-side. Paid synthetic-test approval is separate from ongoing spend and personal-data consent. Record actual token usage, uncertain-call reservations and remaining approved allowance; do not describe request counts as a hard currency cap.
+
 - Communicate briefly in simple Persian: outcome, essential limitations and owner action only. Keep implementation details in documents unless asked.
 - Personal-use scope (2026-09-14): store onboarding/listings/publication-specific tests are deferred, not personal-use blockers. Preserve app identity, signing and local/online data boundaries; never infer a successful upgrade from a fresh install.
 - Manual-create retries: retain one form key across uncertain responses; persist an owned request receipt in the SAME transaction as task/meeting/calendar/reminders. Reject changed payload/kind for that key; never resurrect completion/cancellation. Missing keys on legacy clients do not provide this guarantee.
