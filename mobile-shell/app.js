@@ -68,6 +68,8 @@
 
   function openForm(task) {
     cancelVoice();
+    form.submitGeneration = (form.submitGeneration || 0) + 1;
+    form.querySelector('[type="submit"]').disabled = false;
     form.reset();
     $("#task-id").value = task?.id || "";
     $("#task-title").value = task?.title || "";
@@ -237,7 +239,9 @@
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const submitButton = form.querySelector('[type="submit"]');
-    if (submitButton.disabled) return;
+    if (submitButton.disabled || !modal.classList.contains("open")) return;
+    const submitGeneration = form.submitGeneration;
+    const notify = text => { if (submitGeneration === form.submitGeneration) $("#page-status").textContent = text; };
     submitButton.disabled = true;
     clearTimeout(form.saveNoticeTimer);
     $("#page-status").textContent = "";
@@ -248,7 +252,8 @@
     const existing = tasks.find((task) => task.id === data.get("id"));
     const deadlineValue = String(data.get("deadline") || "");
     if(deadlineValue && (!window.HamrahInputs.persianParts(deadlineValue.split("T")[0])||!window.HamrahInputs.validTime24(deadlineValue.split("T")[1]||""))){$("#form-reminders").textContent="تاریخ شمسی و ساعت ۲۴ساعته معتبر وارد کن.";return;}
-    if (existing) { try { await cancelNotifications(existing); } catch { $("#form-reminders").textContent = "لغو یادآوری قبلی کامل نشد؛ دوباره تلاش کن."; return; } }
+    if (existing) { try { await cancelNotifications(existing); } catch { if (submitGeneration === form.submitGeneration) $("#form-reminders").textContent = "لغو یادآوری قبلی کامل نشد؛ دوباره تلاش کن."; return; } }
+    if (submitGeneration !== form.submitGeneration) return;
     const task = { ...existing, id: existing?.id || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())), title, category: String(data.get("category") || "personal"), priority: String(data.get("priority") || "normal"), deadline: deadlineValue ? new Date(deadlineValue).toISOString() : null, reminderOffsets: existing?.approvedPlan ? existing.approvedPlan.reminderOffsets : domain.normalizeOffsets(existing?.reminderOffsets || reminderOffsets), urgentRepeatPolicy: domain.manualRepeatPolicy(existing, repeatSettings), notificationIds: [], notificationId: undefined, notificationSchedule: undefined, done: existing?.done || false, updatedAt:new Date().toISOString() };
     if(task.approvedPlan){task.approvedPlan={...task.approvedPlan,quietStart:"00:00",quietEnd:"00:00"};}
     if(task.approvedPlan?.durationMinutes && task.deadline)task.endsAt=new Date(Date.parse(task.deadline)+task.approvedPlan.durationMinutes*60000).toISOString();
@@ -258,14 +263,19 @@
     closeForm(); filter = "all";
     $$(`[data-filter]`).forEach((button) => button.classList.toggle("active", button.dataset.filter === "all"));
     showPanel("today");
-    $("#page-status").textContent = "done — فقط روی این دستگاه ذخیره شد.";
+    notify("done — فقط روی این دستگاه ذخیره شد.");
+    // Persistence is complete. A slow native bridge must not lock the next form.
+    // The closed-modal guard rejects duplicate submits; the generation guards
+    // prevent an older alarm result from changing a newer form's feedback.
+    submitButton.disabled = false;
     if (task.deadline && !task.done) {
-      try { const scheduled = await scheduleNotification(task); $("#page-status").textContent = scheduled ? "done — فقط روی این دستگاه ذخیره شد؛ یادآوری‌ها تنظیم شدند." : "done — فقط روی این دستگاه ذخیره شد؛ یادآوری به زمان آینده و اجازه اعلان نیاز دارد."; }
-      catch { $("#page-status").textContent = "done — فقط روی این دستگاه ذخیره شد، اما تنظیم یادآوری کامل نشد؛ از تنظیمات دوباره تلاش کن."; }
+      try { const scheduled = await scheduleNotification(task); notify(scheduled ? "done — فقط روی این دستگاه ذخیره شد؛ یادآوری‌ها تنظیم شدند." : "done — فقط روی این دستگاه ذخیره شد؛ یادآوری به زمان آینده و اجازه اعلان نیاز دارد."); }
+      catch { notify("done — فقط روی این دستگاه ذخیره شد، اما تنظیم یادآوری کامل نشد؛ از تنظیمات دوباره تلاش کن."); }
     }
+    if (submitGeneration !== form.submitGeneration) return;
     const saveNotice = $("#page-status").textContent;
-    form.saveNoticeTimer = setTimeout(() => { if ($("#page-status").textContent === saveNotice) $("#page-status").textContent = saveNotice.replace(/^done — /, ""); }, 5000);
-    } finally { submitButton.disabled = false; }
+    form.saveNoticeTimer = setTimeout(() => { if (submitGeneration === form.submitGeneration && $("#page-status").textContent === saveNotice) $("#page-status").textContent = saveNotice.replace(/^done — /, ""); }, 5000);
+    } finally { if (submitGeneration === form.submitGeneration) submitButton.disabled = false; }
   });
   async function handleListAction(event) {
     const button = event.target.closest("button[data-action]");
