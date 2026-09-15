@@ -25,7 +25,7 @@ export type Plan = {
   defaults: string[];
 };
 export type PlanningItem = { id?: string; title: string; entity?: "TASK" | "MEETING"; updatedAt?: string; dueAt?: string | Date | null; startsAt?: string | Date | null; endsAt?: string | Date | null; category?: string; priority?: string; alertPolicy?: string | null };
-export type PlanningContext = { now?: Date; timezone?: string; previous?: Plan | null; items?: PlanningItem[]; offsets?: number[]; quietStart?: string; quietEnd?: string };
+export type PlanningContext = { now?: Date; timezone?: string; previous?: Plan | null; items?: PlanningItem[]; offsets?: number[]; quietStart?: string; quietEnd?: string; repeatCount?: number; repeatMinutes?: number };
 
 export function normalizePersian(text: string) {
   const words: Record<string, number> = { صفر: 0, یک: 1, دو: 2, سه: 3, چهار: 4, پنج: 5, شش: 6, هفت: 7, هشت: 8, نه: 9, ده: 10, یازده: 11, دوازده: 12, سیزده: 13, چهارده: 14, پانزده: 15, شانزده: 16, هفده: 17, هجده: 18, نوزده: 19, بیست: 20, سی: 30, چهل: 40, پنجاه: 50, شصت: 60 };
@@ -109,7 +109,7 @@ export function approvalSummary(plan:Plan) {
     reminders:plan.reminderOffsets.map(m=>m===0?"زمان موعد":m%1440===0?`${fa(m/1440)} روز قبل`:m%60===0?`${fa(m/60)} ساعت قبل`:`${fa(m)} دقیقه قبل`).join("، ")||"ندارد",
     channels:plan.channels.map(c=>channelNames[c]).join("، ")||"بدون هشدار",
     recurrence:plan.recurrence==="NONE"?"":`${plan.recurrence==="DAILY"?"روزانه":"هفتگی"}، ${plan.occurrenceCount?fa(plan.occurrenceCount):"تعداد نامشخص"} نوبت`,
-    followUp:plan.escalation?`${fa(plan.repeatCount)} هشدار پس از موعد با فاصله ${fa(plan.repeatMinutes)} دقیقه`:"",
+    followUp:plan.escalation?(plan.repeatCount===0?"هشدار اولیه در موعد؛ بدون تکرار اضافه":`${fa(plan.repeatCount)} هشدار پس از موعد با فاصله ${fa(plan.repeatMinutes)} دقیقه`):"",
   };
 }
 
@@ -176,7 +176,7 @@ function jalaliDate(year: number, month: number, day: number) {
 
 export function inspectPlan(plan: Plan, now = new Date(), items: PlanningItem[] = []) {
   const questions: string[] = [], warnings: string[] = [];
-  if(!Number.isInteger(plan.repeatCount)||plan.repeatCount<1||plan.repeatCount>6)questions.push("تعداد هشدار باید از ۱ تا ۶ باشد.");
+  if(!Number.isInteger(plan.repeatCount)||plan.repeatCount<0||plan.repeatCount>6)questions.push("تعداد هشدار باید از ۰ تا ۶ باشد.");
   if(!Number.isInteger(plan.repeatMinutes)||plan.repeatMinutes<10||plan.repeatMinutes>1440)questions.push("فاصله هشدار باید از ۱۰ تا ۱۴۴۰ دقیقه باشد.");
   if(plan.occurrenceCount!==null && plan.occurrenceCount!==undefined && (!Number.isInteger(plan.occurrenceCount)||plan.occurrenceCount<2||plan.occurrenceCount>12))questions.push("تعداد نوبت‌ها باید از ۲ تا ۱۲ باشد.");
   if(plan.durationMinutes!==null && (!Number.isInteger(plan.durationMinutes)||plan.durationMinutes<5||plan.durationMinutes>1440))questions.push("مدت جلسه باید از ۵ تا ۱۴۴۰ دقیقه باشد.");
@@ -233,6 +233,11 @@ export function planPersian(message: string, context: PlanningContext = {}) {
   if (/حذف کن|پاک کن/.test(command)) plan.operation = "DELETE";
   else if (/انجام شد|انجام دادم|تمام شد|تکمیل کن/.test(command)) plan.operation = "COMPLETE";
   else if (/تغییر|ویرایش|عوض کن|ببر به/.test(command) && !previous) plan.operation = "UPDATE";
+  // Only fresh creations inherit settings. Later explicit counts/intervals take precedence.
+  if (!context.previous && plan.operation === "CREATE") {
+    plan.repeatCount = context.repeatCount ?? plan.repeatCount;
+    plan.repeatMinutes = context.repeatMinutes ?? plan.repeatMinutes;
+  }
   if (/شرکت|شرکتی|کاری|تیم|فروش/.test(text)) plan.category = "WORK";
   if (/شخصی/.test(text)) plan.category = "PERSONAL";
   if (/شرکت|شرکتی|کاری|تیم|فروش|شخصی/.test(text)) plan.defaults = plan.defaults.filter(d=>!d.includes("دسته شخصی"));

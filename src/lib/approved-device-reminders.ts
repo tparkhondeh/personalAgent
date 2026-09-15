@@ -2,38 +2,51 @@
 import { LocalNotifications } from "@capacitor/local-notifications";
 import { isNativeAndroid } from "@/lib/native-escalations";
 import { nativeNotificationId } from "@/lib/escalations";
+import { LEGACY_ALARM_SOUND_HELP, prepareDeviceAlarmChannel } from "./alarm-sounds";
+import { nativeAlarmSoundPlugin } from "./native-alarm-sounds";
+import { createDeviceAlarmScheduler } from "./device-alarm-scheduler";
 const owner="hamrah-approved-reminders";
-let generation=0;
-let queue:Promise<string>=Promise.resolve("");
-export function clearApprovedDeviceReminders(){
-  generation++;
-  const next=queue.then(async()=>{
-    if(!isNativeAndroid())return "";
-    const pending=await LocalNotifications.getPending();
-    const owned=pending.notifications.filter(n=>n.extra?.owner===owner);
-    if(owned.length)await LocalNotifications.cancel({notifications:owned.map(n=>({id:n.id}))});
-    return "";
-  });queue=next.catch(()=>"");return next;
+const scheduler = createDeviceAlarmScheduler({
+  owner,
+  getPending: () => LocalNotifications.getPending(),
+  cancel: options => LocalNotifications.cancel(options),
+  schedule: options => LocalNotifications.schedule(options),
+  checkPermissions: () => LocalNotifications.checkPermissions(),
+  prepareAlarm: () => prepareDeviceAlarmChannel(nativeAlarmSoundPlugin(), () => LocalNotifications.createChannel({
+    id: "approved-reminders", name: "یادآوری‌های تأییدشده", importance: 5, sound: "urgent_alarm.wav", vibration: true,
+  }), "approved-reminders"),
+  prepareNotification: async () => {
+    await LocalNotifications.createChannel({ id: "approved-notifications", name: "اعلان برنامه", importance: 3, vibration: true });
+    return "approved-notifications";
+  },
+});
+export async function clearApprovedDeviceReminders() {
+  if (isNativeAndroid()) await scheduler.clear();
+  return "";
 }
-export function syncApprovedDeviceReminders(){
-  const current=generation;
-  const next=queue.then(()=>current===generation?sync():"");queue=next.catch(()=>"");return next;
+type ApprovedReminder = { id: string; title: string; scheduledFor: string; channel: "ALARM" | "NATIVE" };
+function validReminder(value: unknown): value is ApprovedReminder {
+  if (!value || typeof value !== "object") return false;
+  const row = value as ApprovedReminder;
+  return typeof row.id === "string" && row.id.length > 0 && typeof row.title === "string" &&
+    typeof row.scheduledFor === "string" && Number.isFinite(Date.parse(row.scheduledFor)) &&
+    (row.channel === "ALARM" || row.channel === "NATIVE");
 }
-async function sync() {
+export async function syncApprovedDeviceReminders() {
   if(!isNativeAndroid())return "Notification و Alarm فقط داخل اپ اندروید و پس از اجازه گوشی تنظیم می‌شوند.";
-  const response=await fetch("/api/agent/alarms",{cache:"no-store"});
-  if(!response.ok)throw new Error("sync failed");
-  const body=await response.json();
-  const pending=await LocalNotifications.getPending();
-  const expected=new Set(body.data.map((r:{id:string})=>nativeNotificationId(r.id)));
-  const obsolete=pending.notifications.filter(n=>n.extra?.owner===owner && !expected.has(n.id));
-  if(obsolete.length)await LocalNotifications.cancel({notifications:obsolete.map(n=>({id:n.id}))});
-  const permission=await LocalNotifications.checkPermissions();
-  if(permission.display!=="granted")return "ثبت انجام شد؛ Notification به اجازه در تنظیمات اعلان نیاز دارد.";
-  await LocalNotifications.createChannel({id:"approved-reminders",name:"یادآوری‌های تأییدشده",importance:5,sound:"urgent_alarm.wav",vibration:true});
-  await LocalNotifications.createChannel({id:"approved-notifications",name:"اعلان برنامه",importance:3,vibration:true});
-  const exact=await LocalNotifications.checkExactNotificationSetting();
-  const notifications=body.data.filter((r:{scheduledFor:string})=>Date.parse(r.scheduledFor)>Date.now()).map((r:{id:string;title:string;scheduledFor:string;channel:string})=>({id:nativeNotificationId(r.id),title:"همراه",body:r.title,channelId:r.channel==="ALARM"?"approved-reminders":"approved-notifications",smallIcon:"ic_stat_hamrah",schedule:{at:new Date(r.scheduledFor),allowWhileIdle:r.channel==="ALARM"},extra:{owner,reminderId:r.id}}));
-  if(notifications.length)await LocalNotifications.schedule({notifications});
-  return `${notifications.length} Notification تنظیم شد.${exact.exact_alarm!=="granted"?" مجوز Alarm دقیق داده نشده؛ زمان اجرا ممکن است جابه‌جا شود.":""}`;
+  const result = await scheduler.sync(async () => {
+    const response = await fetch("/api/agent/alarms", { cache: "no-store" });
+    if (!response.ok) throw new Error("sync failed");
+    const body: { data?: unknown } = await response.json();
+    if (!Array.isArray(body.data) || !body.data.every(validReminder)) throw new Error("Invalid device reminder response");
+    return body.data.map(row => ({
+      id: nativeNotificationId(row.id), at: Date.parse(row.scheduledFor), alarm: row.channel === "ALARM",
+      title: "همراه", body: row.title, extra: { reminderId: row.id },
+    }));
+  });
+  if (result.permissionRequired) return "ثبت انجام شد؛ Notification به اجازه در تنظیمات اعلان نیاز دارد.";
+  const exact = result.scheduled ? await LocalNotifications.checkExactNotificationSetting() : undefined;
+  return `${result.scheduled} یادآوری جدید تنظیم شد؛ ${result.retained} یادآوری قبلی حفظ شد.` +
+    (exact && exact.exact_alarm !== "granted" ? " مجوز Alarm دقیق داده نشده؛ زمان اجرا ممکن است جابه‌جا شود." : "") +
+    (result.legacySound ? ` ${LEGACY_ALARM_SOUND_HELP}` : "");
 }

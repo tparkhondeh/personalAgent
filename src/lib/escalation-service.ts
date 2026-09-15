@@ -41,7 +41,7 @@ async function seedPlans(userId: string, now: Date, policy: EscalationPolicy, po
     let previousAlertAt = now;
     const spacing = Math.max(10, taskPolicy.urgentRepeatMinutes) * 60_000;
     const plan = buildEscalationPlan(now, taskPolicy).filter(entry => !approved || entry.level !== "IN_APP_PUSH" || approved.channels.some(c=>c==="IN_APP"||c==="PUSH")).map((entry) => {
-      if (entry.level === "IN_APP_PUSH") return entry;
+      if (entry.level === "IN_APP_PUSH" || taskPolicy.urgentMaxRepeats === 0) return entry;
       const spaced = new Date(Math.max(entry.scheduledFor.getTime(), previousAlertAt.getTime() + spacing));
       const scheduledFor = spaced; // Newly created attempts never shift for retired quiet hours.
       previousAlertAt = scheduledFor;
@@ -62,7 +62,7 @@ async function seedPlans(userId: string, now: Date, policy: EscalationPolicy, po
           provider: entry.provider,
           status: entry.level === "ANDROID_ALARM" ? "READY_FOR_DEVICE" : "PENDING",
           idempotencyKey,
-          metadata: JSON.stringify({ quietHoursRetired: true }),
+          metadata: JSON.stringify({ quietHoursRetired: true, ...(taskPolicy.urgentMaxRepeats === 0 && entry.level === "ANDROID_ALARM" ? { initialDeliveryGraceMs: 10_000 } : {}) }),
         },
       });
     }));

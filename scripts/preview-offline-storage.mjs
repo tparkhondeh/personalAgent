@@ -3,6 +3,8 @@ import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 const root = new URL("../mobile-shell/", import.meta.url);
 const files = new Set(["index.html", "appearance.js", "voice-capture.js", "app.css", "theme.css", "app.js", "storage.js", "domain.js", "planner.js", "input-controls.js", "content.js", "Vazirmatn.woff2"]);
+files.add("alarm-sounds.js");
+for (const id of ["dawn", "chime", "pulse"]) files.add(`alarm-sounds/tia_alarm_${id}_v1.wav`);
 const scenarios = new Set(["fresh", "existing", "corrupt", "denied", "quota"]);
 createServer(async (req, res) => {
   const url = new URL(req.url, "http://127.0.0.1");
@@ -19,7 +21,7 @@ createServer(async (req, res) => {
       content = Buffer.from(content.toString().replace("<head>", "<head>" + harness).replace("<body>", '<body><p id="fault-evidence" role="status"></p>'));
     }
     const ext = file.split(".").at(-1);
-    res.writeHead(200, { "Content-Type": ({ html: "text/html; charset=utf-8", js: "application/javascript; charset=utf-8", css: "text/css; charset=utf-8", woff2: "font/woff2" })[ext], "Cache-Control": "no-store" });
+    res.writeHead(200, { "Content-Type": ({ html: "text/html; charset=utf-8", js: "application/javascript; charset=utf-8", css: "text/css; charset=utf-8", woff2: "font/woff2", wav: "audio/wav" })[ext], "Cache-Control": "no-store" });
     res.end(content);
   } catch { res.writeHead(500).end("Synthetic preview failed"); }
 }).listen(3018, "127.0.0.1", () => console.log("Synthetic storage QA only: http://127.0.0.1:3018/?scenario=quota"));

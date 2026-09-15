@@ -9,7 +9,7 @@ export const planSchema = z.object({
   occurrenceCount: z.number().int().min(2).max(12).nullable().default(null),
   reminderOffsets: z.array(z.number().int().min(0).max(10080)).max(8).refine(v => new Set(v).size === v.length),
   channels: z.array(z.enum(["IN_APP", "PUSH", "NATIVE", "ALARM"])).max(4).refine(v => new Set(v).size === v.length),
-  repeatCount: z.number().int().min(1).max(6), repeatMinutes: z.number().int().min(10).max(1440),
+  repeatCount: z.number().int().min(0).max(6).describe("Extra alerts after the deadline: 0 keeps the initial alert with no extras. Independent of task recurrence."), repeatMinutes: z.number().int().min(10).max(1440),
   quietStart: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/), quietEnd: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
   escalation: z.boolean(), defaults: z.array(z.string().max(200)).max(10),
 }).strict();

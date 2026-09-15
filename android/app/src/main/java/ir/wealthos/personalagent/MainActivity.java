@@ -32,7 +32,7 @@ import java.io.ByteArrayInputStream;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.stream.Collectors;
 import org.json.JSONObject;
 
@@ -107,6 +107,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     @SuppressLint("AddJavascriptInterface")
     protected void onCreate(Bundle savedInstanceState) {
+        registerPlugin(TiaAlarmSoundsPlugin.class);
         super.onCreate(savedInstanceState);
         if (getBridge() == null || getBridge().getWebView() == null) return;
 
@@ -344,11 +345,15 @@ public class MainActivity extends BridgeActivity {
                 }
             }
             // Capacitor intentionally omits plugin injection for errorPath. Our trusted,
-            // APK-bundled recovery document needs LocalNotifications for offline reminders.
+            // APK-bundled recovery needs notifications and device alarm sound controls.
             // Inject only into this exact main-frame asset; never into remote/error content.
             if (request.isForMainFrame() && request.getUrl().toString().equals(getBridge().getErrorUrl())) {
                 PluginHandle notifications = getBridge().getPlugin("LocalNotifications");
                 if (notifications != null) {
+                    ArrayList<PluginHandle> recoveryPlugins = new ArrayList<>();
+                    recoveryPlugins.add(notifications);
+                    PluginHandle alarmSounds = getBridge().getPlugin("TiaAlarmSounds");
+                    if (alarmSounds != null) recoveryPlugins.add(alarmSounds);
                     try (BufferedReader reader = new BufferedReader(new InputStreamReader(
                         getAssets().open("public/connection-error.html"), StandardCharsets.UTF_8
                     ))) {
@@ -356,7 +361,7 @@ public class MainActivity extends BridgeActivity {
                         String script = JSExport.getGlobalJS(MainActivity.this, false, BuildConfig.DEBUG)
                             + "\nwindow.WEBVIEW_SERVER_URL = " + JSONObject.quote(bundledOrigin()) + ";\n"
                             + JSExport.getBridgeJS(MainActivity.this) + "\n"
-                            + JSExport.getPluginJS(Collections.singletonList(notifications));
+                            + JSExport.getPluginJS(recoveryPlugins);
                         html = BundledPageInjector.inject(html, (appearance != null ? appearance.bootstrap() : "") + script);
                         return new WebResourceResponse("text/html", "UTF-8", new ByteArrayInputStream(html.getBytes(StandardCharsets.UTF_8)));
                     } catch (Exception error) {

@@ -1,6 +1,6 @@
 "use client";
 import { TiaMark } from "@/components/tia-mark";
-import { DailyPoem } from "@/components/daily-poem";
+import { PoemCard } from "@/components/poem-card";
 import { PersianDateField, Time24Field } from "@/components/persian-date-time";
 import { planInstant } from "@/lib/agent-planner";
 import { validTime24, persianParts } from "@/lib/persian-inputs";
@@ -13,7 +13,7 @@ import { enableNotificationsForDevice } from "@/lib/notification-access";
 import { defaultPreferences, PreferencesPanel, type UserPreferences } from "@/components/preferences-panel";
 import { NotificationCenter, type AppNotification } from "@/components/notification-center";
 import { buildEscalationPlan, defaultEscalationPolicy } from "@/lib/escalations";
-import { syncNativeEscalationAlarms, type NativeEscalationAlarm } from "@/lib/native-escalations";
+import { clearNativeEscalationAlarms, syncNativeEscalationAlarms, type NativeEscalationAlarm } from "@/lib/native-escalations";
 import { getDailyRumiSelection, getRumiSelection, rumiSelectionCount } from "@/lib/daily-rumi";
 import { createPoemNavigator, selectDashboardScope, selectDashboardItems, summarizeDashboardItems, tehranDayKey } from "@/lib/dashboard-overview";
 import { REMINDER_OFFSET_OPTIONS } from "@/lib/reminder-offsets";
@@ -89,10 +89,11 @@ export function PersonalAgentDashboard() {
 
 function SessionDashboard({ session }: { session: ReturnType<typeof authClient.useSession>["data"] }) {
   useEffect(() => {
-    if(!session?.user.id)return;
+    const clear=()=>{void Promise.allSettled([clearApprovedDeviceReminders(),clearNativeEscalationAlarms()]);};
+    if(!session?.user.id)return clear;
     const sync=()=>{void syncApprovedDeviceReminders().catch(()=>{});};
     sync(); const interval=setInterval(sync,30000); window.addEventListener("focus",sync);
-    return()=>{clearInterval(interval);window.removeEventListener("focus",sync);void clearApprovedDeviceReminders().catch(()=>{});};
+    return()=>{clearInterval(interval);window.removeEventListener("focus",sync);clear();};
   },[session?.user.id]);
   const [items, setItems] = useState<Item[]>([]);
   const [guestStorageReady, setGuestStorageReady] = useState(false);
@@ -106,6 +107,12 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
   const [pendingDelete, setPendingDelete] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [manualSaveSuccess, setManualSaveSuccess] = useState("");
+  useEffect(() => {
+    if (!manualSaveSuccess) return;
+    const timer = window.setTimeout(() => setManualSaveSuccess(""), 5000);
+    return () => window.clearTimeout(timer);
+  }, [manualSaveSuccess]);
   const [notificationStatus, setNotificationStatus] = useState("");
   const [notificationEnabling, setNotificationEnabling] = useState(false);
   const notificationActivation = useRef(false);
@@ -189,10 +196,11 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
         const response = await fetch("/api/escalations", { method: "POST" });
         if (!response.ok || cancelled) return;
         const result = await response.json();
+        if (cancelled) return;
         const alarms = result.data.alarms as NativeEscalationAlarm[];
         const nativeResult = await syncNativeEscalationAlarms(alarms);
-        if (nativeResult.scheduled > 0 && !cancelled) {
-          await fetch("/api/escalations", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ attemptIds: alarms.map((alarm) => alarm.id) }) });
+        if (nativeResult.acceptedIds.length > 0 && !cancelled) {
+          await fetch("/api/escalations", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ attemptIds: nativeResult.acceptedIds }) });
         }
         return;
       }
@@ -207,7 +215,7 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
         smsEscalationEnabled: preferences.smsEscalationEnabled,
         callEscalationEnabled: preferences.callEscalationEnabled,
       } : defaultEscalationPolicy;
-      const alarms: NativeEscalationAlarm[] = items.filter((item) => item.source === "task" && item.priority === "urgent" && !item.done && item.dueAt && new Date(item.dueAt) <= now).flatMap((item) => buildEscalationPlan(now, policy).filter((entry) => entry.level === "ANDROID_ALARM").map((entry) => ({
+      const alarms: NativeEscalationAlarm[] = items.filter((item) => item.source === "task" && item.priority === "urgent" && !item.done && item.dueAt && new Date(item.dueAt) <= now).flatMap((item) => buildEscalationPlan(new Date(item.dueAt!), policy).filter((entry) => entry.level === "ANDROID_ALARM").map((entry) => ({
         id: `guest:${item.id}:${entry.attemptNumber}`,
         taskId: item.id,
         title: item.title,
@@ -326,18 +334,25 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
     const priority = category === "meeting" ? "important" : data.get("priority") as Priority;
     const date = String(data.get("date") || "");
     const time = String(data.get("time") || "09:00");
-    if (category === "meeting" && !date) { setMessage("تاریخ جلسه الزامی است."); return; }
-    if(date && (!persianParts(date)||!validTime24(time))){setMessage("تاریخ شمسی و ساعت ۲۴ساعته معتبر وارد کن.");return;}
+    if (category === "meeting" && !date) { setManualSaveSuccess(""); setMessage("تاریخ جلسه الزامی است."); return; }
+    if(date && (!persianParts(date)||!validTime24(time))){setManualSaveSuccess("");setMessage("تاریخ شمسی و ساعت ۲۴ساعته معتبر وارد کن.");return;}
     const startsAt = date ? tehranIso(date, time) : undefined;
     if (!title) return;
     setMessage("");
     if (!signedIn) {
       if (!submission.current.begin()) return;
+      setManualSaveSuccess("");
       const duration = editing?.source === "meeting" && editing.startsAt && editing.endsAt ? (Date.parse(editing.endsAt)-Date.parse(editing.startsAt))/60000 : 60;
       const nextItem: Item = { id: editing?.id || crypto.randomUUID(), title, category, priority, source: category === "meeting" ? "meeting" : "task", startsAt: category === "meeting" ? startsAt : undefined, endsAt: category === "meeting" && startsAt ? new Date(new Date(startsAt).getTime() + duration * 60_000).toISOString() : undefined, dueAt: category === "meeting" ? undefined : startsAt, done: editing?.done || false };
-      if (!commitGuestItems(editing ? items.map(item=>item.id===editing.id&&item.source===editing.source?nextItem:item) : [nextItem,...items])) { submission.current.finish(false); return; }
+      if (!commitGuestItems(editing ? items.map(item=>item.id===editing.id&&item.source===editing.source?nextItem:item) : [nextItem,...items])) {
+        submission.current.finish(false);
+        // A temporary write failure can be retried; unreadable/unhydrated data stays protected.
+        if (guestStorageReady) setGuestStorageReady(readGuestItems({ getItem: key => localStorage.getItem(key) }).ok);
+        return;
+      }
       submission.current.finish(true);
-      form.reset(); closeComposer(); return;
+      form.reset(); closeComposer(); setFilter("all"); setView("today");
+      setManualSaveSuccess("done — فقط روی این دستگاه ذخیره شد."); return;
     }
     const isMeeting = category === "meeting";
     const duration = editing?.source === "meeting" && editing.startsAt && editing.endsAt ? (Date.parse(editing.endsAt)-Date.parse(editing.startsAt))/60000 : 60;
@@ -348,12 +363,14 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
       : { title, category: category === "work" ? "WORK" : "PERSONAL", priority: priority.toUpperCase(), dueAt: startsAt ?? null };
     const requestKey = submission.current.begin();
     if (!requestKey) return;
+    setManualSaveSuccess("");
     setSaving(true);
     try {
       const response = await fetch(endpoint, { method: editing ? "PATCH" : "POST", headers: { "content-type": "application/json", ...(!editing ? { "idempotency-key": requestKey } : {}) }, body: JSON.stringify(body) });
       if (!response.ok) { const result = await response.json().catch(() => null); setMessage(result?.error || "ثبت برنامه انجام نشد."); return; }
       submission.current.finish(true);
-      form.reset(); closeComposer(); void loadRemote();
+      form.reset(); closeComposer(); setFilter("all"); setView("today");
+      setManualSaveSuccess("done — ذخیره شد."); void loadRemote();
     } catch {
       setMessage("نتیجه ثبت مشخص نشد؛ همین فرم را بدون تغییر دوباره ثبت کن.");
     } finally { submission.current.finish(false); setSaving(false); }
@@ -382,12 +399,13 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
         <div className={view === "today" ? "daily-poem-wrap" : undefined}>
           <div className="header-date"><p className="eyebrow">{tehranDate.format(new Date())}</p><p className="gregorian-date">{tehranGregorianDate.format(new Date())}</p></div>
           {view === "today" ? <>
-            <div className="poem-row"><DailyPoem lines={dailyRumi.lines} /><button type="button" className="poem-next" aria-label="شعر بعدی" title="شعر بعدی" onClick={() => { if (poemNavigator.current) setDailyRumi(getRumiSelection(poemNavigator.current.next())); }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="m14 6-6 6 6 6M20 12H8" /></svg></button></div>
+            <PoemCard key={session?.user.id || "guest"} scope={session?.user.id ? `account:${session.user.id}` : "guest"} lines={dailyRumi.lines} onNext={() => { if (poemNavigator.current) setDailyRumi(getRumiSelection(poemNavigator.current.next())); }} />
           </> : view !== "assistant" && <h1>{view === "settings" ? "تنظیمات من" : view === "calendar" ? "تقویم من" : "همه کارها و جلسات"}</h1>}
         </div>
         <div className="top-actions"><button className="icon-button" aria-label="تنظیمات" title="تنظیمات" onClick={() => setView("settings")}><ActionIcon name="settings" /></button><button className="icon-button" aria-label={unreadNotifications ? `اعلان‌ها، ${unreadNotifications} خوانده‌نشده` : "اعلان‌ها"} title="مرکز اعلان‌ها" onClick={() => { const next = !notificationCenter; setNotificationCenter(next); if (next) void loadNotifications(); }}><ActionIcon name="bell" />{unreadNotifications > 0 && <span className="unread-dot" aria-hidden="true" />}</button></div>
       </header>
       {message && <p className="page-message">{message}</p>}
+      {manualSaveSuccess && <p className="page-message" role="status" aria-live="polite" aria-atomic="true" style={{ position: "fixed", bottom: "calc(88px + env(safe-area-inset-bottom))", insetInline: 16, margin: "0 auto", width: "fit-content", maxWidth: "calc(100% - 32px)", zIndex: 100, background: "var(--surface-solid)", borderColor: "var(--line)", color: "var(--ink)" }}>{manualSaveSuccess}</p>}
       {view === "settings" ? <PreferencesPanel key={preferences ? "stored" : "default"} initial={preferences} signedIn={signedIn} onSaved={setPreferences} onNativePermissionChanged={() => setEscalationRevision((value) => value + 1)} /> : view === "assistant" ? <Assistant onAdd={() => openComposer()} onChanged={loadRemote} /> : view === "calendar" ? <Calendar items={items} onEdit={openComposer} onAdd={(date) => openComposer(null, date)} /> : <>
         <section className="dashboard-overview" aria-label={view === "today" ? "آمار برنامه‌های امروز، همه وضعیت‌ها" : "آمار فهرست فعلی، همه وضعیت‌ها"}>{overview.map(group => <article key={group.key} className={`overview-card overview-${group.key}`} aria-label={group.name}><span dir="ltr">{group.label}</span><strong>{group.total.toLocaleString("fa-IR")}</strong><small>{group.done.toLocaleString("fa-IR")} انجام‌شده</small></article>)}</section>
         <section className="content-card program-card"><div className="card-heading"><div><h2>{view === "today" ? "برنامه امروز" : "فهرست برنامه‌ها"}</h2></div><div className="filters"><button className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>همه</button>{(Object.keys(categories) as Category[]).map((key) => <button key={key} className={filter === key ? "active" : ""} onClick={() => setFilter(key)}>{categories[key][0]}</button>)}</div></div>

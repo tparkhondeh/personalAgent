@@ -206,6 +206,122 @@ public class ApplicationContextTest {
     }
 
     @Test
+    public void alarmSoundBridgePersistsChoiceAndPreservesPendingChannels() throws Exception {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        NotificationManager manager = context.getSystemService(NotificationManager.class);
+        android.media.AudioManager audio = context.getSystemService(android.media.AudioManager.class);
+        assertNotNull(manager);
+        assertNotNull(audio);
+        int interruptionFilter = manager.getCurrentInterruptionFilter();
+        int alarmVolume = audio.getStreamVolume(android.media.AudioManager.STREAM_ALARM);
+        int notificationVolume = audio.getStreamVolume(android.media.AudioManager.STREAM_NOTIFICATION);
+        android.content.SharedPreferences prefs = context.getSharedPreferences("tia_alarm_sounds_v1", Context.MODE_PRIVATE);
+        String originalChoice = prefs.getString("soundId", null);
+        String notificationQaChannel = "tia-notification-sound-qa-v1";
+        boolean notificationQaExisted = manager.getNotificationChannel(notificationQaChannel) != null;
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> assertNotNull(activity.getBridge().getPlugin("TiaAlarmSounds")));
+            waitForAlarmBridge(scenario);
+            JSONObject pendingBefore = callAlarmBridge(scenario, "return await window.Capacitor.Plugins.LocalNotifications.getPending();");
+            callAlarmBridge(scenario,
+                "await window.Capacitor.Plugins.LocalNotifications.createChannel({id:'tia-notification-sound-qa-v1',name:'آزمون اعلان معمولی',importance:3,sound:'urgent_alarm.wav'});return {};"
+            );
+            assertEquals(AudioAttributes.USAGE_NOTIFICATION, manager.getNotificationChannel(notificationQaChannel).getAudioAttributes().getUsage());
+            JSONObject dawn = callAlarmBridge(scenario,
+                "const p=window.Capacitor.Plugins.TiaAlarmSounds;await p.setSelection({soundId:'dawn'});return await p.ensureChannel();");
+            assertEquals("dawn", dawn.getString("soundId"));
+            assertEquals("tia-alarm-v1-dawn", dawn.getString("channelId"));
+            NotificationChannel original = manager.getNotificationChannel(dawn.getString("channelId"));
+            assertNotNull(original);
+            Uri oldSound = original.getSound();
+            int oldImportance = original.getImportance();
+            assertEquals(AudioAttributes.USAGE_ALARM, original.getAudioAttributes().getUsage());
+            assertEquals(AudioAttributes.CONTENT_TYPE_SONIFICATION, original.getAudioAttributes().getContentType());
+            assertEquals(Uri.parse("android.resource://" + context.getPackageName() + "/raw/tia_alarm_dawn_v1"), oldSound);
+            assertFalse(original.canBypassDnd());
+
+            JSONObject chime = callAlarmBridge(scenario,
+                "const p=window.Capacitor.Plugins.TiaAlarmSounds;await p.setSelection({soundId:'chime'});return await p.ensureChannel();");
+            assertEquals("tia-alarm-v1-chime", chime.getString("channelId"));
+            NotificationChannel second = manager.getNotificationChannel(chime.getString("channelId"));
+            assertEquals(AudioAttributes.USAGE_ALARM, second.getAudioAttributes().getUsage());
+            assertEquals(Uri.parse("android.resource://" + context.getPackageName() + "/raw/tia_alarm_chime_v1"), second.getSound());
+            NotificationChannel oldAfter = manager.getNotificationChannel(dawn.getString("channelId"));
+            assertEquals(oldSound, oldAfter.getSound());
+            assertEquals(oldImportance, oldAfter.getImportance());
+            assertEquals(AudioAttributes.USAGE_ALARM, oldAfter.getAudioAttributes().getUsage());
+            assertEquals(pendingBefore.toString(), callAlarmBridge(scenario,
+                "return await window.Capacitor.Plugins.LocalNotifications.getPending();").toString());
+
+            // Recreate the bridge/activity: native private preferences outlive WebView state.
+            scenario.recreate();
+            waitForAlarmBridge(scenario);
+            assertEquals("chime", callAlarmBridge(scenario,
+                "return await window.Capacitor.Plugins.TiaAlarmSounds.getSelection();").getString("soundId"));
+            assertEquals("chime", prefs.getString("soundId", null));
+            assertEquals(oldSound, manager.getNotificationChannel(dawn.getString("channelId")).getSound());
+
+            // Verify actual bundled PCM exists without playing audio or opening settings.
+            for (String id : new String[] { "dawn", "chime", "pulse" }) {
+                int resource = context.getResources().getIdentifier("tia_alarm_" + id + "_v1", "raw", context.getPackageName());
+                assertTrue("Missing bundled sound: " + id, resource != 0);
+                try (InputStream stream = context.getResources().openRawResource(resource)) {
+                    byte[] header = new byte[12];
+                    assertEquals(12, stream.read(header));
+                    assertEquals("RIFF", new String(header, 0, 4, StandardCharsets.US_ASCII));
+                    assertEquals("WAVE", new String(header, 8, 4, StandardCharsets.US_ASCII));
+                }
+            }
+            assertEquals(interruptionFilter, manager.getCurrentInterruptionFilter());
+            assertEquals(alarmVolume, audio.getStreamVolume(android.media.AudioManager.STREAM_ALARM));
+            assertEquals(notificationVolume, audio.getStreamVolume(android.media.AudioManager.STREAM_NOTIFICATION));
+        } finally {
+            // Restore only this test's preference; preserve all preexisting channels/data.
+            android.content.SharedPreferences.Editor editor = prefs.edit();
+            if (originalChoice == null) editor.remove("soundId"); else editor.putString("soundId", originalChoice);
+            assertTrue(editor.commit());
+            if (!notificationQaExisted) manager.deleteNotificationChannel(notificationQaChannel);
+        }
+    }
+
+    private String evaluateAlarmJs(ActivityScenario<MainActivity> scenario, String expression) throws Exception {
+        CountDownLatch evaluated = new CountDownLatch(1);
+        AtomicReference<String> value = new AtomicReference<>("null");
+        scenario.onActivity(activity -> activity.getBridge().getWebView().evaluateJavascript(expression, result -> {
+            value.set(result); evaluated.countDown();
+        }));
+        assertTrue("Alarm bridge evaluation timed out", evaluated.await(5, TimeUnit.SECONDS));
+        return value.get();
+    }
+
+    private void waitForAlarmBridge(ActivityScenario<MainActivity> scenario) throws Exception {
+        long deadline = android.os.SystemClock.elapsedRealtime() + 15_000;
+        do {
+            if ("true".equals(evaluateAlarmJs(scenario,
+                "Boolean(window.Capacitor?.isPluginAvailable?.('TiaAlarmSounds') && window.Capacitor?.Plugins?.TiaAlarmSounds && window.Capacitor?.Plugins?.LocalNotifications)"))) return;
+            Thread.sleep(100);
+        } while (android.os.SystemClock.elapsedRealtime() < deadline);
+        throw new AssertionError("TiaAlarmSounds JS bridge unavailable");
+    }
+
+    private JSONObject callAlarmBridge(ActivityScenario<MainActivity> scenario, String asyncBody) throws Exception {
+        evaluateAlarmJs(scenario, "window.__tiaAlarmQaDone=false;(async()=>{" + asyncBody +
+            "})().then(value=>{window.__tiaAlarmQaResult=JSON.stringify({value});window.__tiaAlarmQaDone=true;},error=>{" +
+            "window.__tiaAlarmQaResult=JSON.stringify({error:String(error)});window.__tiaAlarmQaDone=true;});true");
+        long deadline = android.os.SystemClock.elapsedRealtime() + 10_000;
+        do {
+            if ("true".equals(evaluateAlarmJs(scenario, "window.__tiaAlarmQaDone===true"))) {
+                String encoded = evaluateAlarmJs(scenario, "window.__tiaAlarmQaResult");
+                JSONObject result = new JSONObject(new JSONArray("[" + encoded + "]").getString(0));
+                assertFalse("Native sound call failed: " + result.optString("error"), result.has("error"));
+                return result.getJSONObject("value");
+            }
+            Thread.sleep(100);
+        } while (android.os.SystemClock.elapsedRealtime() < deadline);
+        throw new AssertionError("Native sound call timed out");
+    }
+
+    @Test
     public void exactAlarmFiresAndCanceledAlarmDoesNotFire() throws Exception {
         Context appContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
         AlarmManager alarmManager = appContext.getSystemService(AlarmManager.class);

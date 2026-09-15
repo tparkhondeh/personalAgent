@@ -17,7 +17,7 @@ describe("program recurrence and overdue follow-up are distinct", () => {
   });
   it("gates both repeat inputs on explicit escalation in both interfaces", () => {
     expect(web).toMatch(/p\.escalation && <>[\s\S]*?value=\{p\.repeatCount\}[\s\S]*?value=\{p\.repeatMinutes\}[\s\S]*?<\/\>\}/);
-    expect(mobile).toMatch(/p\.escalation\?\[\["تعداد هشدار پس از موعد"[\s\S]*?p\.repeatMinutes\]\]:\[\]/);
+    expect(mobile).toMatch(/p\.escalation\?\[\["تعداد هشدار پس از موعد"[\s\S]*?p\.repeatCount>0\?\[\["فاصله پیگیری هشدار \(دقیقه\)"[\s\S]*?p\.repeatMinutes\]\]:\[\]\)\]:\[\]/);
   });
   it("can follow up one non-recurring task without making duplicate tasks", () => {
     const plan = planPersian("فردا ساعت ۱۷ خرید دارو را ثبت کن", { now: new Date("2026-09-06T08:00:00Z") }).plan!;

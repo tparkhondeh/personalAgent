@@ -139,7 +139,7 @@ function approvalSummary(plan) {
         reminders: plan.reminderOffsets.map(m => m === 0 ? "زمان موعد" : m % 1440 === 0 ? `${fa(m / 1440)} روز قبل` : m % 60 === 0 ? `${fa(m / 60)} ساعت قبل` : `${fa(m)} دقیقه قبل`).join("، ") || "ندارد",
         channels: plan.channels.map(c => channelNames[c]).join("، ") || "بدون هشدار",
         recurrence: plan.recurrence === "NONE" ? "" : `${plan.recurrence === "DAILY" ? "روزانه" : "هفتگی"}، ${plan.occurrenceCount ? fa(plan.occurrenceCount) : "تعداد نامشخص"} نوبت`,
-        followUp: plan.escalation ? `${fa(plan.repeatCount)} هشدار پس از موعد با فاصله ${fa(plan.repeatMinutes)} دقیقه` : "",
+        followUp: plan.escalation ? (plan.repeatCount === 0 ? "هشدار اولیه در موعد؛ بدون تکرار اضافه" : `${fa(plan.repeatCount)} هشدار پس از موعد با فاصله ${fa(plan.repeatMinutes)} دقیقه`) : "",
     };
 }
 function planInstant(date, time, timezone) {
@@ -216,8 +216,8 @@ function jalaliDate(year, month, day) {
 }
 function inspectPlan(plan, now = new Date(), items = []) {
     const questions = [], warnings = [];
-    if (!Number.isInteger(plan.repeatCount) || plan.repeatCount < 1 || plan.repeatCount > 6)
-        questions.push("تعداد هشدار باید از ۱ تا ۶ باشد.");
+    if (!Number.isInteger(plan.repeatCount) || plan.repeatCount < 0 || plan.repeatCount > 6)
+        questions.push("تعداد هشدار باید از ۰ تا ۶ باشد.");
     if (!Number.isInteger(plan.repeatMinutes) || plan.repeatMinutes < 10 || plan.repeatMinutes > 1440)
         questions.push("فاصله هشدار باید از ۱۰ تا ۱۴۴۰ دقیقه باشد.");
     if (plan.occurrenceCount !== null && plan.occurrenceCount !== undefined && (!Number.isInteger(plan.occurrenceCount) || plan.occurrenceCount < 2 || plan.occurrenceCount > 12))
@@ -299,6 +299,11 @@ function planPersian(message, context = {}) {
         plan.operation = "COMPLETE";
     else if (/تغییر|ویرایش|عوض کن|ببر به/.test(command) && !previous)
         plan.operation = "UPDATE";
+    // Only fresh creations inherit settings. Later explicit counts/intervals take precedence.
+    if (!context.previous && plan.operation === "CREATE") {
+        plan.repeatCount = context.repeatCount ?? plan.repeatCount;
+        plan.repeatMinutes = context.repeatMinutes ?? plan.repeatMinutes;
+    }
     if (/شرکت|شرکتی|کاری|تیم|فروش/.test(text))
         plan.category = "WORK";
     if (/شخصی/.test(text))

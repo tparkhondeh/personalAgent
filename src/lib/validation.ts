@@ -64,7 +64,7 @@ export const userPreferenceInputSchema = z.object({
   // Retired planningProfile from older clients is stripped; stored history stays untouched.
   urgentEscalationEnabled: z.boolean().default(true),
   urgentRepeatMinutes: z.number().int().min(10).max(1440).default(15),
-  urgentMaxRepeats: z.number().int().min(1).max(6).default(3),
+  urgentMaxRepeats: z.number().int().min(0).max(6).default(3),
   androidAlarmEnabled: z.boolean().default(true),
   highPriorityEnabled: z.boolean().default(true),
   smsEscalationEnabled: z.boolean().default(false),

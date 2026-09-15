@@ -180,13 +180,28 @@ input,select,textarea{ border: 1px solid #dce0f0; background: #fbfbff; color: va
 /* Measured poem layout shared verbatim with the bundled Android stylesheet. */
 .poem-row { display:block; position:relative; }
 .poem-row .daily-poem, .topbar h1.daily-poem { display:grid; gap:2px; font-size:var(--poem-size,1rem); font-weight:560; line-height:1.9; letter-spacing:normal; margin:6px 0 0; }
-.poem-row .poem-couplet { display:grid; grid-template-columns:var(--poem-columns,1fr 1fr); gap:var(--poem-gap,10px); direction:rtl; }
+.poem-row .poem-couplet { display:grid; grid-template-columns:var(--poem-columns,minmax(0,1fr) minmax(0,1fr)); gap:var(--poem-gap,10px); direction:rtl; align-items:baseline; }
 .poem-row .poem-couplet > span { min-width:0; white-space:normal; word-break:normal; overflow-wrap:normal; text-wrap:balance; }
 .poem-row .daily-poem[data-wrap="false"] .poem-couplet > span { white-space:nowrap; }
+.poem-row .daily-poem[data-wrap="true"] .poem-couplet > span { overflow-wrap:anywhere; }
 .poem-row .poem-next { position:absolute; inset-inline-end:0; top:-50px; }
 @media(max-width:700px) { .topbar:has(.daily-poem) { display:block; position:relative; }.topbar:has(.daily-poem) .topbar-icons,.topbar:has(.daily-poem) .top-actions { position:absolute; inset-inline-end:0; top:0; }.poem-row .poem-next { inset-inline-end:92px; }.daily-poem-wrap { width:100%; } }
 /* Audio consent is an explicit per-recording choice, never a hidden setting. */
 .voice-server-consent { display: flex; align-items: flex-start; gap: .5rem; font-size: .875rem; line-height: 1.8; padding-block: .5rem; }
 .voice-server-consent input { flex: 0 0 auto; min-width: 20px; min-height: 20px; margin-top: .2rem; }
+
+/* Shared custom-poem editor. The controls never consume the poem's column width. */
+.poem-row .poem-add { inset-inline-end:44px; font-size:24px; font-weight:400; }
+.personal-poem-dialog { width:min(620px,calc(100% - 24px)); max-height:calc(100dvh - 32px); margin:auto; padding:20px; border:1px solid var(--line); border-radius:22px; background:var(--surface-solid); color:var(--ink); overflow:auto; font-family:inherit; }
+.personal-poem-dialog::backdrop { background:rgb(20 25 45 / 35%); }
+.personal-poem-form { display:grid; gap:12px; }
+.personal-poem-form h2 { margin:0; font-size:20px; }
+.personal-poem-form p { margin:0; font-size:14px; }
+.personal-poem-form label { display:grid; gap:4px; font-size:14px; }
+.personal-poem-form input { min-width:0; width:100%; min-height:44px; font:inherit; padding:8px 12px; border:1px solid var(--line); border-radius:12px; background:var(--surface-soft); color:var(--ink); }
+.personal-poem-actions { display:flex; flex-wrap:wrap; gap:8px; position:sticky; bottom:0; background:var(--surface-solid); padding-block:8px; }
+.personal-poem-actions button { min-height:44px; padding:8px 14px; font:inherit; border-radius:12px; }
+@media(max-width:700px) { .poem-row .poem-add { inset-inline-end:136px; }.topbar:has(.daily-poem) .header-date,.topbar:has(.daily-poem) #today,.topbar:has(.daily-poem) #gregorian-date { padding-inline-end:175px; } }
+@media(max-width:380px) { .poem-row .poem-next { top:-6px; transform:translateY(-100%); }.topbar:has(.daily-poem) .header-date,.topbar:has(.daily-poem) #gregorian-date { padding-inline-end:0; }.daily-poem-wrap { padding-top:42px; } }
 .appearance-setting{margin-bottom:12px}
 .app{padding-top:max(16px,env(safe-area-inset-top))}.topbar{margin-bottom:14px;gap:12px}.card{padding:16px;margin-bottom:12px}.stat{min-height:90px;padding:12px}.empty{padding:24px 14px}textarea{min-height:44px;max-height:144px;resize:none}

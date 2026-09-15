@@ -19,11 +19,12 @@ export async function poemLayoutQa(corpus) {
       window.HamrahOverview.observePoemLayout(heading)();
       if(index%20===0)await new Promise(r=>setTimeout(r,0));
       const elements=[...heading.querySelectorAll('.poem-couplet > span')];
-      const measures=elements.map(e=>{const style=getComputedStyle(e);return{text:e.textContent,width:e.clientWidth,scroll:e.scrollWidth,height:e.getBoundingClientRect().height,lineHeight:parseFloat(style.lineHeight),font:parseFloat(style.fontSize),x:e.getBoundingClientRect().x};});
+      const measures=elements.map(e=>{const style=getComputedStyle(e);return{text:e.textContent,width:e.clientWidth,scroll:e.scrollWidth,height:e.getBoundingClientRect().height,lineHeight:parseFloat(style.lineHeight),font:parseFloat(style.fontSize),x:e.getBoundingClientRect().x,y:e.getBoundingClientRect().y};});
       const hidden=measures.some((e,i)=>e.text!==lines[i]||e.scroll>e.width+1);
       const wrongOrder=measures[0].x<=measures[1].x||measures[2].x<=measures[3].x;
-      const min=parseFloat(getComputedStyle(document.documentElement).fontSize)*.875;
-      if(hidden||wrongOrder||measures.some(e=>e.font<min-.05)||new Set(measures.map(e=>e.font)).size!==1)throw new Error(`Poem ${index} clipped, RTL wrong or unreadable: ${JSON.stringify(measures)}`);
+      const misaligned=Math.abs(measures[0].y-measures[1].y)>1||Math.abs(measures[2].y-measures[3].y)>1||Math.abs(measures[0].x-measures[2].x)>1||Math.abs(measures[1].x-measures[3].x)>1;
+      const min=parseFloat(getComputedStyle(document.documentElement).fontSize)*.8125;
+      if(hidden||wrongOrder||misaligned||measures.some(e=>e.font<min-.05)||new Set(measures.map(e=>e.font)).size!==1)throw new Error(`Poem ${index} clipped, misaligned, RTL wrong or unreadable: ${JSON.stringify(measures)}`);
       rows.push({index,font:measures[0].font,wrapped:measures.some(e=>e.height>e.lineHeight+1),height:heading.getBoundingClientRect().height});
     }
     return{count:rows.length,width:innerWidth,rootFont:parseFloat(getComputedStyle(document.documentElement).fontSize),oneLine:rows.filter(r=>!r.wrapped).length,readableWrap:rows.filter(r=>r.wrapped).length,noMissingWords:true,rows};

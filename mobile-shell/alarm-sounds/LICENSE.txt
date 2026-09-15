@@ -1,0 +1,13 @@
+tia alarm sounds v1: dawn, chime, pulse
+
+Original short motifs synthesized specifically for this project by
+scripts/generate-alarm-sounds.mjs. No third-party recordings, samples,
+melodies or downloaded sound assets are incorporated.
+
+To the extent any copyright or related rights apply to these generated
+sound assets, they are dedicated to the public domain under CC0 1.0
+Universal (SPDX: CC0-1.0):
+https://creativecommons.org/publicdomain/zero/1.0/legalcode
+
+Source parameters, envelopes and PCM encoding are in the generator.
+Versioned file names and channel IDs must remain stable across upgrades.

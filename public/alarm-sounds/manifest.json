@@ -1,0 +1,27 @@
+{
+  "license": "CC0-1.0",
+  "provenance": "Original tia synthesized motifs; no third-party samples",
+  "sounds": [
+    {
+      "id": "dawn",
+      "file": "tia_alarm_dawn_v1.wav",
+      "seconds": 2.4,
+      "sampleRate": 22050,
+      "channels": 1
+    },
+    {
+      "id": "chime",
+      "file": "tia_alarm_chime_v1.wav",
+      "seconds": 2.4,
+      "sampleRate": 22050,
+      "channels": 1
+    },
+    {
+      "id": "pulse",
+      "file": "tia_alarm_pulse_v1.wav",
+      "seconds": 2.4,
+      "sampleRate": 22050,
+      "channels": 1
+    }
+  ]
+}

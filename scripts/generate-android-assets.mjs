@@ -4,8 +4,10 @@ import sharp from "sharp";
 import { sharedMobileTheme } from "./shared-mobile-theme.mjs";
 import ts from "typescript";
 import { tiaIconSvg } from "./tia-logo.mjs";
+import { generateAlarmSoundAssets } from "./generate-alarm-sounds.mjs";
 
 const projectRoot = process.cwd();
+const alarmSoundScript = await generateAlarmSoundAssets(projectRoot);
 const resourceRoot = path.join(projectRoot, "android", "app", "src", "main", "res");
 const publicRoot = path.join(projectRoot, "public");
 const mobileRoot = path.join(projectRoot, "mobile-shell");
@@ -79,9 +81,9 @@ const indexPath = path.join(mobileRoot, "index.html");
 const recoveryPath = path.join(mobileRoot, "connection-error.html");
 const poems = JSON.parse(await readFile(path.join(projectRoot, "src/data/rumi-daily.json"), "utf8"));
 // Keep the same curated source and selection order as the web app, without external links.
-const overviewSource = (await Promise.all(['dashboard-overview','poem-layout'].map(name=>readFile(path.join(projectRoot, `src/lib/${name}.ts`), 'utf8')))).join('\n');
+const overviewSource = (await Promise.all(['dashboard-overview','poem-layout','personal-poem'].map(name=>readFile(path.join(projectRoot, `src/lib/${name}.ts`), 'utf8')))).join('\n');
 const overviewJs = ts.transpileModule(overviewSource.replace(/^export /gm, ""), { compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.None } }).outputText;
-const poemScript = `window.HamrahOverview=(()=>{${overviewJs}\nreturn {selectDashboardScope,selectDashboardItems,summarizeDashboardItems,createPoemNavigator,dailyPoemIndex,tehranDayKey,observePoemLayout};})();\nwindow.HamrahPoems = ${JSON.stringify(poems.selections.map(({ lines }) => lines)).replaceAll("<", "\\u003c")};\n`;
+const poemScript = `window.HamrahOverview=(()=>{${overviewJs}\nreturn {selectDashboardScope,selectDashboardItems,summarizeDashboardItems,createPoemNavigator,dailyPoemIndex,tehranDayKey,observePoemLayout,mountPersonalPoemEditor};})();\nwindow.HamrahPoems = ${JSON.stringify(poems.selections.map(({ lines }) => lines)).replaceAll("<", "\\u003c")};\n`;
 await writeFile(path.join(mobileRoot, "content.js"), poemScript);
 const [indexHtml, appStyles, appScript, recoveryHtml, domainScript] = await Promise.all([
   readFile(indexPath, "utf8"),
@@ -115,9 +117,10 @@ const bundledDocument = indexHtml
   .replace('<script src="./input-controls.js"></script>', "")
   .replace('<script src="./voice-capture.js"></script>', "")
   .replace('<script src="./storage.js"></script>', "")
+  .replace('<script src="./alarm-sounds.js"></script>', "")
   .replace('<script src="./app.js"></script>', "");
 const serializedDocument = JSON.stringify(bundledDocument).replaceAll("</", "<\\/");
-const serializedScript = JSON.stringify(`${poemScript}\n${domainScript}\n${plannerScript}\n${inputControls}\n${captureScript}\n${storageScript}\n${appScript}`).replaceAll("</", "<\\/");
+const serializedScript = JSON.stringify(`${poemScript}\n${domainScript}\n${plannerScript}\n${inputControls}\n${captureScript}\n${storageScript}\n${alarmSoundScript}\n${appScript}`).replaceAll("</", "<\\/");
 const offlineDocumentMarker = /^(\s*)const bundledDocument = .*; \/\/ generated-offline-document$/m;
 const offlineScriptMarker = /^(\s*)const bundledScript = .*; \/\/ generated-offline-script$/m;
 if (!offlineDocumentMarker.test(recoveryHtml)) {

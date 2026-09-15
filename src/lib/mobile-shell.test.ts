@@ -67,7 +67,12 @@ describe("offline Android mobile shell", () => {
   it("injects offline notifications only into the exact trusted main-frame asset", () => {
     expect(mainActivity).toContain('request.isForMainFrame() && request.getUrl().toString().equals(getBridge().getErrorUrl())');
     expect(mainActivity).toContain('getAssets().open("public/connection-error.html")');
-    expect(mainActivity).toContain('JSExport.getPluginJS(Collections.singletonList(notifications))');
+    expect(mainActivity).toContain('JSExport.getPluginJS(recoveryPlugins)');
+    const recoveryBlock = mainActivity.slice(mainActivity.indexOf('if (request.isForMainFrame() && request.getUrl().toString().equals(getBridge().getErrorUrl()))'));
+    expect(recoveryBlock).toContain('getPlugin("LocalNotifications")');
+    expect(recoveryBlock).toContain('getPlugin("TiaAlarmSounds")');
+    expect([...recoveryBlock.matchAll(/recoveryPlugins\.add\((\w+)\)/g)].map(match => match[1])).toEqual(["notifications", "alarmSounds"]);
+    expect(recoveryBlock).not.toContain('getPlugins()');
     expect(mainActivity).toContain('return getBridge().getScheme() + "://" + getBridge().getHost()');
     expect(mainActivity).not.toContain('getBridge().getLocalUrl()');
   });

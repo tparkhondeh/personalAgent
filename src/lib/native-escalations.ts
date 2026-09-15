@@ -3,6 +3,9 @@
 import { Capacitor } from "@capacitor/core";
 import { LocalNotifications } from "@capacitor/local-notifications";
 import { nativeNotificationId } from "@/lib/escalations";
+import { LEGACY_ALARM_SOUND_HELP, prepareDeviceAlarmChannel } from "./alarm-sounds";
+import { nativeAlarmSoundPlugin } from "./native-alarm-sounds";
+import { createDeviceAlarmScheduler } from "./device-alarm-scheduler";
 
 export type NativeEscalationAlarm = {
   id: string;
@@ -21,7 +24,7 @@ export function isNativeAndroid() {
 }
 
 async function ensureUrgentChannel() {
-  await LocalNotifications.createChannel({
+  return prepareDeviceAlarmChannel(nativeAlarmSoundPlugin(), () => LocalNotifications.createChannel({
     id: channelId,
     name: "کارهای فوری عقب‌افتاده",
     description: "هشدارهای تکرارشونده برای کار فوری که از موعدش گذشته است",
@@ -31,8 +34,18 @@ async function ensureUrgentChannel() {
     lights: true,
     lightColor: "#C56E74",
     vibration: true,
-  });
+  }), channelId);
 }
+
+const scheduler = createDeviceAlarmScheduler({
+  owner,
+  getPending: () => LocalNotifications.getPending(),
+  cancel: options => LocalNotifications.cancel(options),
+  schedule: options => LocalNotifications.schedule(options),
+  checkPermissions: () => LocalNotifications.checkPermissions(),
+  prepareAlarm: ensureUrgentChannel,
+  prepareNotification: async () => { throw new Error("Escalations must use ALARM"); },
+});
 
 export async function enableNativeEscalationAlarms() {
   if (!isNativeAndroid()) return { enabled: false, message: "Alarm بومی فقط داخل اپ اندروید فعال می‌شود." };
@@ -42,52 +55,38 @@ export async function enableNativeEscalationAlarms() {
 
   const exact = await LocalNotifications.checkExactNotificationSetting();
   if (exact.exact_alarm !== "granted") await LocalNotifications.changeExactNotificationSetting();
-  await ensureUrgentChannel();
+  const sound = await ensureUrgentChannel();
   const finalExact = await LocalNotifications.checkExactNotificationSetting();
   return {
     enabled: true,
     exact: finalExact.exact_alarm === "granted",
-    message: finalExact.exact_alarm === "granted" ? "Alarm دقیق اندروید فعال شد." : "اعلان فعال شد؛ زمان Alarm ممکن است کمی جابه‌جا شود.",
+    message: (finalExact.exact_alarm === "granted" ? "Alarm دقیق اندروید فعال شد." : "اعلان فعال شد؛ زمان Alarm ممکن است کمی جابه‌جا شود.") +
+      (sound.legacySound ? ` ${LEGACY_ALARM_SOUND_HELP}` : ""),
   };
 }
 
 export async function syncNativeEscalationAlarms(alarms: NativeEscalationAlarm[]) {
-  if (!isNativeAndroid()) return { scheduled: 0, native: false };
-  const permission = await LocalNotifications.checkPermissions();
-  if (permission.display !== "granted") return { scheduled: 0, native: true, permissionRequired: true };
-  await ensureUrgentChannel();
-
-  const pending = await LocalNotifications.getPending();
-  const existing = pending.notifications.filter((notification) => notification.extra?.owner === owner);
-  if (existing.length) await LocalNotifications.cancel({ notifications: existing.map(({ id }) => ({ id })) });
-
-  const now = Date.now();
+  if (!isNativeAndroid()) return { scheduled: 0, acceptedIds: [] as string[], native: false };
+  // Snapshot before queueing. Stable attempt IDs retain existing times and sounds.
   const notifications = alarms.map((alarm) => ({
     id: nativeNotificationId(alarm.id),
+    at: Date.parse(alarm.scheduledFor),
+    alarm: true,
     title: "کار فوری عقب‌افتاده",
     body: alarm.title,
     largeBody: `زمان انجام «${alarm.title}» گذشته است. پس از انجام، وضعیت کار را در همراه به پایان‌یافته تغییر بده.`,
     summaryText: `هشدار ${alarm.attemptNumber}`,
-    channelId,
-    sound: "urgent_alarm.wav",
-    smallIcon: "ic_stat_hamrah",
-    iconColor: "#5C70B4",
     group: "hamrah-urgent-tasks",
-    autoCancel: true,
-    schedule: {
-      at: new Date(Math.max(now + 1_500, new Date(alarm.scheduledFor).getTime())),
-      allowWhileIdle: true,
-    },
+    iconColor: "#5C70B4",
     extra: { owner, attemptId: alarm.id, taskId: alarm.taskId },
   }));
 
-  if (notifications.length) await LocalNotifications.schedule({ notifications });
-  return { scheduled: notifications.length, native: true };
+  const result = await scheduler.sync(async () => notifications);
+  const accepted = new Set(result.acceptedIds);
+  return { ...result, acceptedIds: [...new Set(alarms.filter(alarm => accepted.has(nativeNotificationId(alarm.id))).map(alarm => alarm.id))], native: true };
 }
 
 export async function clearNativeEscalationAlarms() {
   if (!isNativeAndroid()) return;
-  const pending = await LocalNotifications.getPending();
-  const existing = pending.notifications.filter((notification) => notification.extra?.owner === owner);
-  if (existing.length) await LocalNotifications.cancel({ notifications: existing.map(({ id }) => ({ id })) });
+  await scheduler.clear();
 }

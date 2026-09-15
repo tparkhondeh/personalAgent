@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { planPersian } from "./agent-planner";
 
 const state = vi.hoisted(() => ({ session: true, enabled: true, reserved: true, limited: false }));
-const mocks = vi.hoisted(() => ({ generate: vi.fn(), reserve: vi.fn(), save: vi.fn(), create: vi.fn(), messages: vi.fn(), conversation: vi.fn(), prior: vi.fn() }));
+const mocks = vi.hoisted(() => ({ generate: vi.fn(), reserve: vi.fn(), save: vi.fn(), create: vi.fn(), messages: vi.fn(), conversation: vi.fn(), prior: vi.fn(), preference: vi.fn() }));
 vi.mock("ai", () => ({ generateText: mocks.generate, Output: { object: (value: unknown) => value } }));
 vi.mock("@/lib/agent", () => ({ getLanguageModel: () => "synthetic-model", agentSystemPrompt: "synthetic-system" }));
 vi.mock("@/lib/api", () => ({ requireApiSession: async () => state.session ? { user: { id: "synthetic-user" } } : null, jsonError: (error: string, status: number) => Response.json({ error }, { status }) }));
@@ -10,7 +10,7 @@ vi.mock("@/lib/rate-limit", () => ({ guardUserRateLimit: () => state.limited ? R
 vi.mock("@/lib/ai-budget", () => ({ aiReadiness: () => ({ enabled: state.enabled }), reserveAiRequest: mocks.reserve }));
 vi.mock("@/lib/db", () => ({ db: {
   conversation: { findFirst: mocks.conversation, create: mocks.create }, agentDraft: { findFirst: mocks.prior },
-  userPreference: { findUnique: async () => null }, message: { createMany: mocks.messages },
+  userPreference: { findUnique: mocks.preference }, message: { createMany: mocks.messages },
 } }));
 vi.mock("@/lib/agent-drafts", () => ({
   DraftError: class extends Error {}, ownedPlanningItems: async () => [], saveDraft: mocks.save,
@@ -32,6 +32,46 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllEnvs());
 
 describe("assistant external path, synthetic provider with no network", () => {
+  it("uses a zero web preference in fresh local drafts and preserves explicit repeat instructions", async () => {
+    mocks.preference.mockResolvedValue({ urgentMaxRepeats: 0, urgentRepeatMinutes: 25 });
+    let response = await POST(request({ externalConsent: false }));
+    expect((await response.json()).data.draft.plan).toMatchObject({ repeatCount: 0, repeatMinutes: 25 });
+    response = await POST(request({ message: message + "؛ 2 بار هر 30 دقیقه", externalConsent: false }));
+    expect((await response.json()).data.draft.plan).toMatchObject({ repeatCount: 2, repeatMinutes: 30 });
+    expect(mocks.generate).not.toHaveBeenCalled();
+  });
+  it("does not apply changed global preferences to a pending draft correction", async () => {
+    const plan = { ...planPersian(message).plan!, repeatCount: 0, repeatMinutes: 25 };
+    mocks.preference.mockResolvedValue({ urgentMaxRepeats: 5, urgentRepeatMinutes: 60 });
+    mocks.prior.mockResolvedValue({ id: "owned-draft", revision: 2, payload: JSON.stringify(plan) });
+    const response = await POST(request({ message: "ساعت 18", draftId: "owned-draft", revision: 2, externalConsent: false }));
+    expect((await response.json()).data.draft.plan).toMatchObject({ repeatCount: 0, repeatMinutes: 25, time: "18:00" });
+  });
+  it("supplies effective repeat values to the model without overriding its explicit proposal", async () => {
+    mocks.preference.mockResolvedValue({ urgentMaxRepeats: 0, urgentRepeatMinutes: 25 });
+    const modelPlan = { ...planPersian(message).plan!, repeatCount: 2, repeatMinutes: 30 };
+    mocks.generate.mockResolvedValue({ output: { reply: "پیشنهاد", plan: modelPlan, questions: [] } });
+    const response = await POST(request());
+    const prompt = JSON.parse(mocks.generate.mock.calls[0][0].prompt);
+    expect(prompt.localCandidate).toMatchObject({ repeatCount: 0, repeatMinutes: 25 });
+    expect(prompt.preferences).toMatchObject({ repeatCount: 0, repeatMinutes: 25 });
+    expect((await response.json()).data.draft.plan).toMatchObject({ repeatCount: 2, repeatMinutes: 30 });
+  });
+  it("supplies the pending draft's repeat snapshot to the model despite changed global preferences", async () => {
+    const plan = { ...planPersian(message).plan!, repeatCount: 0, repeatMinutes: 25 };
+    mocks.preference.mockResolvedValue({ urgentMaxRepeats: 6, urgentRepeatMinutes: 60 });
+    mocks.prior.mockResolvedValue({ id: "owned-draft", revision: 2, payload: JSON.stringify(plan) });
+    mocks.generate.mockResolvedValue({ output: { reply: "پیشنهاد", plan, questions: [] } });
+    const response = await POST(request({ message: "ساعت 18", draftId: "owned-draft", revision: 2 }));
+    expect(response.status).toBe(200);
+    const prompt = JSON.parse(mocks.generate.mock.calls[0][0].prompt);
+    for (const value of [prompt.draft, prompt.localCandidate, prompt.preferences]) expect(value).toMatchObject({ repeatCount: 0, repeatMinutes: 25 });
+  });
+  it("honors explicit zero despite a positive web default", async () => {
+    mocks.preference.mockResolvedValue({ urgentMaxRepeats: 4, urgentRepeatMinutes: 20 });
+    const response = await POST(request({ message: message + "؛ صفر بار", externalConsent: false }));
+    expect((await response.json()).data.draft.plan).toMatchObject({ repeatCount: 0, repeatMinutes: 20 });
+  });
   it.each([{ externalConsent: false }, { localOnly: true }])("never sends without consent or in local-only mode: %j", async body => {
     const result = await POST(request(body));
     expect((await result.json()).data.mode).toBe("local");

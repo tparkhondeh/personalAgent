@@ -42,8 +42,10 @@
 
       <section id="notifications-panel" class="panel" aria-label="مرکز اعلان"><article class="card"><h2>اعلان‌ها</h2><p>مرکز اعلان حساب در حالت محلی در دسترس نیست. Notification و Alarm تأییدشده همچنان روی گوشی اجرا می‌شوند.</p><button data-panel="settings" class="secondary" type="button">تنظیم هشدارها</button></article></section>
       <section id="settings-panel" class="panel" aria-labelledby="settings-title">
+        <article class="card"><div id="alarm-sound-setting"></div></article>
         <section class="appearance-setting" aria-label="ظاهر برنامه"><strong>ظاهر</strong><div role="group" aria-label="انتخاب ظاهر"><button type="button" data-appearance="light" aria-pressed="true">روشن</button><button type="button" data-appearance="dark" aria-pressed="false">تیره</button></div><p id="appearance-status" role="status"></p></section>
         <article class="card"><h2>یادآوری‌های پیش‌فرض</h2><p class="helper">برای برنامه‌های جدید، یک تا سه زمان انتخاب کن.</p><form id="reminder-form"><div class="reminder-options"><label><input type="checkbox" name="reminder" value="1440" />۱ روز قبل</label><label><input type="checkbox" name="reminder" value="180" />۳ ساعت قبل</label><label><input type="checkbox" name="reminder" value="60" />۱ ساعت قبل</label></div><button class="secondary" type="submit">ذخیره تنظیمات</button><p id="reminder-status" class="status" role="status"></p></form></article>
+        <article class="card"><h2>تکرار هشدار فوری</h2><p class="helper">ذخیره فقط روی همین دستگاه است؛ برای ثبت دستی جدید با اولویت فوری و تعداد پیش‌فرض پیگیری در پیشنهاد تازه استفاده می‌شود. در پیشنهاد دستیار، پیگیری و Alarm باید فعال و تأیید شوند. برنامه‌ها و پیشنهادهای قبلی تغییر نمی‌کنند.</p><form id="repeat-settings-form"><div class="form-grid"><label class="field" for="urgent-max-repeats">حداکثر تکرار اضافه<select id="urgent-max-repeats"><option value="0">۰ — بدون تکرار اضافه</option><option value="1">۱</option><option value="2">۲</option><option value="3" selected>۳</option><option value="4">۴</option><option value="5">۵</option><option value="6">۶</option></select></label><label class="field" id="urgent-repeat-interval-field" for="urgent-repeat-minutes">فاصله پیگیری هشدار (دقیقه)<input id="urgent-repeat-minutes" type="number" min="10" max="1440" step="1" value="15" required /></label></div><p class="helper">صفر یعنی هشدار اولیه در موعد برقرار است و تکرار اضافه ندارد. این گزینه با تکرار روزانه یا هفتگی خود برنامه فرق دارد.</p><button class="secondary" type="submit">ذخیره تکرار هشدار</button><p id="repeat-settings-status" class="status" role="status"></p></form></article>
         <article class="card"><h2 id="settings-title">اعلان و زنگ هشدار</h2><p class="helper">اعلان‌ها فقط روی همین گوشی اجرا می‌شوند و هزینه‌ای ندارند.</p><div class="settings-actions"><button id="enable-notifications" class="secondary" type="button">فعال‌سازی اعلان‌ها</button><button id="test-alarm" class="secondary" type="button">زنگ آزمایشی ۳۰ ثانیه‌ای</button></div><p id="alarm-status" class="status" role="status">برای آزمایش، ابتدا اعلان‌ها را فعال کنید.</p></article>
         <article class="card"><h3>حریم خصوصی</h3><p class="helper">برنامه‌های حالت محلی فقط روی همین گوشی ذخیره می‌شوند و خودکار با حساب همگام نمی‌شوند. حذف برنامه باعث پاک‌شدن داده‌های محلی آن می‌شود.</p></article>
       </section>
@@ -77,6 +79,7 @@
   <script src="./input-controls.js"></script>
     <script src="./voice-capture.js"></script>
     <script src="./storage.js"></script>
+    <script src="./alarm-sounds.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>

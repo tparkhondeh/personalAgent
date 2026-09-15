@@ -34,6 +34,15 @@ export function buildEscalationPlan(anchor: Date, policy: EscalationPolicy): Esc
   const after = (step: number) => new Date(anchor.getTime() + step * repeatMinutes * 60_000);
   const plan: EscalationPlanEntry[] = [{ level: "IN_APP_PUSH", attemptNumber: 1, scheduledFor: anchor, provider: "WEB" }];
 
+  // Zero means one initial alert via the selected channels, never a silent plan
+  // and never a delayed high-priority/SMS/call follow-up.
+  if (policy.urgentMaxRepeats === 0) {
+    // Allow a fresh server response to reach the device before its one initial
+    // Alarm expires. Existing persisted attempts are never rebased by this grace.
+    if (policy.androidAlarmEnabled) plan.push({ level: "ANDROID_ALARM", attemptNumber: 1, scheduledFor: new Date(anchor.getTime() + 10_000), provider: "ANDROID" });
+    return plan;
+  }
+
   if (policy.androidAlarmEnabled) {
     for (let attempt = 1; attempt <= repeatCount; attempt++) {
       plan.push({ level: "ANDROID_ALARM", attemptNumber: attempt, scheduledFor: after(attempt), provider: "ANDROID" });

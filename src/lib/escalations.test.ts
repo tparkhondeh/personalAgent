@@ -16,6 +16,16 @@ describe("urgent escalation planning", () => {
     expect(plan.slice(-2).map((entry) => [entry.level, entry.provider])).toEqual([["SMS_MOCK", "MOCK"], ["CALL", "EXTERNAL"]]);
   });
 
+  it("zero repeats retains initial selected channels and never escalates to calls", () => {
+    const policy = { ...defaultEscalationPolicy, urgentMaxRepeats:0, smsEscalationEnabled:true, callEscalationEnabled:true };
+    const plan = buildEscalationPlan(anchor, policy);
+    expect(plan.map(p=>p.level)).toEqual(["IN_APP_PUSH","ANDROID_ALARM"]);
+    expect(plan[0].scheduledFor.getTime()).toBe(anchor.getTime());
+    expect(plan[1].scheduledFor.getTime()).toBe(anchor.getTime()+10_000);
+    expect(buildEscalationPlan(anchor,{...policy,androidAlarmEnabled:false}).map(p=>p.level)).toEqual(["IN_APP_PUSH"]);
+    expect(buildEscalationPlan(anchor,{...policy,urgentEscalationEnabled:false})).toEqual([]);
+  });
+
   it("produces stable unique keys and Android-safe numeric identifiers", () => {
     const entry = buildEscalationPlan(anchor, defaultEscalationPolicy)[0];
     expect(escalationIdempotencyKey("u1", "t1", anchor, entry)).toBe("u1:t1:2026-08-31T10:00:00.000Z:IN_APP_PUSH:1");
