@@ -54,6 +54,8 @@ A consistent SQLite snapshot was restored into a separate fresh file; integrity,
 
 Type Check, ESLint, isolated web Build and 27 real local HTTP checks passed. The final full suite passed **715 tests in 72 files** on this Windows host (73.16 seconds, two workers). Credential loading has nine synthetic regression cases; provider status/errors, structured proposal, cancellation and confirmation/idempotence remain covered. Remote CI evidence will be appended when observed, not assumed.
 
+Application commit **`56cf01db12789cf83ebbbecce7fd1525afbdfac9`** was pushed and matched remote main. Independent [web CI35013119559](https://github.com/tparkhondeh/personalAgent/actions/runs/35013119559) succeeded: **715/715 tests in72files**, Type Check, Lint, encrypted synthetic backup round-trip, Build, packaged-server checks and artifact upload. No deployment is performed by that workflow. The optional [Android16 run35013119557](https://github.com/tparkhondeh/personalAgent/actions/runs/35013119557) is still running at this checkpoint; it is not owner-phone acceptance or a new APK delivery. The subsequent commit records evidence only; application code is unchanged.
+
 An exact raw/base64 replacement-secret scan over 332 eligible source, public, bundled Android, built browser and documentation files found no matches. This is a scoped leak check, not an assertion about every possible encoding or every file on the machine. No real key was passed to CI. Previous unchanged Android16 CI `35007195109` was observed successful; that does not test the current server-only change or the owner's phone.
 
 ## End state, delivery and rollback
