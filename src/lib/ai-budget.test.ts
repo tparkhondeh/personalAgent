@@ -15,6 +15,8 @@ beforeEach(() => {
   vi.stubEnv("OPENAI_COST_APPROVED", "true");
   vi.stubEnv("AI_PROVIDER", "openai");
   vi.stubEnv("OPENAI_DAILY_REQUEST_LIMIT", "20");
+  vi.stubEnv("OPENAI_VOICE_ENABLED", "false");
+  vi.stubEnv("OPENAI_TRANSCRIBE_MODEL", "");
 });
 
 describe("external AI activation and fail-closed reservations", () => {
@@ -33,6 +35,8 @@ describe("external AI activation and fail-closed reservations", () => {
     expect(reserve).not.toHaveBeenCalled();
   });
   it("shares a daily limit across users and text/audio", async () => {
+    vi.stubEnv("OPENAI_VOICE_ENABLED", "true");
+    vi.stubEnv("OPENAI_TRANSCRIBE_MODEL", "synthetic-audio-model");
     vi.stubEnv("OPENAI_DAILY_REQUEST_LIMIT", "2");
     expect(await reserveAiRequest("user-a", "text")).toBe(true);
     expect(await reserveAiRequest("user-b", "voice")).toBe(true);
@@ -46,5 +50,18 @@ describe("external AI activation and fail-closed reservations", () => {
   });
   it("does not advertise an unsupported provider as enabled", () => {
     vi.stubEnv("AI_PROVIDER", "unsupported"); expect(aiReadiness().enabled).toBe(false);
+  });
+  it("keeps paid voice off when only GPT text is configured", async () => {
+    expect(aiReadiness()).toMatchObject({ enabled: true, voiceEnabled: false });
+    expect(await reserveAiRequest("synthetic-user", "voice")).toBe(false);
+    expect(reserve).not.toHaveBeenCalled();
+  });
+  it("requires an explicit audio model as well as separate activation", () => {
+    vi.stubEnv("OPENAI_VOICE_ENABLED", "true");
+    expect(aiReadiness().voiceEnabled).toBe(false);
+    vi.stubEnv("OPENAI_TRANSCRIBE_MODEL", "synthetic-audio-model");
+    expect(aiReadiness().voiceEnabled).toBe(true);
+    vi.stubEnv("OPENAI_COST_APPROVED", "false");
+    expect(aiReadiness().voiceEnabled).toBe(false);
   });
 });

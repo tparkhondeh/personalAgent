@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const state=vi.hoisted(()=>({session:true,enabled:true,reserved:true}));
 vi.mock("@/lib/api",()=>({requireApiSession:async()=>state.session?{user:{id:"synthetic-user"}}:null,jsonError:(error:string,status:number)=>Response.json({error},{status})}));
-vi.mock("@/lib/ai-budget",()=>({aiReadiness:()=>({enabled:state.enabled,voiceModel:"synthetic-model"}),reserveAiRequest:async()=>state.reserved}));
+vi.mock("@/lib/ai-budget",()=>({aiReadiness:()=>({enabled:true,voiceEnabled:state.enabled,voiceModel:"synthetic-model"}),reserveAiRequest:async()=>state.reserved}));
 vi.mock("@/lib/rate-limit",()=>({guardUserRateLimit:()=>null}));
 import { POST } from "@/app/api/agent/transcribe/route";
 import { encodeVoiceWav } from "./voice-audio";

@@ -18,7 +18,7 @@ export async function GET(request: Request) {
         model: process.env.OPENAI_MODEL || "gpt-5-mini",
       },
       call,
-      voice: { enabled: aiReadiness().enabled, provider: "OpenAI", maxSeconds: 60, costApproved: aiReadiness().costApproved },
+      voice: { enabled: aiReadiness().voiceEnabled, provider: "OpenAI", maxSeconds: 60, costApproved: aiReadiness().costApproved },
     },
   });
 }

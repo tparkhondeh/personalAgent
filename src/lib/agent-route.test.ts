@@ -7,7 +7,7 @@ vi.mock("ai", () => ({ generateText: mocks.generate, Output: { object: (value: u
 vi.mock("@/lib/agent", () => ({ getLanguageModel: () => "synthetic-model", agentSystemPrompt: "synthetic-system" }));
 vi.mock("@/lib/api", () => ({ requireApiSession: async () => state.session ? { user: { id: "synthetic-user" } } : null, jsonError: (error: string, status: number) => Response.json({ error }, { status }) }));
 vi.mock("@/lib/rate-limit", () => ({ guardUserRateLimit: () => state.limited ? Response.json({}, { status: 429 }) : null }));
-vi.mock("@/lib/ai-budget", () => ({ aiReadiness: () => ({ enabled: state.enabled }), reserveAiRequest: mocks.reserve }));
+vi.mock("@/lib/ai-budget", () => ({ aiReadiness: () => ({ enabled: state.enabled, model: "gpt-5-mini" }), reserveAiRequest: mocks.reserve }));
 vi.mock("@/lib/db", () => ({ db: {
   conversation: { findFirst: mocks.conversation, create: mocks.create }, agentDraft: { findFirst: mocks.prior },
   userPreference: { findUnique: mocks.preference }, message: { createMany: mocks.messages },
@@ -87,7 +87,7 @@ describe("assistant external path, synthetic provider with no network", () => {
     expect(data.mode).toBe("online"); expect(data.draft.status).toBe("PENDING");
     expect(data.draft.plan.title).toBe("جلسه با تیم فروش"); expect(data.draft.plan.time).toBe("17:00");
     expect(mocks.reserve.mock.invocationCallOrder[0]).toBeLessThan(mocks.generate.mock.invocationCallOrder[0]);
-    expect(mocks.generate.mock.calls[0][0]).toMatchObject({ maxRetries: 0, maxOutputTokens: 2200, providerOptions: { openai: { store: false } } });
+    expect(mocks.generate.mock.calls[0][0]).toMatchObject({ maxRetries: 0, maxOutputTokens: 2200, providerOptions: { openai: { store: false, serviceTier: "default", reasoningEffort: "low" } } });
     expect(mocks.generate.mock.calls[0][0].tools).toBeUndefined();
     expect(mocks.save.mock.calls[0][0]).toBe("synthetic-user");
   });
@@ -108,6 +108,19 @@ describe("assistant external path, synthetic provider with no network", () => {
     const controller = new AbortController(); controller.abort();
     expect((await POST(request({}, controller.signal))).status).toBe(408);
     expect(mocks.reserve).not.toHaveBeenCalled(); expect(mocks.generate).not.toHaveBeenCalled(); expect(mocks.create).not.toHaveBeenCalled();
+  });
+  it.each([
+    [{ statusCode: 401 }, "credentials"],
+    [{ statusCode: 429, data: { error: { code: "insufficient_quota" } } }, "credit"],
+    [{ statusCode: 429 }, "rate-limit"], [{ name: "TimeoutError" }, "timeout"],
+    [{ name: "TiaContextLimitError" }, "context-limit"],
+  ])("returns a safe category for provider failure %j", async (failure, reason) => {
+    mocks.generate.mockRejectedValue({ ...failure, message: "private-provider-detail" });
+    const data = (await (await POST(request())).json()).data;
+    expect(data).toMatchObject({ mode: "local-fallback", fallbackReason: reason });
+    expect(data.draft.status).toBe("PENDING");
+    expect(JSON.stringify(data)).not.toContain("private-provider-detail");
+    expect(mocks.generate).toHaveBeenCalledOnce();
   });
   it("propagates cancellation to the provider and does not save a late response", async () => {
     const controller = new AbortController();

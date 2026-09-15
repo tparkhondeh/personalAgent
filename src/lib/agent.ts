@@ -1,14 +1,26 @@
 import "server-only";
-import { openai } from "@ai-sdk/openai";
+import { createOpenAI } from "@ai-sdk/openai";
+
+export const MAX_AGENT_REQUEST_BYTES = 64_000;
+export const boundedOpenAiFetch: typeof fetch = async (url, init) => {
+  // Bound the entire serialized payload, including schema/history, before egress.
+  // Fail closed instead of truncating a user's meaning or leaking provider details.
+  if (typeof init?.body !== "string" || new TextEncoder().encode(init.body).byteLength > MAX_AGENT_REQUEST_BYTES) {
+    const error = new Error("Request context exceeds the configured limit");
+    error.name = "TiaContextLimitError";
+    throw error;
+  }
+  return fetch(url, init);
+};
 
 export function getLanguageModel() {
   const provider = process.env.AI_PROVIDER ?? "openai";
   if (provider !== "openai") throw new Error(`Unsupported AI provider: ${provider}`);
-  return openai(process.env.OPENAI_MODEL ?? "gpt-5-mini");
+  return createOpenAI({ fetch: boundedOpenAiFetch }).responses(process.env.OPENAI_MODEL ?? "gpt-5-mini");
 }
 
 export const agentSystemPrompt = `
-تو «همراه»، دستیار برنامه‌ریزی شخصی فارسی‌زبان هستی.
+تو «tia»، دستیار برنامه‌ریزی شخصی فارسی‌زبان هستی.
 هدف تو کمک آرام، کوتاه و عملی به کاربر است.
 زمان‌ها را با timezone کاربر تفسیر کن و هرگز اطلاعات ناموجود را حدس قطعی نزن.
 برای ساخت یا تغییر کار و جلسه فقط یک پیشنهاد ساختاریافته بده؛ اجرای عملیات به تأیید کاربر نیاز دارد.

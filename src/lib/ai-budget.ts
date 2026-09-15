@@ -5,12 +5,17 @@ export function aiReadiness() {
   const supported = (process.env.AI_PROVIDER ?? "openai") === "openai";
   const limit = Number(process.env.OPENAI_DAILY_REQUEST_LIMIT ?? 20);
   const requestLimitValid = Number.isSafeInteger(limit) && limit > 0;
-  return { enabled: key && approved && supported && requestLimitValid, keyConfigured: key, costApproved: approved, requestLimitValid, model: process.env.OPENAI_MODEL || "gpt-5-mini", voiceModel: process.env.OPENAI_TRANSCRIBE_MODEL || "gpt-transcribe" };
+  const enabled = key && approved && supported && requestLimitValid;
+  const voiceModel = process.env.OPENAI_TRANSCRIBE_MODEL?.trim() || "";
+  // A Responses-only key must never advertise paid audio transcription as active.
+  const voiceEnabled = enabled && process.env.OPENAI_VOICE_ENABLED === "true" && Boolean(voiceModel);
+  return { enabled, voiceEnabled, keyConfigured: key, costApproved: approved, requestLimitValid, model: process.env.OPENAI_MODEL || "gpt-5-mini", voiceModel };
 }
 // Persistent reservation before sending, including failures. This caps requests,
 // not dollars: the owner's provider-side budget must also be configured.
 export async function reserveAiRequest(userId: string, kind: "text" | "voice") {
-  if (!aiReadiness().enabled) return false;
+  const readiness = aiReadiness();
+  if (!readiness.enabled || (kind === "voice" && !readiness.voiceEnabled)) return false;
   const day = new Date().toISOString().slice(0, 10), id = `${userId}:${day}:${kind}`;
   const configured = Number(process.env.OPENAI_DAILY_REQUEST_LIMIT ?? 20);
   if (!Number.isSafeInteger(configured) || configured <= 0) return false;

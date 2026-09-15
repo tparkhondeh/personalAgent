@@ -8,6 +8,7 @@ const limit = Number(e.OPENAI_DAILY_REQUEST_LIMIT ?? 20);
 const limitValid = Number.isSafeInteger(limit) && limit > 0;
 console.log(JSON.stringify({
   llm: { keyConfigured: key, costApproved: cost, providerSupported: supported, requestLimitValid: limitValid, effectiveDailyRequestLimit: limitValid ? Math.min(100, limit) : 0, configured: key && cost && supported && limitValid, liveTested: false },
+  voice: { configured: key && cost && supported && limitValid && e.OPENAI_VOICE_ENABLED === "true" && present("OPENAI_TRANSCRIBE_MODEL"), liveTested: false },
   push: { configured: present("NEXT_PUBLIC_VAPID_PUBLIC_KEY") && present("VAPID_PRIVATE_KEY") && present("VAPID_SUBJECT"), deliveredToPhone: "unverified" },
   calls: { enabled: e.OUTBOUND_CALLS_MODE === "live", keyConfigured: present("KAVENEGAR_API_KEY"), verifiedRecipientsConfigured: present("OUTBOUND_CALL_VERIFIED_NUMBERS"), liveTested: false },
   credentialsExposed: false, externalRequestsMade: 0,

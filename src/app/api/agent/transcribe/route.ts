@@ -10,7 +10,7 @@ export async function POST(request: Request) {
   const limited = guardUserRateLimit(session.user.id,"voice",{limit:5,windowMs:60000});
   if(limited) return limited;
   if(request.headers.get("x-audio-consent") !== "openai" || request.headers.get("content-type") !== "audio/wav") return jsonError("رضایت ارسال صدا و فایل WAV لازم است",422);
-  if(!aiReadiness().enabled) return jsonError("تبدیل صدا هنوز فعال نیست؛ کلید و تأیید هزینه سرویس لازم است. می‌توانی تایپ کنی.",503);
+  if(!aiReadiness().voiceEnabled) return jsonError("تبدیل صدای آنلاین جداگانه فعال نشده؛ از تبدیل محلی صدا یا تایپ استفاده کن.",503);
   if(Number(request.headers.get("content-length")) > MAX_VOICE_BYTES) return jsonError("صدا باید کوتاه‌تر از یک دقیقه باشد",413);
   const reader = request.body?.getReader();
   if(!reader) return jsonError("فایل صدا دریافت نشد",422);

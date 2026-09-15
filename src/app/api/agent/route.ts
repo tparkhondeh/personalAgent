@@ -10,6 +10,7 @@ import { guardUserRateLimit } from "@/lib/rate-limit";
 import { parseStoredReminderOffsets } from "@/lib/reminder-offsets";
 import { aiReadiness, reserveAiRequest } from "@/lib/ai-budget";
 import { validAgentOrigin } from "@/lib/agent-origin";
+import { providerFailure, type ProviderFailure } from "@/lib/agent-provider-status";
 
 const input = z.object({ message: z.string().trim().min(1).max(2000), conversationId: z.string().max(150).optional(), draftId: z.string().max(150).optional(), revision: z.number().int().positive().optional(), externalConsent: z.boolean().default(false), localOnly: z.boolean().default(false) });
 const outputSchema = z.object({ reply: z.string().max(1000), plan: modelPlanSchema.nullable(), questions: z.array(z.string().max(200)).max(10) });
@@ -33,6 +34,7 @@ export async function POST(request: Request) {
   const local = planPersian(data.message, { timezone, previous: prior ? planSchema.parse(JSON.parse(prior.payload)) : null, items, offsets: parseStoredReminderOffsets(preference?.defaultReminderOffsets, preference?.defaultReminderMins), ...(!prior ? { repeatCount: preference?.urgentMaxRepeats, repeatMinutes: preference?.urgentRepeatMinutes } : {}) });
   let reply = local.reply, plan: Plan | null = local.plan, questions = local.questions;
   let mode = "local";
+  let fallbackReason: ProviderFailure | undefined;
   if (data.externalConsent && !data.localOnly && aiReadiness().enabled) {
     if (await reserveAiRequest(userId, "text")) {
       try {
@@ -41,11 +43,11 @@ export async function POST(request: Request) {
           model: getLanguageModel(), system: agentSystemPrompt + "\nهیچ ابزار اجرایی نداری. زمان نامشخص را خالی بگذار و سؤال بپرس. مدت جلسه نامشخص را null بگذار، درباره آن سؤال نپرس؛ برنامه مقدار پیش‌فرض داخلی را تعیین می‌کند. quietStart و quietEnd همیشه 00:00 باشند؛ ساعات سکوت حذف شده است و درباره آن یا منطقه زمانی سؤال نپرس. عنوان کوتاه و طبیعی فقط شامل موضوع، فرد یا تیم باشد؛ زمان و دستور ثبت یا هشدار وارد عنوان نشوند. تکرار روزانه یا هفتگی فقط با occurrenceCount مشخص از 2 تا 12 نوبت؛ تعداد نامشخص را null بگذار و سؤال بپرس. اصلاح ادامه گفتگو همان پیش‌نویس را تغییر می‌دهد. حداکثر یک عملیات در هر پیشنهاد. برای پیام چندعملیاتی سؤال بپرس. ساعت 24 ساعته و date میلادی YYYY-MM-DD است؛ تاریخ شمسی را دقیق تبدیل کن. حالا: " + new Date().toISOString() + "؛ منطقه زمانی: " + timezone,
           prompt: JSON.stringify({ message: data.message, draft: prior ? JSON.parse(prior.payload) : null, localCandidate: local.plan, preferences: { timezone, offsets: local.plan?.reminderOffsets, repeatCount: local.plan?.repeatCount, repeatMinutes: local.plan?.repeatMinutes }, relevantItems: items.filter(i => data.message.includes(i.title) || /خلاصه|برنامه/.test(data.message)).slice(0, 12).map(i => ({ id: i.id, entity: i.entity, title: i.title, startsAt: i.startsAt, dueAt: i.dueAt, endsAt: i.endsAt })), history: conversation?.messages.slice().reverse().map(m => ({ role: m.role, text: m.content.slice(0, 600) })) }),
           output: Output.object({ schema: outputSchema }), maxOutputTokens: 2200, maxRetries: 0,
-          providerOptions: { openai: { store: false } },
+          providerOptions: { openai: { store: false, serviceTier: "default", ...(aiReadiness().model === "gpt-5-mini" ? { reasoningEffort: "low" } : {}) } },
           abortSignal: AbortSignal.any([request.signal, AbortSignal.timeout(25000)]),
         });
         reply = result.output.reply; plan = result.output.plan; questions = result.output.questions.filter(q=>!/مدت|سکوت|منطقه زمانی/.test(q)); mode = "online";
-      } catch { mode = "local-fallback"; }
+      } catch (error) { mode = "local-fallback"; fallbackReason = providerFailure(error); }
     } else mode = "local-budget-limit";
   }
   if (request.signal.aborted) return jsonError("درخواست لغو شد؛ چیزی ثبت نشد", 408);
@@ -53,7 +55,7 @@ export async function POST(request: Request) {
   try {
     const draft = plan ? await saveDraft(userId, current.id, plan, prior ? { id: prior.id, revision: prior.revision } : undefined, mode === "online" ? questions : questions.filter(q => /چند درخواست|تاریخ شمسی/.test(q))) : null;
     await db.message.createMany({ data: [{ conversationId: current.id, role: "USER", content: data.message }, { conversationId: current.id, role: "ASSISTANT", content: reply, toolName: draft ? "PROPOSAL" : "PLAN", toolPayload: draft ? JSON.stringify({ id: draft.id, revision: draft.revision }) : null }] });
-    return Response.json({ data: { reply, draft, conversationId: current.id, mode, candidates: local.candidates ?? [], proposal: { kind: plan ? (plan.entity === "TASK" ? "CREATE_TASK" : "CREATE_MEETING") : "PLAN", needsApproval: Boolean(plan), title: plan?.title } } });
+    return Response.json({ data: { reply, draft, conversationId: current.id, mode, fallbackReason, candidates: local.candidates ?? [], proposal: { kind: plan ? (plan.entity === "TASK" ? "CREATE_TASK" : "CREATE_MEETING") : "PLAN", needsApproval: Boolean(plan), title: plan?.title } } });
   } catch (error) {
     if (error instanceof DraftError) return jsonError(error.message, error.status);
     return jsonError("پیشنهاد قابل ذخیره نبود؛ دوباره تلاش کن.", 503);

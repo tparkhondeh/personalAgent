@@ -7,6 +7,7 @@ import { approvalSummary, type Plan, type PlanningItem } from "@/lib/agent-plann
 import { VoiceInput } from "@/components/voice-input";
 import { syncApprovedDeviceReminders } from "@/lib/approved-device-reminders";
 import { readComposeDraft, saveComposeDraft, offerGuestDraft, claimGuestDraft } from "@/lib/assistant-draft";
+import { providerFailureLabel } from "@/lib/agent-provider-status";
 
 type Draft = { id: string; revision: number; plan: Plan; preview: { instant: string | null; questions: string[]; warnings: string[]; schedule: { channel: string; scheduledFor: string; offset: number }[] } };
 const channels = { IN_APP: "داخل برنامه", PUSH: "Push", NATIVE: "Notification", ALARM: "Alarm گوشی" } as const;
@@ -23,6 +24,8 @@ export function AgentAssistant({ onAdd, onChanged }: { onAdd: () => void; onChan
   useEffect(()=>{const id=session?.user.id;if(!id)return;const timer=setTimeout(()=>{const restored=claimGuestDraft();if(restored){setInputValue(restored);saveComposeDraft(id,restored);}},0);return()=>clearTimeout(timer);},[session?.user.id]);
   useEffect(()=>{const box=textbox.current;if(box){box.style.height="auto";box.style.height=`${Math.min(144,Math.max(44,box.scrollHeight))}px`;}},[input]);
   const [reply,setReply]=useState(""),[status,setStatus]=useState(""),[pending,setPending]=useState(false);
+  const sending=useRef(false);
+  const [fallbackReason,setFallbackReason]=useState<unknown>();
   const [draft,setDraft]=useState<Draft|null>(null),[edit,setEdit]=useState<Plan|null>(null),[conversationId,setConversationId]=useState<string>();
   const [candidates,setCandidates]=useState<PlanningItem[]>([]),[mode,setMode]=useState("local"),[external,setExternal]=useState(false),[online,setOnline]=useState(false),[voiceBusy,setVoiceBusy]=useState(false);
   useEffect(()=>{if(draft)review.current?.scrollIntoView({block:"start"});},[draft]);
@@ -41,12 +44,12 @@ export function AgentAssistant({ onAdd, onChanged }: { onAdd: () => void; onChan
     event.preventDefault();if(!voiceBusy)await sendMessage(input,external);
   }
   async function sendMessage(message:string,externalConsent=false) {
-    if(!message.trim()||pending)return;if(!session){setNeedsAccount(true);return;}setNeedsAccount(false);setPending(true);setStatus("");setAttempted(false);
+    if(!message.trim()||pending||sending.current)return;if(!session){setNeedsAccount(true);return;}sending.current=true;setNeedsAccount(false);setPending(true);setStatus("");setAttempted(false);
     try {
       const response=await fetch("/api/agent",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({message,conversationId,draftId:draft?.id,revision:draft?.revision,externalConsent}),signal:AbortSignal.timeout(35000)});
       const body=await response.json();if(!response.ok)throw new Error(body.error);
-      setReply(body.data.reply);setDraft(body.data.draft);setConversationId(body.data.conversationId);setCandidates(body.data.candidates);setMode(body.data.mode);setInput("");setEdit(null);
-    }catch(error){setStatus(error instanceof Error?error.message:"ارتباط قطع شد؛ دوباره تلاش کن.");}finally{setPending(false);}
+      setReply(body.data.reply);setDraft(body.data.draft);setConversationId(body.data.conversationId);setCandidates(body.data.candidates);setMode(body.data.mode);setFallbackReason(body.data.fallbackReason);setInput("");setEdit(null);
+    }catch(error){setStatus(error instanceof Error?error.message:"ارتباط قطع شد؛ دوباره تلاش کن.");}finally{sending.current=false;setPending(false);}
   }
   async function act(action:"edit"|"confirm"|"cancel") {
     if(!draft||pending||voiceBusy)return;
@@ -72,7 +75,7 @@ export function AgentAssistant({ onAdd, onChanged }: { onAdd: () => void; onChan
   return <section className="assistant-panel" aria-label="گفتگو با tia">
     {needsAccount && <p className="agent-notice" role="alert">حساب باز کنید. <Link href="/login?returnTo=assistant" onClick={()=>offerGuestDraft()}>ثبت‌نام / ورود</Link></p>}
     <div className="suggestions"><button disabled={voiceBusy} onClick={onAdd}>ثبت دستی</button><button disabled={voiceBusy} onClick={()=>setInput("برنامه امروز من را خلاصه کن")}>خلاصه امروز</button></div>
-    {reply && <p className="agent-mode">{mode==="online"?"پاسخ واقعی OpenAI":mode==="local-fallback"?"سرویس پاسخ نداد؛ پردازش محلی":mode==="local-budget-limit"?"سقف مصرف رسیده؛ پردازش محلی":"پردازش محلی؛ بدون ارسال متن به سرویس خارجی"}</p>}
+    {reply && <p className="agent-mode" role="status">{mode==="online"?"GPT متصل؛ پاسخ واقعی OpenAI":mode==="local-fallback"?providerFailureLabel(fallbackReason):mode==="local-budget-limit"?"سقف مصرف رسیده؛ پردازش محلی":"پردازش محلی؛ بدون ارسال متن به سرویس خارجی"}</p>}
     {online && <label className="agent-toggle"><input type="checkbox" checked={external} onChange={e=>setExternal(e.target.checked)} />با ارسال پیام و اطلاعات مرتبط برنامه‌ام به OpenAI موافقم.</label>}
     {reply && !draft && <div className="agent-response"><p>{reply}</p></div>}
     {draft && p && summary && <section ref={review} className="agent-review compact-review" aria-label="پیش‌نمایش تأیید"><h2>بررسی پیش از {operations[p.operation]}</h2>
@@ -106,7 +109,7 @@ export function AgentAssistant({ onAdd, onChanged }: { onAdd: () => void; onChan
       </div></details>
     </section>}
     {status && <p role="status" className="agent-status">{status}</p>}
-    <VoiceInput key={owner} disabled={pending||Boolean(edit)} onBusyChange={setVoiceBusy} onText={text=>{setInput(text);void sendMessage(text);}}/>
+    <VoiceInput key={owner} disabled={pending||Boolean(edit)} onBusyChange={setVoiceBusy} onText={text=>{setInput(text);void sendMessage(text,external);}}/>
     <form className="chat-box" onSubmit={send}><textarea ref={textbox} rows={1} aria-label="پیام" placeholder="بنویس یا متن صدا را ویرایش کن…" maxLength={2000} value={input} onChange={e=>setInput(e.target.value)} disabled={pending||voiceBusy}/><button disabled={pending||voiceBusy||Boolean(edit)}>{pending?"در حال بررسی":"ارسال"}</button></form>
   </section>;
 }
