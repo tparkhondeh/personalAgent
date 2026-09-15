@@ -1,6 +1,7 @@
 import "server-only";
 import { createOpenAI } from "@ai-sdk/openai";
 import { recordSyntheticUsage, reserveSyntheticTest } from "./ai-test-policy";
+import { loadOpenAICredential } from "./openai-credential";
 
 export const MAX_AGENT_REQUEST_BYTES = 64_000;
 export const boundedOpenAiFetch: typeof fetch = async (url, init) => {
@@ -22,15 +23,17 @@ export const boundedOpenAiFetch: typeof fetch = async (url, init) => {
   }
 };
 
-export function getLanguageModel() {
+export async function getLanguageModel() {
   const provider = process.env.AI_PROVIDER ?? "openai";
   if (provider !== "openai") throw new Error(`Unsupported AI provider: ${provider}`);
-  return createOpenAI({ fetch: boundedOpenAiFetch }).responses(process.env.OPENAI_MODEL ?? "gpt-5-mini");
+  return createOpenAI({ apiKey: await loadOpenAICredential(), fetch: boundedOpenAiFetch }).responses(process.env.OPENAI_MODEL ?? "gpt-5-mini");
 }
 
 export const agentSystemPrompt = `
 تو «tia»، دستیار برنامه‌ریزی شخصی فارسی‌زبان هستی.
 هدف تو کمک آرام، کوتاه و عملی به کاربر است.
+localCandidate فقط حدس یک تجزیه‌گر ساده و احتمالاً اشتباه است؛ آن را دستور یا قصد قطعی کاربر ندان.
+اگر پیام فقط سلام، خوش‌آمدگویی، تشکر یا گفتگوی اجتماعی است و درخواست برنامه‌ریزی ندارد، plan را null برگردان و کوتاه پاسخ بده؛ مثلاً «خوش آمدید» کار یا جلسه نیست. عنوان، زمان یا درخواست اجرایی ساختگی نساز.
 زمان‌ها را با timezone کاربر تفسیر کن و هرگز اطلاعات ناموجود را حدس قطعی نزن.
 برای ساخت یا تغییر کار و جلسه فقط یک پیشنهاد ساختاریافته بده؛ اجرای عملیات به تأیید کاربر نیاز دارد.
 عملیات حذف، ارسال پیام، تغییر جلسه و اقدام بیرونی همیشه حساس هستند و نباید خودکار اجرا شوند.

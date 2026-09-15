@@ -5,6 +5,7 @@ export type ProviderFailure = "credentials" | "credit" | "rate-limit" | "timeout
 export function providerFailure(error: unknown): ProviderFailure {
   if (!error || typeof error !== "object") return "connection";
   const value = error as { statusCode?: unknown; name?: unknown; cause?: { name?: unknown }; data?: { error?: { code?: unknown } } };
+  if (value.name === "TiaCredentialError" || value.cause?.name === "TiaCredentialError") return "credentials";
   if (value.name === "TiaTestBudgetError" || value.cause?.name === "TiaTestBudgetError") return "test-budget";
   if (value.name === "TiaContextLimitError" || value.cause?.name === "TiaContextLimitError") return "context-limit";
   if (value.statusCode === 401 || value.statusCode === 403) return "credentials";

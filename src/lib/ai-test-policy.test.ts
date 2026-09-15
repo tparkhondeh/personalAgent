@@ -105,7 +105,7 @@ describe("one-off synthetic allowance, no real network", () => {
       output: [{ type: "message", id: "msg_synthetic", status: "completed", role: "assistant", content: [{ type: "output_text", text: '{"reply":"پیشنهاد"}', annotations: [] }] }],
       usage: { input_tokens: 10, output_tokens: 20, total_tokens: 30 },
     }));
-    const result = await generateText({ model: getLanguageModel(), prompt: "synthetic", output: Output.object({ schema: z.object({ reply: z.string() }) }), maxOutputTokens: 2200, maxRetries: 0, providerOptions: { openai: { store: false, serviceTier: "default", reasoningEffort: "low" } } });
+    const result = await generateText({ model: await getLanguageModel(), prompt: "synthetic", output: Output.object({ schema: z.object({ reply: z.string() }) }), maxOutputTokens: 2200, maxRetries: 0, providerOptions: { openai: { store: false, serviceTier: "default", reasoningEffort: "low" } } });
     expect(result.output).toEqual({ reply: "پیشنهاد" });
     expect(network).toHaveBeenCalledOnce();
     expect(JSON.parse(await readFile(path.join(dir, "usage-1.json"), "utf8"))).toMatchObject({ usageVerified: true, inputTokens: 10, outputTokens: 20, estimatedMicroUsd: 43 });
@@ -115,7 +115,7 @@ describe("one-off synthetic allowance, no real network", () => {
     vi.stubEnv("OPENAI_MODEL", "gpt-5-mini"); vi.stubEnv("AI_PROVIDER", "openai");
     await writeFile(path.join(dir, "HALT.json"), "{}", { flag: "wx" });
     const network = vi.spyOn(globalThis, "fetch");
-    const failure = await generateText({ model: getLanguageModel(), prompt: "synthetic", maxOutputTokens: 2200, maxRetries: 0, providerOptions: { openai: { store: false, serviceTier: "default", reasoningEffort: "low" } } }).then(() => null, error => error);
+    const failure = await generateText({ model: await getLanguageModel(), prompt: "synthetic", maxOutputTokens: 2200, maxRetries: 0, providerOptions: { openai: { store: false, serviceTier: "default", reasoningEffort: "low" } } }).then(() => null, error => error);
     expect(failure).not.toBeNull();
     expect(providerFailure(failure)).toBe("test-budget");
     expect(network).not.toHaveBeenCalled();

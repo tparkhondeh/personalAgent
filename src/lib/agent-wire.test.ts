@@ -18,7 +18,7 @@ describe("real installed SDK wire contract (synthetic transport, no paid request
       usage: { input_tokens: 10, output_tokens: 20, total_tokens: 30 },
     }));
     const result = await generateText({
-      model: getLanguageModel(), prompt: "synthetic only",
+      model: await getLanguageModel(), prompt: "synthetic only",
       output: Output.object({ schema: z.object({ reply: z.string(), plan: modelPlanSchema.nullable(), questions: z.array(z.string()) }) }),
       maxOutputTokens: 2200, maxRetries: 0,
       providerOptions: { openai: { store: false, serviceTier: "default", reasoningEffort: "low" } },

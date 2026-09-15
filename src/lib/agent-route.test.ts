@@ -32,6 +32,13 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllEnvs());
 
 describe("assistant external path, synthetic provider with no network", () => {
+  it("does not turn a model's non-action reply into the local candidate or a draft", async () => {
+    mocks.generate.mockResolvedValue({ output: { reply: "سلام، چه کاری را برنامه‌ریزی کنیم؟", plan: null, questions: [] } });
+    const response = await POST(request({ message: "خوش آمدید" }));
+    const data = (await response.json()).data;
+    expect(data).toMatchObject({ mode: "online", draft: null, proposal: { kind: "PLAN", needsApproval: false } });
+    expect(mocks.save).not.toHaveBeenCalled();
+  });
   it("uses a zero web preference in fresh local drafts and preserves explicit repeat instructions", async () => {
     mocks.preference.mockResolvedValue({ urgentMaxRepeats: 0, urgentRepeatMinutes: 25 });
     let response = await POST(request({ externalConsent: false }));

@@ -1,8 +1,9 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { syntheticTestPolicy } from "./ai-test-policy";
+import { hasOpenAICredential } from "./openai-credential";
 export function aiReadiness(userId?: string) {
-  const key = Boolean(process.env.OPENAI_API_KEY?.trim()), approved = process.env.OPENAI_COST_APPROVED === "true";
+  const key = hasOpenAICredential(), approved = process.env.OPENAI_COST_APPROVED === "true";
   const supported = (process.env.AI_PROVIDER ?? "openai") === "openai";
   const limit = Number(process.env.OPENAI_DAILY_REQUEST_LIMIT ?? 20);
   const requestLimitValid = Number.isSafeInteger(limit) && limit > 0;
