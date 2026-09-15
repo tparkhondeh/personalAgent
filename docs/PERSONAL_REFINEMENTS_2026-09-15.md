@@ -66,6 +66,14 @@ The AOSP [DumpCommand implementation](https://android.googlesource.com/platform/
 
 Final QA-only revalidation: Type Check and Lint passed; all **646/646 tests in 67 files** passed in a serial run (`artifacts/refinements/unit-results-serial.json`). The initial concurrent run left seven login cases unexecuted during fixture setup; it was not counted as success. The unchanged login suite then passed 20/20 independently and in the full serial run, without raising timeouts. The production web Build/163 HTTP checks and APK bytes remain those already verified at `289a76f`; no runtime source was changed by the observer fix.
 
+### Accepted internal exact-binary matrix
+
+[Final Android16 retest 34965992619](https://github.com/tparkhondeh/personalAgent/actions/runs/34965992619), with observer commit `f6a0022f77f81456c5950933ecc2c0fa093ad8ff`, passed every original scenario and 12 native tests. The unchanged candidate42 was verified against source run34962247040 before installation. All 11 final log-verification reports are clear, with **zero application failures and zero classified observer exceptions in this final run**. Dashboard, dark settings, real keyboard and SSL-recovery screenshots were visually reviewed: no system-error overlay or blank WebView. All 360 poems were checked at 412px: 332 single-line, 28 readable wraps, no missing text. Raw evidence stays in `artifacts/refinements/android-accepted-36/`.
+
+Together with the successful Android13/14 jobs in34962247040, the **same candidate42 bytes have now passed Android13/14/16**. Android14 retained one previously supported shell-teardown observation; it is not an app crash and was not deleted. The two rejected Android16 executions and rejected candidate41 remain documented. Web/connected CI, local tests and these emulator results do not prove phone audio delivery, compatible installation or public Staging cache freshness.
+
+**No new GitHub Release was published.** The explicit owner gate requires a verified data-preserving compatible upgrade before phone delivery; that gate is unresolved. Candidate42 metadata above is for internal traceability only. APK40 remains the last published release and the existing phone app must be retained.
+
 ## Owner upgrade boundary
 
 The unchanged published APK40 was freshly hashed: `909bf6f8b5dbb46f937210a787215006cfd7b223eaf880a359636fc1b2262fe9`, package `ir.wealthos.personalagent.stable40`, code `34180286b90008498c839f3ec3b4fd72749c750a`.
