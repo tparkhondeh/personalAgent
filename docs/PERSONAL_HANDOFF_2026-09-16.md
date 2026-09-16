@@ -17,13 +17,19 @@ Source `2d4484c75aeb7a24a9fc14b5ecddb6a2b80b9f87` passed Web CI35068078084 (751 
 
 Android16 Run35068078138 failed after8 instrumented tests passed. The next test, `mainActivityCreatesCapacitorBridgeAndWebView`, encountered a native SIGSEGV in app PID4321 at07:28:03.855 inside WebView133 (`libmonochrome_64.so`). The captured image shows Launcher, not app UI. This is not the separately classified shell UIAutomator teardown exception. GMS had two background ANR restarts before app installation; causation for the app crash is unproven. Original log/XML/image remain in the private backup (`android-101/`) and CI evidence artifact10435710085.
 
-Routine Android CI now reuses the existing bounded pre-install emulator readiness procedure and memory configuration used by release retesting; all native tests remain. Cold launch additionally requires actual Persian RTL content, an unobscured screenshot and checked Logcat. Pre-install diagnostics are retained separately, app failure logs are never cleared/retried. Five targeted evidence/log/capture tests passed; the new emulator run remains pending. This is test-harness hardening, not an asserted runtime fix or a new phone release.
+Routine Android CI now reuses the existing bounded pre-install emulator readiness procedure and memory configuration used by release retesting; all native tests remain. Cold launch additionally requires actual Persian RTL content, an unobscured screenshot and checked Logcat. Pre-install diagnostics are retained separately, app failure logs are never cleared/retried. Five targeted evidence/log/capture tests, Type Check, targeted Lint and shell syntax passed. Test-harness commit `12dada518666737b43f73914f1b03634cd4dd0b3` passed Web CI35069980278 and Android35069980561. Production dependency audit reported no known vulnerabilities at this checkpoint (not a guarantee of zero security risk). This is test-harness hardening, not an asserted runtime fix or a new phone release.
+
+Fresh Android16 acceptance: evidence artifact10436431112 downloaded and inspected (`android-102/` in the private backup). All12 instrumented tests passed, zero failures/errors/skips. GMS remained stable through the documented300-second pre-install warm-up, without an extra boot. Cold launch WebView read `http://10.0.2.2:3001/`, Persian dashboard text and RTL; screenshot visually shows the unobscured light-pastel dashboard with four category cards, two-column poem and navigation. System UI check was clear; app-test Logcat had zero failures and zero observation exceptions. Original failed run is retained; a clean rerun does not prove its root cause was fixed on real devices.
+
+Internal diagnostic APK SHA-256 `fa39fb5d15dade88865237dc8ac309aba0e6e60a2422dc41fa0916da0fe23c90`, base package `ir.wealthos.personalagent`, source12dada5, artifact10436376323. This targets an emulator-only endpoint and is NOT a phone handoff, not a compatible APK40 update and not a release. Android13/14 and phone acceptance were not rerun for this CI-only change; their prior evidence remains explicitly historical. Staging application remains the tested2d4484c; the subsequent changes affect tests/docs only.
 
 ## Verified preservation
 
 Private owner-only directory `C:/Users/pc/Desktop/project-backups/tia-personal-handoff-20260916/` contains source ZIP, environment backups and a complete Git bundle. A separate bare restore passed `git fsck --full` and resolves the original HEAD.
 
 SQLite snapshot06:52:45UTC restored separately, integrity/FKs and all18 table contents matched. Before the priority migration, a new07:11:35UTC snapshot was taken. Migration was tested twice on a private copy: all17 business tables retained their previous columns/rows; existing meetings gained only default IMPORTANT; integrity/FKs passed. Source snapshot SHA `5e80ee3772ebcb3ae0b4af28f8591e160610f25f80cf8bf94ede66bad5e78fe5` stayed unchanged. Only then was local migration applied. No historical priority was inferred from old drafts.
+
+After the repair and synthetic QA, a second full-history bundle (`verified-handoff-12dada5.bundle`) passed verification without replacing the initial backup. The live-safe07:50:53UTC database snapshot SHA `a11467fdc5a1d4386e430f3cd96354dc47a1c85040187765068be9d53455114f` restored to a separate private directory at07:51:09UTC: all18 tables unchanged, integrity/FKs passed, migration idempotent, no live data touched and no schedulers started. This checks the new schema as well as preservation of the existing ledger, without disclosing records.
 
 On the server, a new consistent Staging snapshot and a copy of the existing production nightly backup were independently restored and verified on the same host at07:02:42UTC. Private directory: `/home/wealthos_dev/.staging/personal-agent/handoff-backup-20260916-LTSd2e`. The live Production DB was not changed. Nightly02:17 same-host backups exist; latest observed source `hamrah-20260915T224701Z.db`. This is not approved encrypted off-host disaster recovery.
 
@@ -62,3 +68,14 @@ The known local signer differs from APK40. Never offer42/new package as a data-p
 Proposed Production approval boundary (not executed): back up the exact hostname rules/current release/consistent DB; bypass shared cache for its HTML, account/API and worker routes and invalidate ONLY those paths; deploy the tested release to the selected final endpoint/account with preserved data. Risks: brief interruption, re-login, cold-cache load and migration incompatibility. Roll back application/rules using preserved versions, pause affected schedulers, retain newer DB writes and all spend receipts; never overwrite them with an old snapshot. Shared-domain rule or broad purge requires a narrower plan, not assumed authorization. Do not combine this approval with store publication, new charges or raw-audio sending.
 
 [Local test](http://localhost:3001/) is available. [Staging](https://personalagent.wealthos.ir:8443/) is not reliable from this client. [Production](https://personalagent.wealthos.ir/) is old, not the delivered candidate.
+
+## چک‌لیست یک‌باره گوشی، پس از رفع موانع بالا
+
+فعلاً برنامه قبلی را حذف و حافظه‌اش را پاک نکنید. این آزمایش فقط پس از آماده‌شدن مسیر ارتقای امن انجام شود:
+
+1. نسخه جدید را باز کنید؛ اطلاعات قبلی باید باقی باشد. یک کار آزمایشی ثبت کنید و پس از بستن و بازکردن برنامه دوباره ببینید.
+2. برای همان کار یک Notification و Alarm آزمایشی تنظیم کنید؛ با صفحه قفل‌شده، دریافت هر دو را بررسی کنید. سپس کار را انجام‌شده کنید و مطمئن شوید هشدار آینده متوقف می‌شود.
+3. یک جمله ساختگی با صدا بگویید؛ متن و پیشنهاد باید قابل‌ویرایش باشند و قبل از «ثبت» کاری ساخته نشود.
+4. اینترنت را قطع و وصل کنید؛ حالت اتصال باید روشن باشد و اطلاعات ناپدید یا تکراری نشوند. در حالت آنلاین، GPT فقط پس از انتخاب اجازه ارسال متن استفاده شود.
+
+نبود تأیید این موارد به معنی رد گوشی نیست؛ نتیجه هنوز اندازه‌گیری نشده است. تست شبیه‌ساز جای این تأیید را نمی‌گیرد.
