@@ -74,7 +74,7 @@ export async function executeDraft(userId: string, id: string, revision: number)
         entityId = (await tx.task.create({ data: { userId, title: plan.title, category: plan.category, priority: plan.priority, dueAt: instant, alertPolicy: policy } })).id;
       } else {
         if (!instant || !plan.durationMinutes) throw new DraftError("زمان جلسه کامل نیست", 422);
-        const meeting = await tx.meeting.create({ data: { userId, title: plan.title, startsAt: instant, endsAt: new Date(instant.getTime() + plan.durationMinutes * 60000), timezone: plan.timezone, alertPolicy: policy } });
+        const meeting = await tx.meeting.create({ data: { userId, title: plan.title, priority: plan.priority, startsAt: instant, endsAt: new Date(instant.getTime() + plan.durationMinutes * 60000), timezone: plan.timezone, alertPolicy: policy } });
         entityId = meeting.id;
         await tx.calendarEvent.create({ data: { title: meeting.title, startsAt: meeting.startsAt, endsAt: meeting.endsAt, meetingId: meeting.id } });
       }
@@ -84,7 +84,7 @@ export async function executeDraft(userId: string, id: string, revision: number)
         const at=new Date(occurrence.instant);
         if(isTask)entityIds.push((await tx.task.create({data:{userId,title:plan.title,category:plan.category,priority:plan.priority,dueAt:at,alertPolicy:policy}})).id);
         else {
-          const meeting=await tx.meeting.create({data:{userId,title:plan.title,startsAt:at,endsAt:new Date(at.getTime()+plan.durationMinutes!*60000),timezone:plan.timezone,alertPolicy:policy}});
+          const meeting=await tx.meeting.create({data:{userId,title:plan.title,priority:plan.priority,startsAt:at,endsAt:new Date(at.getTime()+plan.durationMinutes!*60000),timezone:plan.timezone,alertPolicy:policy}});
           entityIds.push(meeting.id);await tx.calendarEvent.create({data:{title:meeting.title,startsAt:meeting.startsAt,endsAt:meeting.endsAt,meetingId:meeting.id}});
         }
       }
@@ -100,7 +100,7 @@ export async function executeDraft(userId: string, id: string, revision: number)
         if (plan.operation === "UPDATE") {
           if (!instant || !plan.durationMinutes) throw new DraftError("زمان جلسه کامل نیست", 422);
           const endsAt = new Date(instant.getTime() + plan.durationMinutes * 60000);
-          await tx.meeting.update({ where: { id: entityId }, data: { title: plan.title, startsAt: instant, endsAt, timezone: plan.timezone, alertPolicy: policy } });
+          await tx.meeting.update({ where: { id: entityId }, data: { title: plan.title, priority: plan.priority, startsAt: instant, endsAt, timezone: plan.timezone, alertPolicy: policy } });
           await tx.calendarEvent.updateMany({ where: { meetingId: entityId }, data: { title: plan.title, startsAt: instant, endsAt } });
         } else {
           await tx.meeting.update({ where: { id: entityId }, data: { status: plan.operation === "COMPLETE" ? "DONE" : "CANCELLED" } });

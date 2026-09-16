@@ -15,9 +15,17 @@ assert(cookie);
 for (const kind of ["tasks", "meetings"]) {
   const path = `/api/${kind}`, key = randomUUID();
   const date = new Date(Date.now() + 4 * 86400000);
-  const body = kind === "tasks" ? { title: "آزمون ساختگی ثبت دوباره", dueAt: date.toISOString() } : { title: "جلسه ساختگی ثبت دوباره", startsAt: date.toISOString(), endsAt: new Date(+date + 3600000).toISOString() };
+  const body = kind === "tasks" ? { title: "آزمون ساختگی ثبت دوباره", dueAt: date.toISOString() } : { title: "جلسه ساختگی ثبت دوباره", priority: "NORMAL", startsAt: date.toISOString(), endsAt: new Date(+date + 3600000).toISOString() };
   const before = (await (await request(path)).json()).data.length;
   const first = await request(path, "POST", body, key); assert.equal(first.status, 201); const original = (await first.json()).data; checks++;
+  if (kind === "meetings") {
+    assert.equal(original.priority, "NORMAL"); checks++;
+    for (const priority of ["URGENT", "IMPORTANT", "NORMAL"]) {
+      assert.equal((await request(`${path}/${original.id}`, "PATCH", { priority })).status, 200);
+      assert.equal((await request(`${path}/${original.id}`, "PATCH", { title: body.title })).status, 200);
+      assert.equal((await (await request(path)).json()).data.find(item => item.id === original.id).priority, priority); checks += 3;
+    }
+  }
   const responses = await Promise.all(Array.from({ length: 5 }, () => request(path, "POST", body, key)));
   for (const response of responses) { assert.equal(response.status, 201); assert.equal((await response.json()).data.id, original.id); checks++; }
   assert.equal((await (await request(path)).json()).data.length, before + 1); checks++;

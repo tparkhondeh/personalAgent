@@ -27,7 +27,7 @@ type Category = "personal" | "work" | "meeting";
 type Priority = "urgent" | "important" | "normal";
 type View = "today" | "tasks" | "calendar" | "assistant" | "settings";
 type ApiTask = { id: string; title: string; category: "PERSONAL" | "WORK"; priority: "URGENT" | "IMPORTANT" | "NORMAL"; status: string; startAt?: string | null; dueAt?: string | null };
-type ApiMeeting = { id: string; title: string; startsAt: string; endsAt: string; timezone?: string; status?: string };
+type ApiMeeting = { id: string; title: string; priority?: "URGENT" | "IMPORTANT" | "NORMAL"; startsAt: string; endsAt: string; timezone?: string; status?: string };
 
 const categories: Record<Category, [string, string]> = { personal: ["شخصی", "mint"], work: ["شرکتی", "lavender"], meeting: ["جلسه", "peach"] };
 const priorities: Record<Priority, [string, string]> = { urgent: ["فوری", "rose"], important: ["مهم", "amber"], normal: ["عادی", "sage"] };
@@ -41,7 +41,7 @@ function taskToItem(task: ApiTask): Item {
 }
 
 function meetingToItem(meeting: ApiMeeting): Item {
-  return { id: meeting.id, title: meeting.title, category: "meeting", priority: "important", source: "meeting", startsAt: meeting.startsAt, endsAt: meeting.endsAt, timezone: meeting.timezone, done: meeting.status === "DONE" };
+  return { id: meeting.id, title: meeting.title, category: "meeting", priority: (meeting.priority || "IMPORTANT").toLowerCase() as Priority, source: "meeting", startsAt: meeting.startsAt, endsAt: meeting.endsAt, timezone: meeting.timezone, done: meeting.status === "DONE" };
 }
 
 function itemMoment(item: Item) { return item.startsAt || item.dueAt; }
@@ -331,7 +331,7 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
     const data = new FormData(form);
     const title = String(data.get("title") || "").trim();
     const category = data.get("category") as Category;
-    const priority = category === "meeting" ? "important" : data.get("priority") as Priority;
+    const priority = data.get("priority") as Priority;
     const date = String(data.get("date") || "");
     const time = String(data.get("time") || "09:00");
     if (category === "meeting" && !date) { setManualSaveSuccess(""); setMessage("تاریخ جلسه الزامی است."); return; }
@@ -359,7 +359,7 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
     if (isMeeting && !startsAt) { setMessage("تاریخ جلسه الزامی است."); return; }
     const endpoint = isMeeting ? editing ? `/api/meetings/${editing.id}` : "/api/meetings" : editing ? `/api/tasks/${editing.id}` : "/api/tasks";
     const body = isMeeting
-      ? { title, startsAt: startsAt!, endsAt: new Date(new Date(startsAt!).getTime() + duration * 60_000).toISOString(), timezone: editing?.timezone || preferences?.timezone || "Asia/Tehran", ...(editing ? {} : { attendees: [] }) }
+      ? { title, priority: priority.toUpperCase(), startsAt: startsAt!, endsAt: new Date(new Date(startsAt!).getTime() + duration * 60_000).toISOString(), timezone: editing?.timezone || preferences?.timezone || "Asia/Tehran", ...(editing ? {} : { attendees: [] }) }
       : { title, category: category === "work" ? "WORK" : "PERSONAL", priority: priority.toUpperCase(), dueAt: startsAt ?? null };
     const requestKey = submission.current.begin();
     if (!requestKey) return;
@@ -428,7 +428,7 @@ function Composer({ initial, initialDate, defaultReminderOffsets, saving, error,
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [onClose]);
   const titleId = "composer-title";
-  return <div className="modal-backdrop" onMouseDown={onClose}><form className="composer" role="dialog" aria-modal="true" aria-busy={saving} aria-labelledby={titleId} onSubmit={onSubmit} onMouseDown={(event) => event.stopPropagation()}><div className="composer-heading"><div><small>{initial ? "به‌روزرسانی برنامه" : "یک قدم تازه"}</small><h2 id={titleId}>{initial ? category === "meeting" ? "ویرایش جلسه" : "ویرایش کار" : category === "meeting" ? "جلسه جدید" : "کار جدید"}</h2></div><button type="button" disabled={saving} onClick={onClose}>بستن</button></div><label>عنوان<input name="title" autoFocus required defaultValue={initial?.title} placeholder={category === "meeting" ? "مثلاً جلسه با تیم فروش" : "مثلاً تماس با تیم فروش"} /></label><div className="field-grid"><label>دسته‌بندی<select name="category" value={category} onChange={(event) => setCategory(event.target.value as Category)}>{initial?.source === "meeting" ? <option value="meeting">جلسه</option> : <><option value="personal">شخصی</option><option value="work">شرکتی</option>{!initial && <option value="meeting">جلسه</option>}</>}</select></label><label>اولویت<select name="priority" disabled={category === "meeting"} defaultValue={initial?.priority || "normal"}><option value="normal">عادی</option><option value="important">مهم</option><option value="urgent">فوری</option></select></label></div><div className="field-grid"><label>{category === "meeting" ? "تاریخ" : "تاریخ (اختیاری)"}<PersianDateField name="date" defaultValue={moment ? dateKey(moment) : initialDate || (initial ? "" : localDateInput())} required={category === "meeting"} /></label><label>ساعت<Time24Field name="time" defaultValue={localTimeInput(moment)} required={category === "meeting"} /></label></div><div className="composer-reminder-summary"><strong>یادآوری‌های فعال</strong><span>{reminderOffsetsLabel(defaultReminderOffsets)}</span><small>از بخش تنظیمات برنامه‌ریزی قابل تغییر است.</small></div>{error && <p className="form-error" role="alert">{error}</p>}<button className="submit-button" disabled={saving}>{saving ? "در حال ثبت…" : initial ? "ذخیره تغییرات" : "ثبت در برنامه"}</button></form></div>;
+  return <div className="modal-backdrop" onMouseDown={onClose}><form className="composer" role="dialog" aria-modal="true" aria-busy={saving} aria-labelledby={titleId} onSubmit={onSubmit} onMouseDown={(event) => event.stopPropagation()}><div className="composer-heading"><div><small>{initial ? "به‌روزرسانی برنامه" : "یک قدم تازه"}</small><h2 id={titleId}>{initial ? category === "meeting" ? "ویرایش جلسه" : "ویرایش کار" : category === "meeting" ? "جلسه جدید" : "کار جدید"}</h2></div><button type="button" disabled={saving} onClick={onClose}>بستن</button></div><label>عنوان<input name="title" autoFocus required defaultValue={initial?.title} placeholder={category === "meeting" ? "مثلاً جلسه با تیم فروش" : "مثلاً تماس با تیم فروش"} /></label><div className="field-grid"><label>دسته‌بندی<select name="category" value={category} onChange={(event) => setCategory(event.target.value as Category)}>{initial?.source === "meeting" ? <option value="meeting">جلسه</option> : <><option value="personal">شخصی</option><option value="work">شرکتی</option>{!initial && <option value="meeting">جلسه</option>}</>}</select></label><label>اولویت<select name="priority" defaultValue={initial?.priority || "normal"}><option value="normal">عادی</option><option value="important">مهم</option><option value="urgent">فوری</option></select></label></div><div className="field-grid"><label>{category === "meeting" ? "تاریخ" : "تاریخ (اختیاری)"}<PersianDateField name="date" defaultValue={moment ? dateKey(moment) : initialDate || (initial ? "" : localDateInput())} required={category === "meeting"} /></label><label>ساعت<Time24Field name="time" defaultValue={localTimeInput(moment)} required={category === "meeting"} /></label></div><div className="composer-reminder-summary"><strong>یادآوری‌های فعال</strong><span>{reminderOffsetsLabel(defaultReminderOffsets)}</span><small>از بخش تنظیمات برنامه‌ریزی قابل تغییر است.</small></div>{error && <p className="form-error" role="alert">{error}</p>}<button className="submit-button" disabled={saving}>{saving ? "در حال ثبت…" : initial ? "ذخیره تغییرات" : "ثبت در برنامه"}</button></form></div>;
 }
 
 function Nav({ active, label, badge, onClick }: { active: boolean; label: string; badge?: number; onClick: () => void }) { return <button className={`nav-button ${active ? "active" : ""}`} onClick={onClick}>{label}{badge !== undefined && <small>{badge}</small>}</button>; }

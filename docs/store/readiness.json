@@ -1,13 +1,14 @@
 {
-  "checkedOn": "2026-09-14",
+  "checkedOn": "2026-09-16",
   "name": "tia",
   "proposedPackageId": "ir.wealthos.personalagent",
   "packageReserved": false,
   "publicReleaseApproved": false,
   "gates": [
     {"id":"fresh-data", "targets":["personal","public","play","bazaar"], "state":"pending", "evidence":"Fresh empty schema prepared; no running owner environment/account yet."},
-    {"id":"https-version-cache", "targets":["personal","public","play","bazaar"], "state":"blocked", "evidence":"8443 TLS fails from Windows; worker cache max-age=14400; 443 serves old production assets, not current tia."},
-    {"id":"data-recovery-upgrade", "targets":["personal","public","play","bazaar"], "state":"blocked", "evidence":"DB restore verified; web and bundled source refuse corrupt/quota-limited storage. Bundled fix is unreleased; export/import, reconciliation, native notification transaction recovery and package/endpoint migration remain unimplemented/unaccepted."},
+    {"id":"https-version-cache", "targets":["personal","public","play","bazaar"], "state":"blocked", "evidence":"Fresh 2026-09-16: 8443 TLS fails from Windows; both public ports return the same Staging worker under max-age=14400 despite different origin versions. Production remains49cceed. See PERSONAL_HANDOFF_2026-09-16.md."},
+    {"id":"data-recovery-upgrade", "targets":["personal","public","play","bazaar"], "state":"blocked", "evidence":"Fresh local/Staging and production-backup-copy restore verified. Bundled storage/native fixes have internal42 evidence but are unreleased. Current signing key differs from released40; owner phone-only data and tested export/import/endpoint preservation route remain unresolved."},
+    {"id":"owner-gpt-phone", "targets":["personal","public","play","bazaar"], "state":"blocked", "evidence":"Local owner GPT approved with one $2 monthly ledger, $0.156237 accounted. Matching Staging email has a different ID; no matching Production account. Server GPT inactive; final endpoint/account and single-host paid cutover not approved/executed. No personal raw audio consent."},
     {"id":"phone-acceptance", "targets":["personal","public","play","bazaar"], "state":"pending", "evidence":"Owner notification fix, Alarm/background delivery and microphone acceptance unverified."},
     {"id":"account-lifecycle", "targets":["public","play","bazaar"], "state":"blocked", "evidence":"No verified email reset/verification transport, deletion flow or public privacy/deletion URL."},
     {"id":"operator-retention-support", "targets":["public","play","bazaar"], "state":"pending", "evidence":"Legal operator, support channel and data/backup deletion retention require owner's decision."},

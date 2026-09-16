@@ -67,6 +67,20 @@ function webFixture(signedIn = true, editing: GuestItem | null = null) {
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
 
 describe("manual web save outcome", () => {
+  it.each(["normal", "important", "urgent"])("keeps chosen meeting priority %s in online and guest writes", async priority => {
+    const online = webFixture();
+    online.form.values.set("category", "meeting"); online.form.values.set("priority", priority);
+    await online.submit();
+    expect(JSON.parse(String(online.fetch.mock.calls[0][1]?.body)).priority).toBe(priority.toUpperCase());
+    const guest = webFixture(false);
+    guest.form.values.set("category", "meeting"); guest.form.values.set("priority", priority);
+    await guest.submit();
+    expect(guest.state.items[0].priority).toBe(priority);
+    const mapper = vm.runInNewContext(ts.transpileModule(`(${declaration("meetingToItem")})`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText);
+    expect(mapper({ id: "test", title: "جلسه", priority: priority.toUpperCase() }).priority).toBe(priority);
+    expect(mapper({ id: "legacy", title: "قدیمی" }).priority).toBe("important");
+    expect(web).not.toContain('name="priority" disabled={category === "meeting"}');
+  });
   it.each(["personal", "work", "meeting"])("saves %s, closes the form and shows Today/all without marking completed", async category => {
     const f = webFixture(); f.form.values.set("category", category);
     await f.submit();
@@ -215,6 +229,12 @@ function mobileFixture() {
 }
 
 describe("bundled manual form save", () => {
+  it.each(["normal", "important", "urgent"])("retains meeting priority %s after bundled storage reload", async priority => {
+    vi.useFakeTimers();
+    const f = mobileFixture(); f.formValues.set("priority", priority);
+    await f.submit();
+    expect(f.restored()[0]).toMatchObject({ category: "meeting", priority });
+  });
   it("permits the next form while the prior reminder awaits native response, without stale feedback", async () => {
     vi.useFakeTimers(); const f=mobileFixture();let finish!:(value:boolean)=>void;
     f.scheduleNotification.mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));

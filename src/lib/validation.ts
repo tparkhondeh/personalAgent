@@ -27,6 +27,7 @@ const meetingTimezoneSchema = z.string().trim().min(1).max(100).refine(value => 
 
 const meetingFields = {
   title: z.string().trim().min(1).max(180),
+  priority: z.enum(["URGENT", "IMPORTANT", "NORMAL"]).default("IMPORTANT"),
   description: z.string().trim().max(3000).optional(),
   agenda: z.string().trim().max(5000).optional(),
   attendees: meetingAttendeesSchema.default([]),
@@ -39,7 +40,7 @@ const meetingFields = {
 
 export const meetingInputSchema = z.object(meetingFields).refine((value) => new Date(value.endsAt) > new Date(value.startsAt), { message: "زمان پایان باید بعد از شروع باشد", path: ["endsAt"] });
 
-export const meetingUpdateSchema = z.object({ ...meetingFields, attendees: meetingAttendeesSchema, timezone: meetingTimezoneSchema, status: z.enum(["SCHEDULED", "DONE", "CANCELLED"]) }).partial().refine(
+export const meetingUpdateSchema = z.object({ ...meetingFields, priority: z.enum(["URGENT", "IMPORTANT", "NORMAL"]), attendees: meetingAttendeesSchema, timezone: meetingTimezoneSchema, status: z.enum(["SCHEDULED", "DONE", "CANCELLED"]) }).partial().refine(
   (value) => !value.startsAt || !value.endsAt || new Date(value.endsAt) > new Date(value.startsAt),
   { message: "زمان پایان باید بعد از شروع باشد", path: ["endsAt"] },
 );

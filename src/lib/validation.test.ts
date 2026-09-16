@@ -2,6 +2,17 @@ import { describe, expect, it } from "vitest";
 import { escalationAcknowledgeSchema, meetingInputSchema, meetingUpdateSchema, notificationReadSchema, taskInputSchema, taskUpdateSchema, userPreferenceInputSchema } from "./validation";
 
 describe("input validation", () => {
+  it.each(["NORMAL", "IMPORTANT", "URGENT"])("preserves reviewed meeting priority %s", priority => {
+    expect(meetingInputSchema.parse({ title: "جلسه", priority, startsAt: "2026-09-20T12:00:00Z", endsAt: "2026-09-20T13:00:00Z" }).priority).toBe(priority);
+    expect(meetingUpdateSchema.parse({ priority })).toEqual({ priority });
+    expect(meetingUpdateSchema.parse({ title: "عنوان تازه" })).not.toHaveProperty("priority");
+  });
+  it("keeps legacy meeting default while rejecting invalid explicit priorities", () => {
+    const meeting = { title: "جلسه", startsAt: "2026-09-20T12:00:00Z", endsAt: "2026-09-20T13:00:00Z" };
+    expect(meetingInputSchema.parse(meeting).priority).toBe("IMPORTANT");
+    expect(meetingInputSchema.safeParse({ ...meeting, priority: "wrong" }).success).toBe(false);
+    expect(meetingUpdateSchema.safeParse({ priority: "wrong" }).success).toBe(false);
+  });
   it.each(["Not/A_Timezone", "", "  ", "Asia/Tehran-mistyped"])("rejects invalid scheduling timezone %s", timezone => {
     const meeting = { title: "جلسه", startsAt: "2026-09-20T12:00:00.000Z", endsAt: "2026-09-20T13:00:00.000Z", timezone };
     expect(meetingInputSchema.safeParse(meeting).success).toBe(false);
