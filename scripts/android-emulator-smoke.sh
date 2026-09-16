@@ -25,6 +25,9 @@ adb shell settings put global window_animation_scale 0
 adb shell settings put global transition_animation_scale 0
 adb shell settings put global animator_duration_scale 0
 
+# Preserve boot diagnostics separately; every app-test failure remains in logcat.
+adb logcat -d > "$evidence_dir/pre-install-logcat.txt"
+adb logcat -c
 adb install -r "$apk_path"
 adb shell pm grant "$package_name" android.permission.POST_NOTIFICATIONS || true
 adb shell appops set "$package_name" SCHEDULE_EXACT_ALARM allow || true
@@ -53,4 +56,10 @@ adb shell dumpsys package "$package_name" > "$evidence_dir/package-before-exit.t
 grep -Fq "android.permission.POST_NOTIFICATIONS" "$evidence_dir/package-before-exit.txt"
 grep -Fq "android.permission.SCHEDULE_EXACT_ALARM" "$evidence_dir/package-before-exit.txt"
 
-echo "Hamrah launched successfully with process $process_id on the Android emulator."
+node scripts/android-webview-inspect.mjs "$package_name" "$evidence_dir/cold-launch-webview.json" "برنامه امروز"
+node scripts/android-system-ui-check.mjs "$evidence_dir/cold-launch-system-ui" inspect "$evidence_dir/cold-launch.png"
+adb logcat -d > "$evidence_dir/app-tests-logcat.txt"
+node scripts/android-logcat-check.mjs "$evidence_dir/app-tests-logcat.txt" \
+  "$evidence_dir/cold-launch-system-ui-result.json" "$evidence_dir/app-tests-log-verification.json"
+
+echo "Hamrah cold launch rendered Persian RTL content, with unobscured UI and checked app logs (process $process_id)."

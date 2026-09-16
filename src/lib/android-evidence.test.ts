@@ -1,5 +1,20 @@
 import { expect, it } from 'vitest';
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+
+it('requires emulator readiness and real UI evidence in routine Android CI', () => {
+  const workflow = readFileSync('.github/workflows/android.yml', 'utf8');
+  const smoke = readFileSync('scripts/android-emulator-smoke.sh', 'utf8');
+  expect(workflow).toMatch(/android-emulator-settle\.sh artifacts\/android\/settle &&\s+bash scripts\/android-emulator-smoke\.sh/);
+  expect(smoke).toContain(':app:connectedDebugAndroidTest');
+  expect(smoke).toContain('cold-launch-webview.json" "برنامه امروز"');
+  expect(smoke).toContain('cold-launch-system-ui" inspect');
+  expect(smoke).toContain('node scripts/android-logcat-check.mjs');
+  expect(smoke.indexOf('pre-install-logcat.txt')).toBeLessThan(smoke.indexOf('adb logcat -c'));
+  expect(smoke.indexOf('adb logcat -c')).toBeLessThan(smoke.indexOf('adb install -r'));
+  // Clearing/retrying after an app failure would hide the exact regression.
+  expect(smoke.slice(smoke.indexOf('adb install -r'))).not.toContain('adb logcat -c');
+});
 
 it('keeps cross-version screenshots unique and marks system failures as diagnostics',()=>{
   expect(()=>execFileSync(process.execPath,['--input-type=module','-e',`
