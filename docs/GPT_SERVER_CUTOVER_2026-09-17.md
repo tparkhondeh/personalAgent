@@ -58,6 +58,14 @@ No Android UI/native source changed in this stage; prior exact-artifact Android 
 
 ## Activation sequence and rollback (prepared, NOT executed)
 
+### Verified release candidate, not deployed
+
+Source commit `4838bd4bf1cb36ecdcbf31260d0157bc895c2c9c` passed [web CI35188159724](https://github.com/tparkhondeh/personalAgent/actions/runs/35188159724). Artifact `verified-web-35188159724` (ID10483120354) was downloaded into the private cutover-backup directory and its published SHA-256 was independently matched: `52448ec36e967d4afa9a480e77354e7feba358bb8d1f5e83f1cc090de5b6cfde` for `hamrah-staging-server.tar.gz`. Preserve this tested package; the separate operator handoff tool must be transferred from this reviewed commit, not silently inserted by repackaging. No deployment or paid cutover occurred. Automatic [Android16 run35188159692](https://github.com/tparkhondeh/personalAgent/actions/runs/35188159692) was still running at this evidence checkpoint; this is not a pass claim or an owner-phone APK.
+
+The APK identity gate intentionally applies a conservative project rule: identical signer set and strictly increased version code. Android itself can also accept a valid signing-key rotation and allows certain equal-version-code updates; neither is evidence that these incompatible APKs can safely update each other. No valid signing lineage was found for them. See [Android update requirements](https://developer.android.com/google/play/app-updates) and [app signing](https://developer.android.com/studio/publish/app-signing).
+
+### Execution after prerequisites are satisfied
+
 1. Server administrator frees/increases disk safely; target at least2GiB deployment headroom and verify the tia account can write. Keep all user databases, spend ledgers and backups. Repeat consistent snapshot and account/health checks after this external change.
 2. Publish the tested server release to tia's approved isolated service, with paid use still off. Check actual public8443 HTTPS, worker/cache/auth origin and connected-app response. Shared-domain/CDN fixes require their separate specific approval.
 3. Quiesce/drain local funded requests; preserve the current ledger, freeze/export using its fresh digest and exact server destination. Transfer the existing replacement secret securely into a protected server-only store, never argv/logs/client/APK. Do not copy DPAPI ciphertext as if Linux could decrypt it, and do not create another API key.
