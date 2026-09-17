@@ -10,11 +10,9 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.JavascriptInterface;
-import android.webkit.CookieManager;
 import android.webkit.RenderProcessGoneDetail;
 import android.webkit.SslErrorHandler;
 import android.webkit.WebView;
-import android.webkit.WebStorage;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.widget.FrameLayout;
@@ -126,7 +124,7 @@ public class MainActivity extends BridgeActivity {
                 else request.deny();
             }
         });
-        clearDataWhenEndpointChanges(webView);
+        refreshCodeCacheWhenEndpointChanges(webView);
         webView.setBackgroundColor(Color.parseColor("#F7F7FF"));
         webView.addJavascriptInterface(new RecoveryActions(), RECOVERY_INTERFACE);
         installLoadingOverlay(webView);
@@ -164,20 +162,22 @@ public class MainActivity extends BridgeActivity {
         scheduleContentCheck(webView, webView.getUrl());
     }
 
-    private void clearDataWhenEndpointChanges(WebView webView) {
+    private void refreshCodeCacheWhenEndpointChanges(WebView webView) {
         String endpoint = getBridge().getAppUrl();
         String previousEndpoint = getPreferences(MODE_PRIVATE).getString("last_app_endpoint", null);
-        if (previousEndpoint != null && endpoint != null && !previousEndpoint.equals(endpoint)) {
-            Logger.info("HamrahRecovery", "App endpoint changed; clearing stale WebView data.");
-            webView.clearCache(true);
-            webView.clearHistory();
-            WebStorage.getInstance().deleteAllData();
-            CookieManager.getInstance().removeAllCookies(null);
-            CookieManager.getInstance().flush();
-        }
+        refreshEndpointCodeCache(webView, previousEndpoint, endpoint);
+        // Origin changes are not data migrations. Preserve all local/account
+        // Web Storage, cookies and history, including the private bundled origin.
         if (endpoint != null) {
             getPreferences(MODE_PRIVATE).edit().putString("last_app_endpoint", endpoint).apply();
         }
+    }
+
+    static void refreshEndpointCodeCache(WebView webView, String previousEndpoint, String endpoint) {
+        EndpointCodeCache.refresh(previousEndpoint, endpoint, () -> {
+            Logger.info("HamrahRecovery", "App endpoint changed; refreshing cached code only.");
+            webView.clearCache(true);
+        });
     }
 
     private void installLoadingOverlay(WebView webView) {

@@ -23,6 +23,7 @@ async function sql(statement: string, args: (string | number)[] = []) {
 async function seed(amount: number) { await sql("INSERT INTO BudgetReceipt VALUES('seed','2026-09',?,1,'synthetic',NULL,NULL,NULL)", [amount]); }
 beforeEach(async () => {
   vi.unstubAllEnvs();
+  vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("Network disabled in monthly budget tests"); }));
   file = path.join(await mkdtemp(path.join(os.tmpdir(), "tia-monthly-qa-")), "budget.db");
   const client = createClient({ url: pathToFileURL(file).href });
   try { await client.executeMultiple(await readFile("scripts/ai-monthly-schema.sql", "utf8")); await client.execute("INSERT INTO BudgetMeta VALUES(1,1,2000000,'2026-09',0)"); } finally { client.close(); }
@@ -92,9 +93,53 @@ describe("durable shared monthly monetary guard (synthetic, no paid API)", () =>
     expect(await monthlyBudgetStatus("owner", next)).toMatchObject({ accountedUsd: .025 });
     await settleMonthlyRequest(pending, usage(), next);
     expect(await monthlyBudgetStatus("owner", next)).toMatchObject({ accountedUsd: .000425 });
-    expect(await monthlyBudgetStatus("owner", now)).toMatchObject({ accountedUsd: 1.975 });
+    expect((await sql("SELECT SUM(charged) AS used FROM BudgetReceipt WHERE month='2026-09'")).rows[0].used).toBe(1975000);
+    expect(await monthlyBudgetStatus("owner", now)).toEqual({ available: false, limitUsd: 2 });
     await reserveMonthlyRequest("owner", url, body, next);
     await expect(reserveMonthlyRequest("owner", url, body, now)).rejects.toThrow();
+  });
+  it("blocks clock rollback immediately after a new-month settlement", async () => {
+    await seed(1950000);
+    const pending = await reserveMonthlyRequest("owner", url, body, now);
+    const next = new Date("2026-10-01T00:00:05Z");
+    await settleMonthlyRequest(pending, usage(), next);
+    await expect(reserveMonthlyRequest("owner", url, body, now)).rejects.toMatchObject({ name: "TiaMonthlyBudgetError" });
+    expect((await sql("SELECT latestMonth FROM BudgetMeta")).rows[0].latestMonth).toBe("2026-10");
+    expect(await monthlyBudgetStatus("owner", now)).toEqual({ available: false, limitUsd: 2 });
+    expect(await monthlyBudgetStatus("owner", next)).toMatchObject({ accountedUsd: .000425 });
+    expect((await sql("SELECT COUNT(*) AS n FROM BudgetReceipt")).rows[0].n).toBe(3);
+  });
+  it("retains settlement rollback protection in a fresh process", async () => {
+    const pending = await reserveMonthlyRequest("owner", url, body, now);
+    const next = new Date("2026-10-01T00:00:05Z");
+    await settleMonthlyRequest(pending, usage(), next);
+    const moduleUrl = pathToFileURL(path.resolve("src/lib/ai-monthly-budget.ts")).href;
+    const program = `import {reserveMonthlyRequest} from ${JSON.stringify(moduleUrl)}; try { await reserveMonthlyRequest('owner',${JSON.stringify(url)},${JSON.stringify(body)},new Date(${JSON.stringify(now.toISOString())})); console.log('reserved'); } catch { console.log('blocked'); }`;
+    const result = await promisify(execFile)(process.execPath, ["--conditions=react-server", "--input-type=module", "-e", program], { env: { ...process.env }, windowsHide: true });
+    expect(result.stdout.trim()).toBe("blocked");
+    expect((await sql("SELECT COUNT(*) AS n FROM BudgetReceipt")).rows[0].n).toBe(2);
+  }, 15000);
+  it("retains pending spend when settlement observes a rolled-back clock", async () => {
+    const pending = await reserveMonthlyRequest("owner", url, body, now);
+    const next = new Date("2026-10-01T00:00:05Z");
+    await reserveMonthlyRequest("qa", url, body, next);
+    await settleMonthlyRequest(pending, usage(), now);
+    expect(await monthlyBudgetStatus("owner", next)).toMatchObject({ accountedUsd: .05 });
+    expect((await sql("SELECT charged,settled FROM BudgetReceipt WHERE id=?", [pending!.id])).rows[0]).toMatchObject({ charged: 25000, settled: 0 });
+    expect((await sql("SELECT latestMonth FROM BudgetMeta")).rows[0].latestMonth).toBe("2026-10");
+    await settleMonthlyRequest(pending, usage(), next);
+    await settleMonthlyRequest(pending, usage(1, 1), next);
+    expect(await monthlyBudgetStatus("owner", next)).toMatchObject({ accountedUsd: .025425 });
+  });
+  it("commits settlement and its month watermark atomically", async () => {
+    const pending = await reserveMonthlyRequest("owner", url, body, now);
+    await sql("CREATE TRIGGER reject_month_update BEFORE UPDATE OF latestMonth ON BudgetMeta BEGIN SELECT RAISE(ABORT, 'synthetic write failure'); END");
+    const next = new Date("2026-10-01T00:00:05Z");
+    await settleMonthlyRequest(pending, usage(), next);
+    expect((await sql("SELECT charged,settled FROM BudgetReceipt WHERE id=?", [pending!.id])).rows[0]).toMatchObject({ charged: 25000, settled: 0 });
+    expect((await sql("SELECT COUNT(*) AS n FROM BudgetReceipt")).rows[0].n).toBe(1);
+    expect((await sql("SELECT latestMonth FROM BudgetMeta")).rows[0].latestMonth).toBe("2026-09");
+    expect(await monthlyBudgetStatus("owner", next)).toMatchObject({ accountedUsd: .025 });
   });
   it("halts after usage exceeds the price/bounds assumptions", async () => {
     const r = await reserveMonthlyRequest("owner", url, body, now);

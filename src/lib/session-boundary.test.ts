@@ -15,7 +15,9 @@ describe("dashboard account boundary", () => {
     expect(dashboard).toContain('useState<Item[]>([])');
     expect(source).not.toContain('const demoItems');
     expect(dashboard).toContain('if (signedIn) return false;');
-    expect(dashboard).toContain('if (!guestStorageReady || !saveGuestItems(');
+    expect(dashboard).toContain('if (!guestStorageReady)');
+    expect(dashboard).toContain('const result = await saveGuestItems(');
+    expect(dashboard).toContain('next, guestSnapshot.current');
     expect(dashboard).toContain('if (!hydrated || (!signedIn && !guestStorageReady)) return;');
     expect(dashboard).not.toContain('const { data: session } = authClient.useSession()');
   });

@@ -6,6 +6,7 @@ import { authClient } from "@/lib/auth-client";
 import { approvalSummary, type Plan, type PlanningItem } from "@/lib/agent-planner";
 import { VoiceInput } from "@/components/voice-input";
 import { syncApprovedDeviceReminders } from "@/lib/approved-device-reminders";
+import { cancelDeviceRemindersFromResponse } from "@/lib/device-cancellation";
 import { readComposeDraft, saveComposeDraft, offerGuestDraft, claimGuestDraft } from "@/lib/assistant-draft";
 import { providerFailureLabel } from "@/lib/agent-provider-status";
 
@@ -18,16 +19,32 @@ export function AgentAssistant({ onAdd, onChanged }: { onAdd: () => void; onChan
   const review=useRef<HTMLElement>(null);
   const owner=session?.user.id??"guest";
   const [input,setInputValue]=useState(()=>typeof window==="undefined"?"":readComposeDraft(owner));
-  const setInput=(value:string)=>{setInputValue(value);saveComposeDraft(owner,value);};
+  const inputValue=useRef(input);
+  const activeOwner=useRef<string|null>(null);
+  const [readyOwner,setReadyOwner]=useState<string|null>(null);
+  const setInput=(value:string)=>{if(activeOwner.current!==owner)return;inputValue.current=value;setInputValue(value);saveComposeDraft(owner,value);};
   const textbox=useRef<HTMLTextAreaElement>(null);
   const [needsAccount,setNeedsAccount]=useState(false);
-  useEffect(()=>{const id=session?.user.id;if(!id)return;const timer=setTimeout(()=>{const restored=claimGuestDraft();if(restored){setInputValue(restored);saveComposeDraft(id,restored);}},0);return()=>clearTimeout(timer);},[session?.user.id]);
   useEffect(()=>{const box=textbox.current;if(box){box.style.height="auto";box.style.height=`${Math.min(144,Math.max(44,box.scrollHeight))}px`;}},[input]);
   const [reply,setReply]=useState(""),[status,setStatus]=useState(""),[pending,setPending]=useState(false);
   const sending=useRef(false);
+  const request=useRef<AbortController|null>(null);
   const [fallbackReason,setFallbackReason]=useState<unknown>();
   const [draft,setDraft]=useState<Draft|null>(null),[edit,setEdit]=useState<Plan|null>(null),[conversationId,setConversationId]=useState<string>();
   const [candidates,setCandidates]=useState<PlanningItem[]>([]),[mode,setMode]=useState("local"),[external,setExternal]=useState(false),[online,setOnline]=useState(false),[voiceBusy,setVoiceBusy]=useState(false);
+  useEffect(()=>{
+    request.current?.abort();request.current=null;sending.current=false;activeOwner.current=null;
+    const timer=setTimeout(()=>{
+      const saved=readComposeDraft(owner),handoff=owner==="guest"?"":claimGuestDraft();
+      const restored=saved||handoff;
+      inputValue.current=restored;setInputValue(restored);
+      if(!saved&&handoff)saveComposeDraft(owner,handoff);
+      setPending(false);setNeedsAccount(false);setAttempted(false);setReply("");setStatus("");setFallbackReason(undefined);
+      setDraft(null);setEdit(null);setConversationId(undefined);setCandidates([]);setMode("local");setExternal(false);setOnline(false);setVoiceBusy(false);
+      activeOwner.current=owner;setReadyOwner(owner);
+    },0);
+    return()=>{clearTimeout(timer);activeOwner.current=null;request.current?.abort();request.current=null;sending.current=false;};
+  },[owner]);
   useEffect(()=>{if(draft)review.current?.scrollIntoView({block:"start"});},[draft]);
   const editing=Boolean(edit);
   useEffect(()=>{const viewport=window.visualViewport;let frame=0;const resize=()=>{
@@ -39,35 +56,43 @@ export function AgentAssistant({ onAdd, onChanged }: { onAdd: () => void; onChan
       if(editor)root.style.setProperty("--editor-available",`${Math.max(80,(viewport?.height??window.innerHeight)+(viewport?.offsetTop??0)-editor.getBoundingClientRect().top-96)}px`);
     });
   };resize();viewport?.addEventListener("resize",resize);return()=>{cancelAnimationFrame(frame);viewport?.removeEventListener("resize",resize);};},[draft,editing]);
-  useEffect(()=>{if(!session)return;let active=true;void fetch("/api/integrations",{cache:"no-store"}).then(r=>r.json()).then(b=>{if(active){setOnline(b.data?.llm?.mode==="configured");}}).catch(()=>{});return()=>{active=false;};},[session]);
+  useEffect(()=>{if(!session||readyOwner!==owner)return;let active=true;void fetch("/api/integrations",{cache:"no-store"}).then(r=>r.json()).then(b=>{if(active){setOnline(b.data?.llm?.mode==="configured");}}).catch(()=>{});return()=>{active=false;};},[session,owner,readyOwner]);
   async function send(event:FormEvent) {
     event.preventDefault();if(!voiceBusy)await sendMessage(input,external);
   }
   async function sendMessage(message:string,externalConsent=false) {
-    if(!message.trim()||pending||sending.current)return;if(!session){setNeedsAccount(true);return;}sending.current=true;setNeedsAccount(false);setPending(true);setStatus("");setAttempted(false);
+    if(activeOwner.current!==owner||!message.trim()||pending||sending.current||request.current)return;if(!session){setNeedsAccount(true);return;}sending.current=true;setNeedsAccount(false);setPending(true);setStatus("");setAttempted(false);
+    const controller=new AbortController();request.current=controller;
+    const timeout=setTimeout(()=>controller.abort(),35000);
     try {
-      const response=await fetch("/api/agent",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({message,conversationId,draftId:draft?.id,revision:draft?.revision,externalConsent}),signal:AbortSignal.timeout(35000)});
-      const body=await response.json();if(!response.ok)throw new Error(body.error);
-      setReply(body.data.reply);setDraft(body.data.draft);setConversationId(body.data.conversationId);setCandidates(body.data.candidates);setMode(body.data.mode);setFallbackReason(body.data.fallbackReason);setInput("");setEdit(null);
-    }catch(error){setStatus(error instanceof Error?error.message:"ارتباط قطع شد؛ دوباره تلاش کن.");}finally{sending.current=false;setPending(false);}
+      const response=await fetch("/api/agent",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({message,conversationId,draftId:draft?.id,revision:draft?.revision,externalConsent}),signal:controller.signal});
+      const body=await response.json();if(request.current!==controller)return;if(controller.signal.aborted)throw new Error("پاسخ به‌موقع دریافت نشد؛ دوباره تلاش کن.");if(!response.ok)throw new Error(body.error);
+      setReply(body.data.reply);setDraft(body.data.draft);setConversationId(body.data.conversationId);setCandidates(body.data.candidates);setMode(body.data.mode);setFallbackReason(body.data.fallbackReason);if(inputValue.current===message)setInput("");setEdit(null);
+    }catch(error){if(request.current===controller)setStatus(error instanceof Error?error.message:"ارتباط قطع شد؛ دوباره تلاش کن.");}finally{clearTimeout(timeout);if(request.current===controller){request.current=null;sending.current=false;setPending(false);}}
   }
   async function act(action:"edit"|"confirm"|"cancel") {
-    if(!draft||pending||voiceBusy)return;
+    if(activeOwner.current!==owner||!draft||pending||voiceBusy||request.current)return;
     if(action==="confirm"&&draft.preview.questions.length){setAttempted(true);setEdit(structuredClone(draft.plan));setStatus(draft.preview.questions[0]);return;}
     setPending(true);setStatus("");
+    const controller=new AbortController();request.current=controller;
+    const timeout=setTimeout(()=>controller.abort(),20000);
     try {
-      const response=await fetch(`/api/agent/drafts/${draft.id}`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action,revision:draft.revision,...(action==="edit"?{plan:edit}:action==="confirm"?{confirmed:true}:{})}),signal:AbortSignal.timeout(20000)});
-      const body=await response.json();if(!response.ok)throw new Error(body.error);
+      const response=await fetch(`/api/agent/drafts/${draft.id}`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action,revision:draft.revision,...(action==="edit"?{plan:edit}:action==="confirm"?{confirmed:true}:{})}),signal:controller.signal});
+      const body=await response.json();if(request.current!==controller)return;if(controller.signal.aborted)throw new Error("نتیجه ثبت مشخص نشد؛ تأیید دوباره مورد تکراری نمی‌سازد.");if(!response.ok)throw new Error(body.error);
       if(action==="edit"){setDraft(body.data);setEdit(null);setStatus("پیش‌نمایش تازه آماده است؛ آن را دوباره تأیید کن.");}
       else if(action==="cancel"){setDraft(null);setEdit(null);setStatus("پیشنهاد لغو شد؛ چیزی ثبت یا زمان‌بندی نشد.");}
       else {
-        setDraft(null);setEdit(null);let native="";
+        setDraft(null);setEdit(null);let native="",cancellation="";
+        try{await cancelDeviceRemindersFromResponse(body.data);}catch{cancellation="تغییر ذخیره شد، اما لغو هشدار قبلی گوشی تأیید نشد؛ دوباره همگام‌سازی کن.";}
+        if(request.current!==controller)return;
         try{native=await syncApprovedDeviceReminders();}catch{native="ثبت انجام شد، اما تنظیم Notification انجام نشد؛ دوباره بررسی کن.";}
-        setStatus(`${body.data.message} ${body.data.remindersScheduled} یادآوری سرور زمان‌بندی شد. ${body.data.devicePending?native:""}`);await onChanged();
+        if(request.current!==controller)return;
+        setStatus(`${body.data.message} ${body.data.remindersScheduled} یادآوری سرور زمان‌بندی شد. ${cancellation} ${body.data.devicePending?native:""}`);await onChanged();
       }
-    }catch(error){setStatus(error instanceof Error?error.message:"پاسخ دریافت نشد؛ تأیید دوباره مورد تکراری نمی‌سازد.");}finally{setPending(false);}
+    }catch(error){if(request.current===controller)setStatus(error instanceof Error?error.message:"پاسخ دریافت نشد؛ تأیید دوباره مورد تکراری نمی‌سازد.");}finally{clearTimeout(timeout);if(request.current===controller){request.current=null;setPending(false);}}
   }
   function change<K extends keyof Plan>(key:K,value:Plan[K]){if(edit)setEdit({...edit,[key]:value});}
+  if(readyOwner!==owner)return <section className="assistant-panel" role="status">در حال آماده‌سازی گفتگو…</section>;
   const p=edit??draft?.plan;
   const summary=p?approvalSummary(p):null;
   const fieldError=(pattern:RegExp)=>attempted&&draft?.preview.questions.find(q=>pattern.test(q));

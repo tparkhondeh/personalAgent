@@ -25,6 +25,34 @@ beforeEach(() => {
 afterEach(()=>{vi.unstubAllGlobals();});
 const makeAlarm=(id:string,at:number)=>({id,taskId:"task1",title:"برنامه",scheduledFor:new Date(at).toISOString(),attemptNumber:1,level:"ANDROID_ALARM" as const});
 describe("connected native alarm adapters",()=>{
+  it("cannot acknowledge a revoked original ID through another alarm's colliding numeric receipt",async()=>{
+    const {syncNativeEscalationAlarms,cancelNativeEscalationAlarms}=await import("./native-escalations");
+    const retained=makeAlarm("costarring",Date.now()+60000), cancelled=makeAlarm("liquid",Date.now()+60000);
+    await syncNativeEscalationAlarms([retained]);
+    await cancelNativeEscalationAlarms([cancelled.id]);
+    await expect(syncNativeEscalationAlarms([cancelled,retained])).rejects.toThrow("Conflicting native alarm identities");
+    expect(f.pending).toHaveLength(1);expect(f.pending[0].extra?.attemptId).toBe("costarring");
+    expect((await syncNativeEscalationAlarms([retained])).acceptedIds).toEqual(["costarring"]);
+  });
+  it("uses mutation receipts to cancel approved and urgent alarms even when the network is down",async()=>{
+    const {syncApprovedDeviceReminders}=await import("./approved-device-reminders");
+    const {syncNativeEscalationAlarms}=await import("./native-escalations");
+    const {cancelDeviceRemindersFromResponse}=await import("./device-cancellation");
+    vi.stubGlobal("fetch",vi.fn(async()=>({ok:true,json:async()=>({data:[{id:"approved",title:"ساختگی",scheduledFor:new Date(Date.now()+60000).toISOString(),channel:"ALARM"}]})})));
+    await syncApprovedDeviceReminders();
+    await syncNativeEscalationAlarms([makeAlarm("urgent",Date.now()+60000),makeAlarm("other-task",Date.now()+60000)]);
+    vi.stubGlobal("fetch",vi.fn(async()=>{throw new Error("offline");}));
+    const receipt={meta:{cancelledDeviceReminderIds:["approved"],cancelledEscalationAttemptIds:["urgent"]}};
+    await cancelDeviceRemindersFromResponse(receipt);await cancelDeviceRemindersFromResponse(receipt);
+    expect(f.pending).toHaveLength(1);expect(f.pending[0].extra?.attemptId).toBe("other-task");
+    expect(fetch).not.toHaveBeenCalled();
+  });
+  it("never interprets missing or malformed cancellation receipts as successful native cancellation",async()=>{
+    const {cancelDeviceRemindersFromResponse}=await import("./device-cancellation");
+    await expect(cancelDeviceRemindersFromResponse({data:{}})).rejects.toThrow("Missing");
+    await expect(cancelDeviceRemindersFromResponse({meta:{cancelledDeviceReminderIds:[123],cancelledEscalationAttemptIds:[]}})).rejects.toThrow("Invalid");
+    expect(f.notifications.cancel).not.toHaveBeenCalled();
+  });
   it("account-boundary cleanup includes both private alarm owners and rejects a late JSON response",()=>{
     const source=readFileSync("src/components/personal-agent-dashboard.tsx","utf8");
     expect(source).toContain("Promise.allSettled([clearApprovedDeviceReminders(),clearNativeEscalationAlarms()])");

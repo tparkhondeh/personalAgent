@@ -11,6 +11,7 @@ overrides:
 
 patchedDependencies:
   '@capacitor/android@8.5.0': b522f3b1d92b17b18974cbed523f86ad74c25bd45554ed4bf85419ee801dbd85
+  '@capacitor/local-notifications@8.3.1': 2d69c50c7efa987f7257e733487094237e1ad606eda93188a0e4e023e41ec9a6
 
 importers:
 
@@ -33,7 +34,7 @@ importers:
         version: 8.5.0
       '@capacitor/local-notifications':
         specifier: 8.3.1
-        version: 8.3.1(@capacitor/core@8.5.0)
+        version: 8.3.1(patch_hash=2d69c50c7efa987f7257e733487094237e1ad606eda93188a0e4e023e41ec9a6)(@capacitor/core@8.5.0)
       '@libsql/client':
         specifier: ^0.17.4
         version: 0.17.4
@@ -4026,7 +4027,7 @@ snapshots:
     dependencies:
       tslib: 2.8.1
 
-  '@capacitor/local-notifications@8.3.1(@capacitor/core@8.5.0)':
+  '@capacitor/local-notifications@8.3.1(patch_hash=2d69c50c7efa987f7257e733487094237e1ad606eda93188a0e4e023e41ec9a6)(@capacitor/core@8.5.0)':
     dependencies:
       '@capacitor/core': 8.5.0
 

@@ -34,7 +34,13 @@ for (const kind of ["tasks", "meetings"]) {
   assert.equal((await request(path, "POST", body, key, "https://foreign.example")).status, 403); checks++;
   assert.equal((await request(`${path}/${original.id}`, "PATCH", { status: "DONE" })).status, 200);
   assert.equal((await (await request(path, "POST", body, key)).json()).data.status, "DONE"); checks++;
-  assert.equal((await request(`${path}/${original.id}`, "DELETE")).status, 204);
+  const removed = await request(`${path}/${original.id}`, "DELETE");
+  assert.equal(removed.status, 200);
+  const deletionReceipt = await removed.json();
+  assert(Array.isArray(deletionReceipt.meta.cancelledDeviceReminderIds));
+  const deletionRetry = await request(`${path}/${original.id}`, "DELETE");
+  assert.equal(deletionRetry.status, 200);
+  assert.deepEqual(await deletionRetry.json(), deletionReceipt); checks += 3;
   // Soft cancellation is never undone; hard deletion must fail, never recreate.
   const afterDelete = await request(path, "POST", body, key);
   assert([201, 409].includes(afterDelete.status));
@@ -52,6 +58,6 @@ for (const kind of ["tasks", "meetings"]) {
   assert.equal(ids.size, 1); assert.equal((await (await request(path)).json()).data.length, before + 1); checks += 2;
   const parallelId = [...ids][0];
   assert.equal((await request(`${path}/${parallelId}`, "PATCH", { status: "DONE" })).status, 200);
-  assert.equal((await request(`${path}/${parallelId}`, "DELETE")).status, 204);
+  assert.equal((await request(`${path}/${parallelId}`, "DELETE")).status, 200);
 }
 console.log(JSON.stringify({ passed: true, checks, syntheticDataRetained: true, externalProvidersInvoked: false }));

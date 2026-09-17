@@ -12,6 +12,7 @@ export type DeviceAlarmRequest = {
   iconColor?: string;
 };
 export type PendingDeviceAlarm = { id: number; extra?: Record<string, unknown> };
+export type DeviceAlarmCancellation = { id: number; extra?: Record<string, string> };
 export type ScheduledDeviceAlarm = Omit<DeviceAlarmRequest, "at" | "alarm"> & {
   channelId: string; sound?: string; smallIcon: string; autoCancel: boolean;
   schedule: { at: Date; allowWhileIdle: boolean };
@@ -28,6 +29,7 @@ export type DeviceAlarmSchedulerPort = {
 };
 export function createDeviceAlarmScheduler(port: DeviceAlarmSchedulerPort) {
   let generation = 0;
+  const revoked: DeviceAlarmCancellation[] = [];
   let queue: Promise<unknown> = Promise.resolve();
   const now = port.now ?? Date.now;
   const enqueue = <T>(action: () => Promise<T>): Promise<T> => {
@@ -35,9 +37,12 @@ export function createDeviceAlarmScheduler(port: DeviceAlarmSchedulerPort) {
     queue = next.catch(() => {});
     return next;
   };
-  const cancelOwned = async () => {
+  const matches = (item: PendingDeviceAlarm, receipt: DeviceAlarmCancellation) => item.id === receipt.id &&
+    Object.entries(receipt.extra ?? {}).every(([key, value]) => item.extra?.[key] === value);
+  const isRevoked = (item: PendingDeviceAlarm) => revoked.some(receipt => matches(item, receipt));
+  const cancelOwned = async (receipts?: DeviceAlarmCancellation[]) => {
     const pending = await port.getPending();
-    const owned = pending.notifications.filter(item => item.extra?.owner === port.owner);
+    const owned = pending.notifications.filter(item => item.extra?.owner === port.owner && (!receipts || receipts.some(receipt => matches(item, receipt))));
     if (owned.length) await port.cancel({ notifications: owned.map(({ id }) => ({ id })) });
   };
   return {
@@ -51,6 +56,7 @@ export function createDeviceAlarmScheduler(port: DeviceAlarmSchedulerPort) {
         if (current !== generation) return invalidated();
         const unique = new Map<number, DeviceAlarmRequest>();
         for (const request of requests) {
+          if (isRevoked(request)) continue;
           if (!Number.isInteger(request.id) || request.id < 1 || request.id > 2147483647 || !Number.isFinite(request.at)) {
             throw new Error("Invalid device reminder");
           }
@@ -76,17 +82,21 @@ export function createDeviceAlarmScheduler(port: DeviceAlarmSchedulerPort) {
         const existing = new Set(owned.map(item => item.id));
         result.acceptedIds = [...unique.keys()].filter(id => existing.has(id));
         result.retained = result.acceptedIds.length;
+        const retainedResult = () => {
+          const acceptedIds = result.acceptedIds.filter(id => !isRevoked(unique.get(id)!));
+          return { ...result, acceptedIds, retained: acceptedIds.length };
+        };
         const missing = [...unique.values()].filter(item => !existing.has(item.id) && item.at > now());
         // No channel/permission/settings work for retained or expired schedules.
-        if (!missing.length) return result;
+        if (!missing.length) return retainedResult();
         const permissions = await port.checkPermissions();
         if (current !== generation) return invalidated();
-        if (permissions.display !== "granted") return { ...result, permissionRequired: true };
+        if (permissions.display !== "granted") return { ...retainedResult(), permissionRequired: true };
         const alarm = missing.some(item => item.alarm) ? await port.prepareAlarm() : undefined;
         if (current !== generation) return invalidated();
         const notification = missing.some(item => !item.alarm) ? await port.prepareNotification() : undefined;
         if (current !== generation) return invalidated();
-        const notifications = missing.filter(item => item.at > now()).map(({ at, alarm: isAlarm, extra, ...item }) => ({
+        const notifications = missing.filter(item => item.at > now() && !isRevoked(item)).map(({ at, alarm: isAlarm, extra, ...item }) => ({
           ...item, channelId: isAlarm ? alarm!.channelId : notification!,
           ...(isAlarm ? { sound: alarm!.sound } : {}),
           smallIcon: "ic_stat_hamrah", autoCancel: true,
@@ -100,14 +110,28 @@ export function createDeviceAlarmScheduler(port: DeviceAlarmSchedulerPort) {
         } finally {
           // clear() must not await a stalled fetch/native call. Remove any late or
           // partially accepted native writes when that old call finally settles.
-          if (current !== generation && notifications.length) {
-            await port.cancel({ notifications: notifications.map(({ id }) => ({ id })) });
+          const late = notifications.filter(item => current !== generation || isRevoked(item));
+          if (late.length) {
+            await port.cancel({ notifications: late.map(({ id }) => ({ id })) });
           }
         }
         if (current !== generation) return invalidated();
-        return { ...result, scheduled: notifications.length,
-          acceptedIds: [...result.acceptedIds, ...notifications.map(item => item.id)], legacySound: alarm?.legacySound ?? false };
+        const retained = retainedResult();
+        const accepted = notifications.filter(item => !isRevoked(item));
+        return { ...retained, scheduled: accepted.length,
+          acceptedIds: [...retained.acceptedIds, ...accepted.map(item => item.id)], legacySound: alarm?.legacySound ?? false };
       });
+    },
+    cancelIds(ids: (number | DeviceAlarmCancellation)[]) {
+      const receipts = ids.map(id => typeof id === "number" ? { id } : id);
+      if (receipts.some(row => !Number.isInteger(row.id) || row.id < 1 || row.id > 2147483647)) return Promise.reject(new Error("Invalid cancellation IDs"));
+      if (!receipts.length) return Promise.resolve();
+      // A scoped tombstone cancels late writes without deleting another task's
+      // newly scheduled alarm. Match original IDs too when numeric hashes collide.
+      revoked.push(...receipts);
+      const canceled = cancelOwned(receipts);
+      queue = Promise.allSettled([queue, canceled]).then(() => {});
+      return canceled;
     },
     clear() {
       ++generation;

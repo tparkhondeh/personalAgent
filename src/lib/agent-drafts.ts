@@ -2,6 +2,12 @@ import "server-only";
 import { db } from "@/lib/db";
 import { normalizePlanForReview, inspectPlan, planInstant, planOccurrences, plannedReminderTimes, type Plan, type PlanningItem } from "@/lib/agent-planner";
 import { planSchema } from "@/lib/agent-plan-schema";
+import { readAlertPolicy } from "@/lib/alert-policy";
+
+function normalizedAlertPolicy(value: string | null) {
+  const policy = readAlertPolicy(value);
+  return policy && JSON.stringify({ ...policy, channels: [...new Set(policy.channels)].sort(), reminderOffsets: [...new Set(policy.reminderOffsets)].sort((a, b) => a - b) });
+}
 
 export class DraftError extends Error { constructor(message: string, public status = 409) { super(message); } }
 export function previewPlan(plan: Plan, items: PlanningItem[], now = new Date()) {
@@ -69,6 +75,8 @@ export async function executeDraft(userId: string, id: string, revision: number)
     let entityId = plan.targetId;
     const entityIds: string[] = [];
     const policy = JSON.stringify(preview.policy);
+    const meta = { cancelledDeviceReminderIds: [] as string[], cancelledEscalationAttemptIds: [] as string[] };
+    let escalationScheduleChanged = false;
     if (plan.operation === "CREATE") {
       if (isTask) {
         entityId = (await tx.task.create({ data: { userId, title: plan.title, category: plan.category, priority: plan.priority, dueAt: instant, alertPolicy: policy } })).id;
@@ -92,9 +100,19 @@ export async function executeDraft(userId: string, id: string, revision: number)
       if (!entityId || !plan.targetUpdatedAt) throw new DraftError("ابتدا مورد موردنظر را انتخاب کن.", 422);
       const current = isTask ? await tx.task.findFirst({ where: { id: entityId, userId } }) : await tx.meeting.findFirst({ where: { id: entityId, userId } });
       if (!current || current.updatedAt.toISOString() !== plan.targetUpdatedAt) throw new DraftError("این مورد از زمان پیشنهاد تغییر کرده؛ دوباره بررسی کن.");
+      escalationScheduleChanged = isTask && plan.operation === "UPDATE" && (
+        ("dueAt" in current ? current.dueAt?.getTime() : undefined) !== instant?.getTime()
+        || current.priority !== plan.priority
+        || normalizedAlertPolicy(current.alertPolicy) !== normalizedAlertPolicy(policy)
+      );
+      // Capture original device IDs before cancellation; persist them with the execution receipt.
+      meta.cancelledDeviceReminderIds = (await tx.reminder.findMany({ where: { userId, ...(isTask ? { taskId: entityId } : { meetingId: entityId }), channel: { in: ["ALARM", "NATIVE"] } }, select: { id: true } })).map(row => row.id);
       await tx.reminder.updateMany({ where: { userId, ...(isTask ? { taskId: entityId } : { meetingId: entityId }), status: { in: ["PENDING", "DEVICE_PENDING", "PROCESSING"] } }, data: { status: "CANCELLED" } });
       if (isTask) {
-        await tx.escalationAttempt.updateMany({ where: { userId, taskId: entityId, status: { in: ["PENDING", "PROCESSING", "READY_FOR_DEVICE", "SCHEDULED"] } }, data: { status: "CANCELLED" } });
+        const cancelEscalation = plan.operation !== "UPDATE" || escalationScheduleChanged;
+        const activeStatuses = ["PENDING", "PROCESSING", "READY_FOR_DEVICE", "SCHEDULED"];
+        meta.cancelledEscalationAttemptIds = (await tx.escalationAttempt.findMany({ where: { userId, taskId: entityId, level: "ANDROID_ALARM", status: { in: cancelEscalation ? [...activeStatuses, "CANCELLED"] : ["CANCELLED"] } }, select: { id: true } })).map(row => row.id);
+        if (cancelEscalation) await tx.escalationAttempt.updateMany({ where: { userId, taskId: entityId, status: { in: activeStatuses } }, data: { status: "CANCELLED" } });
         await tx.task.update({ where: { id: entityId }, data: plan.operation === "UPDATE" ? { title: plan.title, category: plan.category, priority: plan.priority, dueAt: instant, alertPolicy: policy } : { status: plan.operation === "COMPLETE" ? "DONE" : "CANCELLED", completedAt: plan.operation === "COMPLETE" ? new Date() : null } });
       } else {
         if (plan.operation === "UPDATE") {
@@ -112,8 +130,8 @@ export async function executeDraft(userId: string, id: string, revision: number)
     const schedule = preview.schedule.filter((s, index, all) => all.findIndex(x => x.occurrence===s.occurrence && x.channel === s.channel && x.scheduledFor === s.scheduledFor) === index);
     if (schedule.length) await tx.reminder.createMany({ data: schedule.map(s => ({ userId, ...(isTask ? { taskId: entityIds[s.occurrence] } : { meetingId: entityIds[s.occurrence] }), scheduledFor: new Date(s.scheduledFor), channel: s.channel, status: ["ALARM", "NATIVE"].includes(s.channel) ? "DEVICE_PENDING" : "PENDING", idempotencyKey: `draft:${id}:${revision}:${s.occurrence}:${s.channel}:${s.scheduledFor}` })) });
     const message = plan.operation === "CREATE" ? `${entityIds.length} مورد تأییدشده ثبت شد.` : plan.operation === "UPDATE" ? "تغییرات تأییدشده ذخیره شد؛ هشدارهای قبلی سرور لغو شدند." : plan.operation === "COMPLETE" ? "مورد تکمیل شد؛ هشدارهای آینده سرور لغو شدند." : "مورد بایگانی شد؛ هشدارهای آینده سرور لغو شدند.";
-    const result = { entityId, entityIds, entity: plan.entity, operation: plan.operation, registered: true, remindersScheduled: schedule.filter(s => ["IN_APP", "PUSH"].includes(s.channel)).length, devicePending: schedule.filter(s => ["ALARM", "NATIVE"].includes(s.channel)).length, message: message + (plan.operation!=="CREATE"?" لغو هشدارهای قبلی گوشی پس از همگام‌سازی اپ انجام می‌شود.":""), push: plan.channels.includes("PUSH") ? "به اشتراک و اجازه اعلان دستگاه نیاز دارد؛ تحویل هنوز تأیید نشده است." : "درخواست نشده", calls: "غیرفعال", sms: "غیرفعال" };
-    await tx.auditLog.create({ data: { userId, action: `AGENT_${plan.operation}`, entityType: plan.entity, entityId, source: "CONFIRMED_AGENT", result: JSON.stringify({ draftId: id, revision, reminders: schedule.length }) } });
+    const result = { entityId, entityIds, entity: plan.entity, operation: plan.operation, registered: true, meta, remindersScheduled: schedule.filter(s => ["IN_APP", "PUSH"].includes(s.channel)).length, devicePending: schedule.filter(s => ["ALARM", "NATIVE"].includes(s.channel)).length, message: message + (plan.operation!=="CREATE"?" لغو هشدارهای قبلی گوشی پس از همگام‌سازی اپ انجام می‌شود.":""), push: plan.channels.includes("PUSH") ? "به اشتراک و اجازه اعلان دستگاه نیاز دارد؛ تحویل هنوز تأیید نشده است." : "درخواست نشده", calls: "غیرفعال", sms: "غیرفعال" };
+    await tx.auditLog.create({ data: { userId, action: `AGENT_${plan.operation}`, entityType: plan.entity, entityId, source: "CONFIRMED_AGENT", result: JSON.stringify({ draftId: id, revision, reminders: schedule.length, ...(escalationScheduleChanged ? { escalationScheduleChanged: true } : {}) }) } });
     await tx.agentDraft.update({ where: { id }, data: { status: "EXECUTED", result: JSON.stringify(result) } });
     return result;
   });

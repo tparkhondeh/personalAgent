@@ -63,7 +63,6 @@ public class TiaAlarmSoundsPlugin extends Plugin {
 
     @PluginMethod
     public void getSelection(PluginCall call) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) { call.unavailable("Alarm sound channels require Android 8 or later"); return; }
         try { String id = selection(); requireAsset(id); call.resolve(new JSObject().put("soundId", id)); }
         catch (Exception error) { call.reject("Saved alarm sound is unavailable"); }
     }
@@ -82,13 +81,12 @@ public class TiaAlarmSoundsPlugin extends Plugin {
 
     @PluginMethod
     public synchronized void ensureChannel(PluginCall call) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) { call.unavailable("Alarm sound channels require Android 8 or later"); return; }
         try {
             String id = selection(); requireAsset(id);
             NotificationManager manager = getContext().getSystemService(NotificationManager.class);
             if (manager == null) { call.reject("Notification settings unavailable"); return; }
             String channelId = channelId(id);
-            if (manager.getNotificationChannel(channelId) == null) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && manager.getNotificationChannel(channelId) == null) {
                 NotificationChannel channel = new NotificationChannel(channelId, "زنگ tia — " + label(id), NotificationManager.IMPORTANCE_HIGH);
                 channel.setDescription("زنگ‌های جدید با صدای " + label(id));
                 channel.setLockscreenVisibility(Notification.VISIBILITY_PRIVATE);
@@ -96,6 +94,9 @@ public class TiaAlarmSoundsPlugin extends Plugin {
                 channel.setSound(soundUri(id), alarmAttributes());
                 manager.createNotificationChannel(channel);
             }
+            // API24/25 have no OS channels. This identifier selects STREAM_ALARM
+            // in the versioned LocalNotifications patch; the selected sound is
+            // still supplied per notification. This does not claim delivery or permission.
             // Never delete/recreate channels or override the user's channel settings.
             call.resolve(new JSObject().put("soundId", id).put("channelId", channelId));
         } catch (Exception error) { call.reject("Alarm sound channel could not be prepared"); }

@@ -24,6 +24,9 @@ export async function clearApprovedDeviceReminders() {
   if (isNativeAndroid()) await scheduler.clear();
   return "";
 }
+export async function cancelApprovedDeviceReminders(ids: string[]) {
+  if (isNativeAndroid()) await scheduler.cancelIds(ids.map(id => ({ id: nativeNotificationId(id), extra: { reminderId: id } })));
+}
 type ApprovedReminder = { id: string; title: string; scheduledFor: string; channel: "ALARM" | "NATIVE" };
 function validReminder(value: unknown): value is ApprovedReminder {
   if (!value || typeof value !== "object") return false;

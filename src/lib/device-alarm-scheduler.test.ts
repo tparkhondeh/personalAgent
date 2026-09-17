@@ -86,6 +86,86 @@ describe("stable device alarm reconciliation", () => {
     expect(await f.scheduler.sync(async()=>[request(1),request(2),request(3,true,1)])).toMatchObject({scheduled:0,acceptedIds:[1],permissionRequired:true});
     expect(f.port.prepareAlarm).not.toHaveBeenCalled();
   });
+  it("cancels completed IDs immediately despite stalled refresh, preserving unrelated alarms", async () => {
+    const f=fixture();
+    await f.scheduler.sync(async()=>[request(1),request(2)]);
+    f.setPending([...f.pending(),{id:3,extra:{owner:"other"}}]);
+    let release!:(rows:DeviceAlarmRequest[])=>void;
+    const stalled=new Promise<DeviceAlarmRequest[]>(r=>{release=r;});
+    const syncing=f.scheduler.sync(()=>stalled);await Promise.resolve();
+    await f.scheduler.cancelIds([1,3]);
+    expect(f.pending().map(n=>n.id)).toEqual([2,3]);
+    release([request(1),request(2)]);
+    expect(await syncing).toMatchObject({acceptedIds:[2],retained:1,scheduled:0});
+    expect(f.pending().map(n=>n.id)).toEqual([2,3]);
+    await f.scheduler.cancelIds([1]);
+    expect(f.pending().map(n=>n.id)).toEqual([2,3]);
+  });
+  it("scoped cancellation removes a late native write but leaves previously retained tasks", async () => {
+    const f=fixture();await f.scheduler.sync(async()=>[request(2)]);
+    let release!:()=>void;let entered!:()=>void;
+    const started=new Promise<void>(r=>{entered=r;});const wait=new Promise<void>(r=>{release=r;});
+    f.port.schedule.mockImplementationOnce(async({notifications})=>{entered();await wait;f.setPending([...f.pending(),...notifications]);});
+    const syncing=f.scheduler.sync(async()=>[request(1),request(2)]);await started;
+    await f.scheduler.cancelIds([1]);release();
+    expect(await syncing).toMatchObject({acceptedIds:[2],retained:1,scheduled:0});expect(f.pending().map(n=>n.id)).toEqual([2]);
+  });
+  it.each([false,true])("scoped cancellation preserves unrelated late writes, including rejected replies: %s", async reject => {
+    const f=fixture();await f.scheduler.sync(async()=>[request(3)]);
+    f.setPending([...f.pending(),{id:4,extra:{owner:"other"}}]);
+    let release!:()=>void,entered!:()=>void;
+    const started=new Promise<void>(r=>{entered=r;}),wait=new Promise<void>(r=>{release=r;});
+    f.port.schedule.mockImplementationOnce(async({notifications})=>{
+      entered();await wait;f.setPending([...f.pending(),...notifications]);
+      if(reject)throw new Error("lost reply");
+    });
+    const syncing=f.scheduler.sync(async()=>[request(1),request(2),request(3)]);
+    const settled=syncing.then(result=>({result,error:null}),error=>({result:null,error}));
+    await started;await f.scheduler.cancelIds([{id:1,extra:{attemptId:"attempt-1"}}]);release();
+    const outcome=await settled;
+    if(reject)expect(outcome.error).toEqual(new Error("lost reply"));
+    else expect(outcome.result).toMatchObject({acceptedIds:[3,2],retained:1,scheduled:1});
+    expect(f.pending().map(n=>n.id).sort()).toEqual([2,3,4]);
+    expect((await f.scheduler.sync(async()=>[request(1),request(2),request(3)])).acceptedIds).toEqual([2,3]);
+    expect(f.port.schedule).toHaveBeenCalledTimes(2);
+  });
+  it.each(["attemptId","reminderId"])("matches original %s when numeric cancellation IDs collide", async key => {
+    const f=fixture(),id=1582148253;
+    const retained={...request(id),extra:{[key]:"costarring"}};
+    const revoked={...request(id),extra:{[key]:"liquid"}};
+    await f.scheduler.sync(async()=>[retained]);
+    await f.scheduler.cancelIds([{id,extra:{[key]:"liquid"}}]);
+    expect(f.port.cancel).not.toHaveBeenCalled();
+    expect(await f.scheduler.sync(async()=>[revoked,retained])).toMatchObject({acceptedIds:[id],retained:1,scheduled:0});
+    expect(f.pending()[0].extra?.[key]).toBe("costarring");
+    await f.scheduler.cancelIds([{id,extra:{[key]:"costarring"}}]);
+    expect(f.pending()).toEqual([]);
+  });
+  it.each(["pending-read","obsolete-cancel"])("does not acknowledge revoked retained IDs after awaiting %s with no missing alarms", async phase => {
+    const f=fixture();await f.scheduler.sync(async()=>[request(1),request(2),...(phase==="obsolete-cancel"?[request(9)]:[])]);
+    let release!:()=>void,entered!:()=>void;
+    const started=new Promise<void>(r=>{entered=r;}),wait=new Promise<void>(r=>{release=r;});
+    if(phase==="pending-read")f.port.getPending.mockImplementationOnce(async()=>{
+      const snapshot=f.pending().slice();entered();await wait;return {notifications:snapshot};
+    });
+    else f.port.cancel.mockImplementationOnce(async({notifications})=>{
+      entered();await wait;f.setPending(f.pending().filter(n=>!notifications.some(x=>x.id===n.id)));
+    });
+    const syncing=f.scheduler.sync(async()=>[request(1),request(2)]);await started;
+    await f.scheduler.cancelIds([{id:1,extra:{attemptId:"attempt-1"}}]);release();
+    expect(await syncing).toMatchObject({acceptedIds:[2],retained:1,scheduled:0});
+    expect(f.pending().map(n=>n.id)).toEqual([2]);
+  });
+  it.each(["granted","denied"])("does not acknowledge revoked retained IDs after permission resolves %s", async display => {
+    const f=fixture();await f.scheduler.sync(async()=>[request(1),request(2)]);
+    let release!:(value:{display:string})=>void,entered!:()=>void;
+    const started=new Promise<void>(r=>{entered=r;});
+    f.port.checkPermissions.mockImplementationOnce(()=>{entered();return new Promise(r=>{release=r;});});
+    const syncing=f.scheduler.sync(async()=>[request(1),request(2),request(3)]);await started;
+    await f.scheduler.cancelIds([{id:1,extra:{attemptId:"attempt-1"}}]);release({display});
+    expect(await syncing).toMatchObject({acceptedIds:display==="granted"?[2,3]:[2],retained:1,scheduled:display==="granted"?1:0,permissionRequired:display==="denied"});
+    expect(f.pending().map(n=>n.id)).toEqual(display==="granted"?[2,3]:[2]);
+  });
   it("clear invalidates a load in flight and queued sync, with no alarm left behind", async () => {
     const f=fixture();
     let resolve!:(rows:DeviceAlarmRequest[])=>void;

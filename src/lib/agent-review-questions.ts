@@ -8,11 +8,15 @@ const confirmationOnly = new Set([
   "می خواهید این برنامه را ثبت کنم",
   "آیا این پیش نویس را ثبت کنم",
 ]);
+// Only complete, standalone questions about fixed defaults are redundant.
+const fixedDefaultQuestions = new Set([
+  "مدت جلسه چقدر باشد", "مدت جلسه چند دقیقه باشد",
+  "ساعات سکوت چه زمانی باشد", "منطقه زمانی چیست",
+]);
 export function modelReviewQuestions(questions: string[], plan?: { date: string | null; time: string | null; entity: string } | null) {
   return questions.filter(question => {
-    if (/مدت|سکوت|منطقه زمانی/.test(question)) return false;
     const normalized = question.normalize("NFC").replace(/ي/g, "ی").replace(/ك/g, "ک").replace(/تایید/g, "تأیید").replace(/\u200c/g, " ").replace(/[؟?!.]+$/g, "").trim().replace(/\s+/g, " ");
-    if (confirmationOnly.has(normalized)) return false;
+    if (confirmationOnly.has(normalized) || fixedDefaultQuestions.has(normalized)) return false;
     const scheduledConfirmation = normalized.match(/^تأیید می کنید این (جلسه|کار) برای (\d{4}-\d{2}-\d{2}) ساعت (\d{2}:\d{2}) ایجاد شود[؟?]?(?: \(بله\/خیر یا بگویید مرتبط\/تکراری است\))?$/);
     if (scheduledConfirmation && plan && scheduledConfirmation[2] === plan.date && scheduledConfirmation[3] === plan.time && scheduledConfirmation[1] === (plan.entity === "MEETING" ? "جلسه" : "کار")) return false;
     return true;

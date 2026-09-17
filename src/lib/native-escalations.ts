@@ -67,6 +67,13 @@ export async function enableNativeEscalationAlarms() {
 
 export async function syncNativeEscalationAlarms(alarms: NativeEscalationAlarm[]) {
   if (!isNativeAndroid()) return { scheduled: 0, acceptedIds: [] as string[], native: false };
+  // A revoked original ID must not inherit another alarm's numeric receipt.
+  const originals = new Map<number, string>();
+  for (const alarm of alarms) {
+    const id = nativeNotificationId(alarm.id), previous = originals.get(id);
+    if (previous !== undefined && previous !== alarm.id) throw new Error("Conflicting native alarm identities");
+    originals.set(id, alarm.id);
+  }
   // Snapshot before queueing. Stable attempt IDs retain existing times and sounds.
   const notifications = alarms.map((alarm) => ({
     id: nativeNotificationId(alarm.id),
@@ -89,4 +96,7 @@ export async function syncNativeEscalationAlarms(alarms: NativeEscalationAlarm[]
 export async function clearNativeEscalationAlarms() {
   if (!isNativeAndroid()) return;
   await scheduler.clear();
+}
+export async function cancelNativeEscalationAlarms(ids: string[]) {
+  if (isNativeAndroid()) await scheduler.cancelIds(ids.map(id => ({ id: nativeNotificationId(id), extra: { attemptId: id } })));
 }

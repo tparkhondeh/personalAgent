@@ -6,6 +6,7 @@ import { createSubmissionController } from "./create-submission";
 import { readGuestItems, saveGuestItems, type GuestItem } from "./guest-items";
 import { persianParts, validTime24 } from "./persian-inputs";
 import { planInstant } from "./agent-planner";
+import { manualItemMoment } from "./web-calendar";
 
 // Execute the checked-in handlers with isolated storage/network/UI boundaries.
 // No copied implementation, browser dependency, application DB or generated assets.
@@ -25,9 +26,9 @@ function declaration(name: string): string {
 const handlerScript = ts.transpileModule(`
   ${["taskToItem", "meetingToItem", "itemMoment", "tehranIso"].map(declaration).join("\n")}
   function renderHandlers() {
-    const { items, guestStorageReady, signedIn, editing, preferences, session } = state;
-    ${["commitGuestItems", "closeComposer", "save", "loadRemote"].map(declaration).join("\n")}
-    return { save };
+    const { items, guestStorageReady, signedIn, editing, preferences, session, composer } = state;
+    ${["refreshGuestItems", "commitGuestItems", "closeComposer", "save", "loadRemote"].map(declaration).join("\n")}
+    return { save, closeComposer };
   }
   renderHandlers;
 `, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None } }).outputText;
@@ -48,8 +49,13 @@ function webFixture(signedIn = true, editing: GuestItem | null = null) {
   form.reset.mockImplementation(() => form.values.clear());
   const fetch = vi.fn(async (_url: string, init?: RequestInit) => Response.json({ data: init?.method ? { id: "created-id" } : [] }));
   const submission = { current: createSubmissionController(() => crypto.randomUUID()) };
+  const cancelAfterMutation = vi.fn<(response: Response) => Promise<void>>(async () => {});
+  const syncApprovedDeviceReminders = vi.fn(async () => "");
+  const guestSnapshot = { current: stored.raw };
+  const locks = { request: async (_name: string, _options: LockOptions, callback: LockGrantedCallback<unknown>) => callback({ name: "synthetic", mode: "exclusive" }) } as unknown as Pick<LockManager, "request">;
   const context: Record<string, unknown> = {
-    state, submission, fetch, localStorage, readGuestItems, saveGuestItems, crypto,
+    state, submission, guestSnapshot, fetch, localStorage, readGuestItems, crypto, cancelAfterMutation, syncApprovedDeviceReminders,
+    saveGuestItems: (store: Parameters<typeof saveGuestItems>[0], items: GuestItem[], expected: string | null | undefined) => saveGuestItems(store, items, expected, locks),
     persianParts, validTime24, planInstant,
     FormData: class { constructor(private input: typeof form) {} get(key: string) { return this.input.values.get(key); } },
     useCallback: (callback: unknown) => callback,
@@ -59,9 +65,9 @@ function webFixture(signedIn = true, editing: GuestItem | null = null) {
       Object.assign(state, { [field]: typeof value === "function" ? value(state[field]) : value });
     };
   }
-  const renderHandlers = vm.runInNewContext(handlerScript, context) as () => { save: (event: unknown) => Promise<void> };
+  const renderHandlers = vm.runInNewContext(handlerScript, context) as () => { save: (event: unknown) => Promise<void>; closeComposer: () => void };
   const submit = () => renderHandlers().save({ preventDefault: vi.fn(), currentTarget: form });
-  return { state, stored, form, fetch, submission, submit };
+  return { state, stored, form, fetch, submission, submit, cancelAfterMutation, syncApprovedDeviceReminders, close: () => renderHandlers().closeComposer() };
 }
 
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
@@ -120,6 +126,8 @@ describe("manual web save outcome", () => {
     expect(retry.headers).toEqual(first.headers); expect(retry.body).toBe(first.body);
     expect(f.state.manualSaveSuccess).toBe("done — ذخیره شد.");
     expect(f.submission.current.begin()).toBeNull();
+    expect(f.cancelAfterMutation).not.toHaveBeenCalled();
+    expect(f.syncApprovedDeviceReminders).toHaveBeenCalledOnce();
   });
 
   it.each([400, 401, 409, 503])("does not announce success or reset the form on HTTP %i", async status => {
@@ -147,6 +155,9 @@ describe("manual web save outcome", () => {
     const body = JSON.parse(init!.body as string);
     expect(body).not.toHaveProperty("status");
     if (source === "meeting") expect(Date.parse(body.endsAt) - Date.parse(body.startsAt)).toBe(90 * 60000);
+    expect(f.cancelAfterMutation).toHaveBeenCalledOnce();
+    expect(f.cancelAfterMutation.mock.calls[0][0].ok).toBe(true);
+    expect(f.syncApprovedDeviceReminders).toHaveBeenCalledOnce();
     expect(f.state).toMatchObject({ composer: false, view: "today", filter: "all" });
   });
 
@@ -177,6 +188,47 @@ describe("manual web save outcome", () => {
     expect(f.state.composer).toBe(true); expect(f.form.reset).not.toHaveBeenCalled();
     const pending = webFixture(false); pending.state.guestStorageReady = false;
     await pending.submit(); expect(pending.stored.raw).toBeNull();
+  });
+
+  it("retains a conflicting guest form and refreshes only after explicit close", async () => {
+    const f = webFixture(false);
+    const other: GuestItem = { id: "other-tab", title: "saved elsewhere", source: "task", category: "personal", priority: "normal", done: false };
+    f.stored.raw = JSON.stringify([other]);
+    await f.submit(); await f.submit();
+    expect(f.state).toMatchObject({ composer: true, saving: false, manualSaveSuccess: "" });
+    expect(f.form.values.get("title")).toBe("آزمون ثبت"); expect(f.form.reset).not.toHaveBeenCalled();
+    expect(f.state.message).toContain("پنجره دیگری");
+    expect(readGuestItems({ getItem: () => f.stored.raw }).items).toEqual([other]);
+    f.close(); expect(f.state.items).toEqual([other]);
+    f.state.composer = true; f.submission.current.reset(); await f.submit();
+    expect(readGuestItems({ getItem: () => f.stored.raw }).items.map(item => item.id)).toContain("other-tab");
+    expect(f.state.items).toHaveLength(2);
+  });
+
+  it.each([true, false])("preserves task start, deadline and unknown guest fields on title-only edit (online=%s)", async signedIn => {
+    const initial = { id: "separate-times", title: "old", source: "task", category: "personal", priority: "normal", done: false, startsAt: "2026-09-18T05:30:00.000Z", dueAt: "2026-09-18T14:30:00.000Z", legacy: "preserve" } as const;
+    const f = webFixture(signedIn, initial);
+    const deadline = manualItemMoment(initial)!;
+    f.form.values.set("date", deadline.slice(0, 10));
+    f.form.values.set("time", "18:00");
+    await f.submit();
+    if (signedIn) {
+      const body = JSON.parse(String(f.fetch.mock.calls[0][1]?.body));
+      expect(body.dueAt).toBe(initial.dueAt); expect(body).not.toHaveProperty("startAt");
+    } else expect(readGuestItems({ getItem: () => f.stored.raw }).items[0]).toMatchObject({ startsAt: initial.startsAt, dueAt: initial.dueAt, legacy: "preserve" });
+  });
+
+  it.each([true, false])("does not add a deadline to a start-only task (online=%s)", async signedIn => {
+    const initial: GuestItem = { id: "start-only", title: "old", source: "task", category: "personal", priority: "normal", done: false, startsAt: "2026-09-18T05:30:00.000Z" };
+    const f = webFixture(signedIn, initial);
+    f.form.values.set("date", manualItemMoment(initial) || ""); await f.submit();
+    if (signedIn) {
+      const body = JSON.parse(String(f.fetch.mock.calls[0][1]?.body));
+      expect(body.dueAt).toBeNull(); expect(body).not.toHaveProperty("startAt");
+    } else {
+      const saved = readGuestItems({ getItem: () => f.stored.raw }).items[0];
+      expect(saved.startsAt).toBe(initial.startsAt); expect(saved.dueAt).toBeUndefined();
+    }
   });
 
   it("renders separate accessible feedback and clears its timer after five seconds/unmount", () => {

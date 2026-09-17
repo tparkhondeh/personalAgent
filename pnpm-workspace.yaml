@@ -10,3 +10,4 @@ overrides:
   mysql2: 3.23.1
 patchedDependencies:
   '@capacitor/android@8.5.0': patches/@capacitor__android@8.5.0.patch
+  '@capacitor/local-notifications@8.3.1': patches/@capacitor__local-notifications@8.3.1.patch

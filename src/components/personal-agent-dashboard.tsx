@@ -13,7 +13,9 @@ import { enableNotificationsForDevice } from "@/lib/notification-access";
 import { defaultPreferences, PreferencesPanel, type UserPreferences } from "@/components/preferences-panel";
 import { NotificationCenter, type AppNotification } from "@/components/notification-center";
 import { buildEscalationPlan, defaultEscalationPolicy } from "@/lib/escalations";
-import { clearNativeEscalationAlarms, syncNativeEscalationAlarms, type NativeEscalationAlarm } from "@/lib/native-escalations";
+import { clearNativeEscalationAlarms, syncNativeEscalationAlarms, cancelNativeEscalationAlarms, isNativeAndroid, type NativeEscalationAlarm } from "@/lib/native-escalations";
+import { cancelDeviceRemindersFromResponse } from "@/lib/device-cancellation";
+import { startForegroundRefresh } from "@/lib/foreground-refresh";
 import { getDailyRumiSelection, getRumiSelection, rumiSelectionCount } from "@/lib/daily-rumi";
 import { createPoemNavigator, selectDashboardScope, selectDashboardItems, summarizeDashboardItems, tehranDayKey } from "@/lib/dashboard-overview";
 import { REMINDER_OFFSET_OPTIONS } from "@/lib/reminder-offsets";
@@ -22,6 +24,7 @@ import { ActionIcon } from "@/components/action-icon";
 import { fitProgramList } from "@/lib/list-viewport";
 import { clearApprovedDeviceReminders, syncApprovedDeviceReminders } from "@/lib/approved-device-reminders";
 import { readGuestItems, saveGuestItems, type GuestItem as Item } from "@/lib/guest-items";
+import { manualItemMoment, tehranWeek } from "@/lib/web-calendar";
 
 type Category = "personal" | "work" | "meeting";
 type Priority = "urgent" | "important" | "normal";
@@ -97,6 +100,7 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
   },[session?.user.id]);
   const [items, setItems] = useState<Item[]>([]);
   const [guestStorageReady, setGuestStorageReady] = useState(false);
+  const guestSnapshot = useRef<string | null | undefined>(undefined);
   const [view, setView] = useState<View>(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("view") === "assistant" ? "assistant" : "today");
   const [filter, setFilter] = useState<Category | "all">("all");
   const [composer, setComposer] = useState(false);
@@ -131,7 +135,7 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
     const timer = window.setTimeout(() => {
       if (!signedIn) {
         const saved = readGuestItems({ getItem: key => localStorage.getItem(key) });
-        if (saved.ok) { setItems(saved.items); setGuestStorageReady(true); }
+        if (saved.ok) { guestSnapshot.current = saved.snapshot; setItems(saved.items); setGuestStorageReady(true); }
         else setMessage("اطلاعات قبلی خوانده نشد؛ برای حفظ آن‌ها ذخیره محلی متوقف است. حافظه برنامه را پاک نکن.");
       }
       setHydrated(true);
@@ -165,13 +169,28 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
     return () => { window.clearTimeout(initial); window.clearInterval(timer); window.removeEventListener("focus", refresh); window.removeEventListener("storage", refresh); document.removeEventListener("visibilitychange", refresh); };
   }, []);
 
-  function commitGuestItems(next: Item[]) {
+  function refreshGuestItems() {
+    if (signedIn) return;
+    const saved = readGuestItems({ getItem: key => localStorage.getItem(key) });
+    if (saved.ok) { guestSnapshot.current = saved.snapshot; setItems(saved.items); setGuestStorageReady(true); }
+    else { setGuestStorageReady(false); setMessage("اطلاعات قبلی خوانده نشد؛ حافظه برنامه را پاک نکن."); }
+  }
+
+  async function commitGuestItems(next: Item[]) {
     if (signedIn) return false;
-    if (!guestStorageReady || !saveGuestItems({getItem:key=>localStorage.getItem(key),setItem:(key,value)=>localStorage.setItem(key,value)},next)) {
-      setGuestStorageReady(false);
+    if (!guestStorageReady) {
       setMessage("ذخیره روی این دستگاه انجام نشد؛ اطلاعات قبلی حفظ شده است. حافظه برنامه را پاک نکن.");
       return false;
     }
+    const result = await saveGuestItems({getItem:key=>localStorage.getItem(key),setItem:(key,value)=>localStorage.setItem(key,value)}, next, guestSnapshot.current);
+    if (!result.ok) {
+      if (result.reason === "conflict" || result.reason === "busy") {
+        setMessage(composer ? "برنامه‌ها در پنجره دیگری تغییر کرده‌اند؛ متن فرم حفظ شد. فرم را ببند و فهرست تازه را بررسی کن، سپس دوباره اقدام کن." : "برنامه‌ها در پنجره دیگری تغییر کرده‌اند؛ فهرست تازه را بررسی کن و دوباره اقدام کن.");
+        if (!composer) refreshGuestItems();
+      } else setMessage(result.reason === "unavailable" ? "مرورگر امکان ذخیره امن بین پنجره‌ها را ندارد؛ فرم و اطلاعات قبلی حفظ شده‌اند. برای ذخیره محلی از مرورگر به‌روز با اتصال امن استفاده کن." : "ذخیره روی این دستگاه انجام نشد؛ اطلاعات قبلی و فرم حفظ شده‌اند. حافظه برنامه را پاک نکن.");
+      return false;
+    }
+    guestSnapshot.current = result.snapshot;
     setItems(next);
     return true;
   }
@@ -190,8 +209,11 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
 
   useEffect(() => {
     if (!hydrated || (!signedIn && !guestStorageReady)) return;
-    let cancelled = false;
+    let cancelled = false, syncing = false;
     async function syncEscalations() {
+      if (cancelled || syncing) return;
+      syncing = true;
+      try {
       if (signedIn) {
         const response = await fetch("/api/escalations", { method: "POST" });
         if (!response.ok || cancelled) return;
@@ -224,9 +246,11 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
         scheduledFor: entry.scheduledFor.toISOString(),
       })));
       if (!cancelled) await syncNativeEscalationAlarms(alarms);
+      } finally { syncing = false; }
     }
     void syncEscalations().catch(() => undefined);
-    return () => { cancelled = true; };
+    const stopRefresh = isNativeAndroid() ? startForegroundRefresh(syncEscalations, window, document) : () => {};
+    return () => { cancelled = true; stopRefresh(); };
   }, [escalationRevision, hydrated, items, preferences, signedIn, guestStorageReady]);
 
   const loadNotifications = useCallback(async () => {
@@ -268,17 +292,27 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
   const activeItems = selectDashboardItems(items, "tasks");
   const open = activeItems.length;
 
+  async function cancelAfterMutation(response: Response) {
+    try { await cancelDeviceRemindersFromResponse(await response.json()); }
+    catch { setMessage("تغییر ذخیره شد، اما لغو زنگ گوشی تأیید نشد؛ اتصال و اعلان‌های گوشی را دوباره بررسی کن."); }
+  }
+  async function cancelGuestAlarms(item: Item) {
+    try { await cancelNativeEscalationAlarms(Array.from({ length: 6 }, (_, i) => `guest:${item.id}:${i + 1}`)); }
+    catch { setMessage("ذخیره انجام شد، اما لغو زنگ گوشی تأیید نشد؛ اعلان‌های گوشی را بررسی کن."); }
+  }
+
   async function toggle(item: Item) {
     const key = `${item.source}:${item.id}`;
     if (toggling.current.has(key)) return;
     toggling.current.add(key);
     const nextDone = !item.done;
     const matches = (candidate: Item) => candidate.id === item.id && candidate.source === item.source;
-    if (!signedIn) { commitGuestItems(items.map(candidate=>matches(candidate)?{...candidate,done:nextDone}:candidate)); toggling.current.delete(key); return; }
+    if (!signedIn) { try { if (await commitGuestItems(items.map(candidate=>matches(candidate)?{...candidate,done:nextDone}:candidate)) && nextDone) await cancelGuestAlarms(item); } finally { toggling.current.delete(key); } return; }
     setItems((all) => all.map((candidate) => matches(candidate) ? { ...candidate, done: nextDone } : candidate));
     try {
       const response = await fetch(`/api/${item.source === "meeting" ? "meetings" : "tasks"}/${item.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ status: nextDone ? "DONE" : item.source === "meeting" ? "SCHEDULED" : "TODO" }) });
       if (!response.ok) throw new Error("STATUS_UPDATE_FAILED");
+      await cancelAfterMutation(response);
       setEscalationRevision((value) => value + 1);
       void syncApprovedDeviceReminders().catch(() => {});
     } catch {
@@ -288,13 +322,16 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
   }
 
   async function remove(item: Item) {
-    if (!signedIn) { if (commitGuestItems(items.filter(candidate=>candidate.id!==item.id))) setPendingDelete(""); return; }
+    if (!signedIn) { if (await commitGuestItems(items.filter(candidate=>candidate.id!==item.id))) { setPendingDelete(""); await cancelGuestAlarms(item); } return; }
     const endpoint = item.source === "meeting" ? `/api/meetings/${item.id}` : `/api/tasks/${item.id}`;
     try {
       const response = await fetch(endpoint, { method: "DELETE" });
       if (!response.ok) throw new Error("DELETE_FAILED");
       setItems((all) => all.filter((candidate) => candidate.id !== item.id));
       setPendingDelete("");
+      await cancelAfterMutation(response);
+      setEscalationRevision((value) => value + 1);
+      void syncApprovedDeviceReminders().catch(() => {});
     } catch {
       setMessage("حذف انجام نشد؛ دوباره تلاش کن.");
     }
@@ -322,7 +359,7 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
   }
 
   function openComposer(item: Item | null = null, date?: string) { if (!submission.current.reset()) return; document.dispatchEvent(new Event("tia-cancel-voice")); setEditing(item); setComposerDate(date); setComposer(true); }
-  function closeComposer() { if (submission.current.isPending()) return; setEditing(null); setComposerDate(undefined); setComposer(false); }
+  function closeComposer() { if (submission.current.isPending()) return; setEditing(null); setComposerDate(undefined); setComposer(false); if (!signedIn) refreshGuestItems(); }
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -342,17 +379,16 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
     if (!signedIn) {
       if (!submission.current.begin()) return;
       setManualSaveSuccess("");
+      setSaving(true);
+      try {
       const duration = editing?.source === "meeting" && editing.startsAt && editing.endsAt ? (Date.parse(editing.endsAt)-Date.parse(editing.startsAt))/60000 : 60;
-      const nextItem: Item = { id: editing?.id || crypto.randomUUID(), title, category, priority, source: category === "meeting" ? "meeting" : "task", startsAt: category === "meeting" ? startsAt : undefined, endsAt: category === "meeting" && startsAt ? new Date(new Date(startsAt).getTime() + duration * 60_000).toISOString() : undefined, dueAt: category === "meeting" ? undefined : startsAt, done: editing?.done || false };
-      if (!commitGuestItems(editing ? items.map(item=>item.id===editing.id&&item.source===editing.source?nextItem:item) : [nextItem,...items])) {
-        submission.current.finish(false);
-        // A temporary write failure can be retried; unreadable/unhydrated data stays protected.
-        if (guestStorageReady) setGuestStorageReady(readGuestItems({ getItem: key => localStorage.getItem(key) }).ok);
-        return;
-      }
+      const nextItem: Item = { ...editing, id: editing?.id || crypto.randomUUID(), title, category, priority, source: category === "meeting" ? "meeting" : "task", startsAt: category === "meeting" ? startsAt : editing?.startsAt, endsAt: category === "meeting" && startsAt ? new Date(new Date(startsAt).getTime() + duration * 60_000).toISOString() : editing?.endsAt, dueAt: category === "meeting" ? undefined : startsAt, done: editing?.done || false };
+      if (!await commitGuestItems(editing ? items.map(item=>item.id===editing.id&&item.source===editing.source?nextItem:item) : [nextItem,...items])) return;
       submission.current.finish(true);
       form.reset(); closeComposer(); setFilter("all"); setView("today");
-      setManualSaveSuccess("done — فقط روی این دستگاه ذخیره شد."); return;
+      setManualSaveSuccess("done — فقط روی این دستگاه ذخیره شد.");
+      } finally { submission.current.finish(false); setSaving(false); }
+      return;
     }
     const isMeeting = category === "meeting";
     const duration = editing?.source === "meeting" && editing.startsAt && editing.endsAt ? (Date.parse(editing.endsAt)-Date.parse(editing.startsAt))/60000 : 60;
@@ -371,6 +407,8 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
       submission.current.finish(true);
       form.reset(); closeComposer(); setFilter("all"); setView("today");
       setManualSaveSuccess("done — ذخیره شد."); void loadRemote();
+      if (editing) await cancelAfterMutation(response);
+      void syncApprovedDeviceReminders().catch(() => {});
     } catch {
       setMessage("نتیجه ثبت مشخص نشد؛ همین فرم را بدون تغییر دوباره ثبت کن.");
     } finally { submission.current.finish(false); setSaving(false); }
@@ -421,7 +459,7 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
 
 function Composer({ initial, initialDate, defaultReminderOffsets, saving, error, onClose, onSubmit }: { initial: Item | null; initialDate?: string; defaultReminderOffsets: number[]; saving: boolean; error: string; onClose: () => void; onSubmit: (event: FormEvent<HTMLFormElement>) => void }) {
   const [category, setCategory] = useState<Category>(initial?.category || "personal");
-  const moment = initial ? itemMoment(initial) : undefined;
+  const moment = initial ? manualItemMoment(initial) : undefined;
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
     window.addEventListener("keydown", closeOnEscape);
@@ -437,8 +475,8 @@ function Assistant(props: { onAdd: () => void; onChanged: () => Promise<void> })
 function Calendar({ items: allItems, onEdit, onAdd }: { items: Item[]; onEdit: (item: Item) => void; onAdd: (date: string) => void }) {
   const items = selectDashboardItems(allItems, "tasks");
   const [weekOffset, setWeekOffset] = useState(0);
-  const today = new Date(); const daysSinceSaturday = (today.getDay() + 1) % 7; const weekStart = new Date(today); weekStart.setHours(12, 0, 0, 0); weekStart.setDate(today.getDate() - daysSinceSaturday + weekOffset * 7);
-  const week = Array.from({ length: 7 }, (_, index) => { const date = new Date(weekStart); date.setDate(weekStart.getDate() + index); return date; });
+  const today = new Date();
+  const week = tehranWeek(today, weekOffset);
   const monthTitle = new Intl.DateTimeFormat("fa-IR-u-ca-persian", { timeZone: "Asia/Tehran", month: "long", year: "numeric" }).format(week[3]);
   return <section className="calendar-card"><div className="card-heading"><div><h2>{monthTitle}</h2><p>برای ویرایش روی هر برنامه بزن؛ برای افزودن، روز موردنظر را انتخاب کن.</p></div><div className="calendar-controls"><button className="outline-button" onClick={() => setWeekOffset((value) => value - 1)}>هفته قبل</button><button className="outline-button" onClick={() => setWeekOffset(0)} disabled={weekOffset === 0}>امروز</button><button className="outline-button" onClick={() => setWeekOffset((value) => value + 1)}>هفته بعد</button></div></div><div className="week-grid">{week.map((date) => {
     const current = dateKey(date) === dateKey(today); const events = items.filter((item) => itemMoment(item) && dateKey(itemMoment(item)!) === dateKey(date));

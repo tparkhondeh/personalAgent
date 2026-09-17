@@ -14,4 +14,20 @@ describe("approval is not a missing field", () => {
     expect(modelReviewQuestions(questions)).toEqual(questions);
     expect(modelReviewQuestions(["می‌خواهید این پیش‌نویس تأیید و ساخته شود؟"])).toEqual([]);
   });
+  it.each([
+    "قرارداد کوتاه‌مدت را حذف کنم یا قرارداد بلندمدت؟",
+    "جلسه «سکوت» را تغییر بدهم یا جلسه فروش؟",
+    "کدام کار «بررسی منطقه زمانی» را تکمیل کنم؟",
+    "مدت جلسه چقدر باشد و کدام علی دعوت شود؟",
+    "منطقه زمانی چیست و جلسه برای چه روزی باشد؟",
+    "ساعات سکوت چه زمانی باشد؟ کدام جلسه را تغییر بدهم؟",
+  ])("preserves ambiguity even when it mentions a default field: %s", question => {
+    expect(modelReviewQuestions([question], { entity: "MEETING", date: "2026-09-17", time: "17:00" })).toEqual([question]);
+  });
+  it("omits only complete questions about fixed defaults", () => {
+    expect(modelReviewQuestions([
+      "مدت جلسه چقدر باشد؟", "مدت جلسه چند دقیقه باشد؟",
+      "ساعات سکوت چه زمانی باشد؟", "منطقه زمانی چیست؟",
+    ])).toEqual([]);
+  });
 });

@@ -84,6 +84,7 @@ export async function settleMonthlyRequest(reservation: MonthlyReservation | nul
     client = await connection(reservation.file); tx = await client.transaction("write");
     const receipt = (await tx.execute({ sql: "SELECT settled,month FROM BudgetReceipt WHERE id=?", args: [reservation.id] })).rows[0];
     if (!receipt || receipt.settled === 1 || period < String(receipt.month)) return;
+    await meta(tx, period);
     if (exceeded) await tx.execute("UPDATE BudgetMeta SET halted=1 WHERE id=1");
     if (period === receipt.month) {
       await tx.execute({ sql: "UPDATE BudgetReceipt SET charged=?,inputTokens=?,outputTokens=?,cachedTokens=?,settled=1 WHERE id=? AND settled=0", args: [estimate, input, output, cached, reservation.id] });
@@ -93,6 +94,8 @@ export async function settleMonthlyRequest(reservation: MonthlyReservation | nul
       await tx.execute({ sql: "UPDATE BudgetReceipt SET settled=1 WHERE id=?", args: [reservation.id] });
       await tx.execute({ sql: "INSERT INTO BudgetReceipt(id,month,charged,settled,createdAt,inputTokens,outputTokens,cachedTokens) VALUES(?,?,?,1,?,?,?,?)", args: [reservation.id + ":settled", period, estimate, now.toISOString(), input, output, cached] });
     }
+    // Settlement can be the first write in a new month; advance the guard atomically.
+    await tx.execute({ sql: "UPDATE BudgetMeta SET latestMonth=? WHERE id=1", args: [period] });
     await tx.commit();
   } catch { /* Keep full reservation; never retry/refund unknown spend or log provider data. */ }
   finally { tx?.close(); client?.close(); }
