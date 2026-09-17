@@ -2,6 +2,7 @@ import "server-only";
 import path from "node:path";
 import { realpath, stat } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
+import { hostname } from "node:os";
 import { createClient, type Transaction } from "@libsql/client";
 
 export const MONTHLY_CAP_MICRO_USD = 2_000_000;
@@ -26,9 +27,14 @@ async function connection(file: string) {
   // Request paths must NEVER recreate a missing spend ledger.
   return createClient({ url: `file:${resolved.replaceAll("\\", "/")}` });
 }
-async function meta(tx: Transaction, period: string) {
+async function meta(tx: Transaction, period: string, file: string) {
   const row = (await tx.execute("SELECT * FROM BudgetMeta WHERE id=1")).rows[0];
-  if (!row || row.version !== 1 || row.cap !== MONTHLY_CAP_MICRO_USD || row.halted !== 0 || String(row.latestMonth) > period) fail();
+  if (!row || ![1, 2].includes(Number(row.version)) || row.cap !== MONTHLY_CAP_MICRO_USD || row.halted !== 0 || String(row.latestMonth) > period) fail();
+  if (row.version === 2) {
+    const authority = (await tx.execute("SELECT * FROM BudgetAuthority WHERE id=1")).rows[0];
+    const actualFile = (await realpath(file)).replaceAll("\\", "/");
+    if (!authority || authority.phase !== "ACTIVE" || authority.targetHost !== hostname() || authority.targetPath !== actualFile) fail();
+  }
 }
 async function charged(tx: Transaction, period: string) {
   const result = (await tx.execute({ sql: "SELECT COALESCE(SUM(charged),0) AS used FROM BudgetReceipt WHERE month=? OR settled=0", args: [period] })).rows[0];
@@ -56,7 +62,7 @@ export async function reserveMonthlyRequest(userId: string | undefined, url: str
   try {
     const bounds = validateWire(url, body), period = month(now);
     client = await connection(policy.file); tx = await client.transaction("write");
-    await meta(tx, period);
+    await meta(tx, period, policy.file);
     if (await charged(tx, period) + MONTHLY_RESERVATION_MICRO_USD > MONTHLY_CAP_MICRO_USD) fail();
     const id = randomUUID();
     await tx.execute({ sql: "INSERT INTO BudgetReceipt(id,month,charged,settled,createdAt) VALUES(?,?,?,0,?)", args: [id, period, MONTHLY_RESERVATION_MICRO_USD, now.toISOString()] });
@@ -84,7 +90,7 @@ export async function settleMonthlyRequest(reservation: MonthlyReservation | nul
     client = await connection(reservation.file); tx = await client.transaction("write");
     const receipt = (await tx.execute({ sql: "SELECT settled,month FROM BudgetReceipt WHERE id=?", args: [reservation.id] })).rows[0];
     if (!receipt || receipt.settled === 1 || period < String(receipt.month)) return;
-    await meta(tx, period);
+    await meta(tx, period, reservation.file);
     if (exceeded) await tx.execute("UPDATE BudgetMeta SET halted=1 WHERE id=1");
     if (period === receipt.month) {
       await tx.execute({ sql: "UPDATE BudgetReceipt SET charged=?,inputTokens=?,outputTokens=?,cachedTokens=?,settled=1 WHERE id=? AND settled=0", args: [estimate, input, output, cached, reservation.id] });
@@ -107,7 +113,7 @@ export async function monthlyBudgetStatus(userId?: string, now = new Date()) {
   let client, tx;
   try {
     const period = month(now); client = await connection(policy.file); tx = await client.transaction("read");
-    await meta(tx, period); const used = await charged(tx, period);
+    await meta(tx, period, policy.file); const used = await charged(tx, period);
     return { available: used + MONTHLY_RESERVATION_MICRO_USD <= MONTHLY_CAP_MICRO_USD, limitUsd: 2, accountedUsd: used / 1_000_000, period, basis: "usage-plus-pending-reservations" };
   } catch { return { available: false, limitUsd: 2 }; }
   finally { tx?.close(); client?.close(); }
