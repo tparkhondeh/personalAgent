@@ -25,10 +25,10 @@ import { fitProgramList } from "@/lib/list-viewport";
 import { clearApprovedDeviceReminders, syncApprovedDeviceReminders } from "@/lib/approved-device-reminders";
 import { readGuestItems, saveGuestItems, type GuestItem as Item } from "@/lib/guest-items";
 import { manualItemMoment, tehranWeek } from "@/lib/web-calendar";
+import { initialDashboardView, type DashboardView as View } from "@/lib/startup-navigation";
 
 type Category = "personal" | "work" | "meeting";
 type Priority = "urgent" | "important" | "normal";
-type View = "today" | "tasks" | "calendar" | "assistant" | "settings";
 type ApiTask = { id: string; title: string; category: "PERSONAL" | "WORK"; priority: "URGENT" | "IMPORTANT" | "NORMAL"; status: string; startAt?: string | null; dueAt?: string | null };
 type ApiMeeting = { id: string; title: string; priority?: "URGENT" | "IMPORTANT" | "NORMAL"; startsAt: string; endsAt: string; timezone?: string; status?: string };
 
@@ -101,7 +101,7 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
   const [items, setItems] = useState<Item[]>([]);
   const [guestStorageReady, setGuestStorageReady] = useState(false);
   const guestSnapshot = useRef<string | null | undefined>(undefined);
-  const [view, setView] = useState<View>(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("view") === "assistant" ? "assistant" : "today");
+  const [view, setView] = useState<View>(() => initialDashboardView(typeof window !== "undefined" ? window.location.search : ""));
   const [filter, setFilter] = useState<Category | "all">("all");
   const [composer, setComposer] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -281,7 +281,7 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
       if (!response.ok) return;
       const result = await response.json();
       setPreferences(result.data as UserPreferences | null);
-      if (!result.data) setView((currentView) => currentView === "today" ? "settings" : currentView);
+      // Missing preferences must not override the user's launch/deep-link destination.
     }).catch(() => undefined);
     return () => controller.abort();
   }, [session?.user]);

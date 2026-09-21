@@ -31,7 +31,7 @@
   $(".poem-row").append(poemHost);
   const preferenceKey = "hamrah-local-reminders-v1";
   let filter = "all";
-  let panel = "today";
+  let panel = overview.initialDashboardView(window.location.search);
   let pendingDelete = "";
   const pendingActions = new Set();
   let tasks = loadTasks();
@@ -532,5 +532,5 @@
   setInterval(() => { renderHeader(); const day=overview.tehranDayKey(); if(day!==renderedDay){renderedDay=day;render();} }, 30000);
   window.addEventListener("storage", renderHeader);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) { renderHeader(); render(); } });
-  render();
+  showPanel(panel);
 })();
