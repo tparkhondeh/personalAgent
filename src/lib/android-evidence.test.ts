@@ -7,7 +7,10 @@ it('requires emulator readiness and real UI evidence in routine Android CI', () 
   const smoke = readFileSync('scripts/android-emulator-smoke.sh', 'utf8');
   expect(workflow).toMatch(/android-emulator-settle\.sh artifacts\/android\/settle &&\s+bash scripts\/android-emulator-smoke\.sh/);
   expect(smoke).toContain(':app:connectedDebugAndroidTest');
-  expect(smoke).toContain('cold-launch-webview.json" "برنامه امروز"');
+  expect(smoke).toContain('cold-launch-webview.json" "فهرست برنامه‌ها"');
+  const stable = readFileSync('scripts/android-stable-emulator-qa.sh', 'utf8');
+  expect(stable).not.toContain('"برنامه امروز" "open-offline"');
+  expect(stable).toContain('"فهرست برنامه‌ها" "open-offline"');
   expect(smoke).toContain('cold-launch-system-ui" inspect');
   expect(smoke).toContain('node scripts/android-logcat-check.mjs');
   expect(smoke.indexOf('pre-install-logcat.txt')).toBeLessThan(smoke.indexOf('adb logcat -c'));
