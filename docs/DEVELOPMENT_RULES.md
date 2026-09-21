@@ -1,5 +1,7 @@
 # Durable development rules
 
+- Current funded authority (2026-09-21): Staging only, version2 host/path-bound ledger, verified owner allowlist, existing replacement key and one total $2/month. Local cost activation is false and its source ledger FROZEN. Never replay the completed handoff, copy an active ledger into a second authority, or restore older spend as rollback. End synthetic QA by removing its funded account, not by disabling separately approved owner daily use. No personal audio consent is implied.
+
 - A model correction to a pending CREATE is not UPDATE of a saved record. Normalize only a targetless UPDATE when owned prior draft and local continuation both remain CREATE of the same entity; preserve explicit update/delete/complete and entity ambiguity. Keep approval and ownership checks. Exercise real follow-up + confirmation, not just structured first responses.
 - Ordinary launch is Tasks across web/PWA/bundled UI; explicit deep links remain explicit. When changing startup, update native smoke's visible-text expectation and assert the active navigation state, not just process or pixels. Bundled Tasks and Today share the same panel DOM; inspect the app's data-panel and selected navigation as well.
 
