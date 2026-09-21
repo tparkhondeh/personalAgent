@@ -146,6 +146,12 @@ async function inspect() {
     writeFileSync(outputPath.replace(/\.json$/,'-contrast.json'),JSON.stringify(contrast.result.result.value,null,2));
   }
   if (result && action === "open-offline") {
+    const startup = await evaluate(`(() => {
+      if (document.querySelector('.app')?.dataset.panel !== 'tasks' || !document.querySelector('[data-panel="tasks"]')?.classList.contains('active') || !document.querySelector('#today-panel')?.classList.contains('active')) throw Error('Ordinary bundled launch must open Tasks');
+      if (document.querySelector('#task-modal')?.classList.contains('open')) throw Error('Ordinary launch must not open the editor');
+      return { tasks: true, editorClosed: true };
+    })()`);
+    if(startup.result.exceptionDetails)throw Error('Bundled startup failed: '+JSON.stringify(startup.result.exceptionDetails));
     const dashboard = await evaluate(`(${dashboardUiQa.toString()})()`);
     if(dashboard.result.exceptionDetails)throw Error('Dashboard/poem QA failed: '+JSON.stringify(dashboard.result.exceptionDetails));
     mkdirSync(dirname(outputPath), { recursive: true });

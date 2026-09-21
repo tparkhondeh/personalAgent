@@ -32,6 +32,17 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllEnvs());
 
 describe("assistant external path, synthetic provider with no network", () => {
+  it("keeps an unconfirmed creation as CREATE when GPT mistakes a field correction for UPDATE", async () => {
+    const previous = planPersian(message).plan!;
+    mocks.conversation.mockResolvedValue({ id: "owned", messages: [] });
+    mocks.prior.mockResolvedValue({ id: "draft-owned", revision: 1, payload: JSON.stringify(previous) });
+    mocks.generate.mockResolvedValue({ output: { reply: "اصلاح شد", plan: { ...previous, operation: "UPDATE", title: "جلسه هماهنگی تیم فروش", time: "18:00" }, questions: [] } });
+    const response = await POST(request({ message: "عنوانش را جلسه هماهنگی تیم فروش بگذار و ساعت را به هجده تغییر بده", conversationId: "owned", draftId: "draft-owned", revision: 1 }));
+    expect(response.status).toBe(200);
+    expect(mocks.save.mock.calls[0][2]).toMatchObject({ operation: "CREATE", targetId: null, targetUpdatedAt: null, title: "جلسه هماهنگی تیم فروش", time: "18:00" });
+    expect(mocks.save.mock.calls[0][3]).toEqual({ id: "draft-owned", revision: 1 });
+    expect((await response.json()).data.proposal.needsApproval).toBe(true);
+  });
   it("does not make final approval boilerplate block an otherwise valid draft", async () => {
     mocks.generate.mockResolvedValue({ output: { reply: "بررسی کن", plan: planPersian(message, { timezone: "Asia/Tehran", items: [] }).plan, questions: ["می‌خواهید این پیش‌نویس تأیید و ساخته شود؟", "کدام علی؟", "آیا این پیشنهاد را برای جمعه تأیید می‌کنید؟"] } });
     const response = await POST(request()); expect(response.status).toBe(200);

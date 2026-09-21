@@ -12,6 +12,7 @@ import { aiReadiness, reserveAiRequest } from "@/lib/ai-budget";
 import { validAgentOrigin } from "@/lib/agent-origin";
 import { providerFailure, type ProviderFailure } from "@/lib/agent-provider-status";
 import { modelReviewQuestions } from "@/lib/agent-review-questions";
+import { reviewModelContinuation } from "@/lib/agent-continuation";
 
 const input = z.object({ message: z.string().trim().min(1).max(2000), conversationId: z.string().max(150).optional(), draftId: z.string().max(150).optional(), revision: z.number().int().positive().optional(), externalConsent: z.boolean().default(false), localOnly: z.boolean().default(false) });
 const outputSchema = z.object({ reply: z.string().max(1000), plan: modelPlanSchema.nullable(), questions: z.array(z.string().max(200)).max(10) });
@@ -32,7 +33,8 @@ export async function POST(request: Request) {
   if (data.draftId && !prior) return jsonError("پیشنهاد جاری تغییر کرده؛ دوباره بررسی کن.", 409);
   const [preference, items] = await Promise.all([db.userPreference.findUnique({ where: { userId } }), ownedPlanningItems(userId)]);
   const timezone = preference?.timezone ?? "Asia/Tehran";
-  const local = planPersian(data.message, { timezone, previous: prior ? planSchema.parse(JSON.parse(prior.payload)) : null, items, offsets: parseStoredReminderOffsets(preference?.defaultReminderOffsets, preference?.defaultReminderMins), ...(!prior ? { repeatCount: preference?.urgentMaxRepeats, repeatMinutes: preference?.urgentRepeatMinutes } : {}) });
+  const previousPlan = prior ? planSchema.parse(JSON.parse(prior.payload)) : null;
+  const local = planPersian(data.message, { timezone, previous: previousPlan, items, offsets: parseStoredReminderOffsets(preference?.defaultReminderOffsets, preference?.defaultReminderMins), ...(!prior ? { repeatCount: preference?.urgentMaxRepeats, repeatMinutes: preference?.urgentRepeatMinutes } : {}) });
   let reply = local.reply, plan: Plan | null = local.plan, questions = local.questions;
   let mode = "local";
   let fallbackReason: ProviderFailure | undefined;
@@ -47,7 +49,7 @@ export async function POST(request: Request) {
           providerOptions: { openai: { store: false, serviceTier: "default", ...(aiReadiness().model === "gpt-5-mini" ? { reasoningEffort: "low" } : {}) } },
           abortSignal: AbortSignal.any([request.signal, AbortSignal.timeout(25000)]),
         });
-        reply = result.output.reply; plan = result.output.plan; questions = modelReviewQuestions(result.output.questions, plan); mode = "online";
+        reply = result.output.reply; plan = reviewModelContinuation(result.output.plan, previousPlan, local.plan); questions = modelReviewQuestions(result.output.questions, plan); mode = "online";
       } catch (error) { mode = "local-fallback"; fallbackReason = providerFailure(error); }
     } else mode = "local-budget-limit";
   }

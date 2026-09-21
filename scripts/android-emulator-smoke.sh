@@ -56,7 +56,7 @@ adb shell dumpsys package "$package_name" > "$evidence_dir/package-before-exit.t
 grep -Fq "android.permission.POST_NOTIFICATIONS" "$evidence_dir/package-before-exit.txt"
 grep -Fq "android.permission.SCHEDULE_EXACT_ALARM" "$evidence_dir/package-before-exit.txt"
 
-node scripts/android-webview-inspect.mjs "$package_name" "$evidence_dir/cold-launch-webview.json" "برنامه امروز"
+node scripts/android-webview-inspect.mjs "$package_name" "$evidence_dir/cold-launch-webview.json" "فهرست برنامه‌ها"
 node scripts/android-system-ui-check.mjs "$evidence_dir/cold-launch-system-ui" inspect "$evidence_dir/cold-launch.png"
 adb logcat -d > "$evidence_dir/app-tests-logcat.txt"
 node scripts/android-logcat-check.mjs "$evidence_dir/app-tests-logcat.txt" \
