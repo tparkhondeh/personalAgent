@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { modelReviewQuestions } from "./agent-review-questions";
 describe("approval is not a missing field", () => {
+  it.each(["می‌خواهید این جلسه ساخته شود؟", "آیا می‌خواهید این جلسه ایجاد شود؟", "می خواهید این جلسه ثبت شود؟"])("does not block an unchanged valid proposal on approval-only wording: %s", question => {
+    expect(modelReviewQuestions([question], { entity: "MEETING", date: "2026-09-24", time: "18:00" })).toEqual([]);
+    expect(modelReviewQuestions([question], { entity: "TASK", date: "2026-09-24", time: "18:00" })).toEqual([question]);
+    expect(modelReviewQuestions([question])).toEqual([question]);
+  });
+  it.each(["می‌خواهید این جلسه ساخته شود یا جلسه قبلی تغییر کند؟", "می‌خواهید این جلسه فردا ساخته شود؟", "می‌خواهید این جلسه ساخته شود؟ کدام علی؟", "می‌خواهید این جلسه حذف شود؟"])("retains qualified or destructive confirmation: %s", question => {
+    expect(modelReviewQuestions([question], { entity: "MEETING", date: "2026-09-24", time: "18:00" })).toEqual([question]);
+  });
   it("recognizes the observed dated confirmation only when all details match", () => {
     const q = "تأیید می‌کنید این جلسه برای 2026-09-17 ساعت 17:00 ایجاد شود؟ (بله/خیر یا بگویید مرتبط/تکراری است)";
     const plan = { entity: "MEETING", date: "2026-09-17", time: "17:00" };
