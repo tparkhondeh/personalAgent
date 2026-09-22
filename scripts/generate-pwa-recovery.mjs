@@ -1,6 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { sharedMobileTheme } from './shared-mobile-theme.mjs';
+import { tiaInlineIconSvg } from './tia-logo.mjs';
 
 // Recovery is independent of React, network, caches and account state. Its
 // palette, saved appearance policy and font come from the existing app sources.
@@ -18,10 +19,10 @@ export async function recoverySource() {
 ${theme}
 *{box-sizing:border-box}body{margin:0;min-height:100dvh;display:grid;place-items:center;padding:20px;line-height:1.9}
 main{width:min(100%,440px);padding:24px;border:1px solid var(--line);border-radius:24px;background:var(--surface-solid);box-shadow:var(--shadow-sm);overflow-wrap:anywhere}
-h1{font-size:26px;line-height:1.6;margin:8px 0}p{font-size:15px;color:var(--muted);margin:12px 0}.brand{font-size:22px;font-weight:700;color:var(--primary-strong)}
+h1{font-size:26px;line-height:1.6;margin:8px 0}p{font-size:15px;color:var(--muted);margin:12px 0}.brand{display:flex;align-items:center;gap:10px;font-size:22px;font-weight:700;color:var(--primary-strong)}
 a{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:10px 20px;border-radius:12px;background:var(--primary-soft);color:var(--primary-strong);text-decoration:none;font-weight:600}
 a:focus-visible{outline:3px solid var(--primary);outline-offset:4px}
-</style></head><body><main><span class="brand" dir="ltr">tia</span><h1>اتصال برقرار نیست</h1>
+</style></head><body><main><span class="brand" dir="ltr">${tiaInlineIconSvg(44)}tia</span><h1>اتصال برقرار نیست</h1>
 <p>برای نمایش نسخه به‌روز برنامه، اتصال به سرور لازم است.</p><p>اطلاعات ذخیره‌شده شما پاک نشده است.</p>
 <a href="/">تلاش دوباره</a></main></body></html>`;
   const hash = createHash('sha256').update(bootstrap).digest('base64');

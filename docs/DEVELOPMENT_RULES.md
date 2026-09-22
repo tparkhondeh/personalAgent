@@ -1,5 +1,8 @@
 # Durable development rules
 
+- Phone preservation (2026-09-22): owner identified tia preview40/1.0.40 and may have BOTH guest/offline and signed-in records. Do not re-ask label/version or equate login with migration. ADB currently runs in the RDP Windows VM, not the laptop on the phone hotspot; use a supported trusted-LAN laptop-side pairing route, never a public ADB port. Connectivity alone does not prove backup/upgrade safety.
+- Brand source is `src/data/tia-brand.json`: React, standalone SVG, recovery and Android monochrome/raster assets must share it. Test every density, opaque PWA maskable edges and the central adaptive safe circle. Do not leave the old monochrome mark behind or call an asset-source change an installed APK update.
+
 - Current funded authority (2026-09-21): Staging only, version2 host/path-bound ledger, verified owner allowlist, existing replacement key and one total $2/month. Local cost activation is false and its source ledger FROZEN. Never replay the completed handoff, copy an active ledger into a second authority, or restore older spend as rollback. End synthetic QA by removing its funded account, not by disabling separately approved owner daily use. No personal audio consent is implied.
 
 - A model correction to a pending CREATE is not UPDATE of a saved record. Normalize only a targetless UPDATE when owned prior draft and local continuation both remain CREATE of the same entity; preserve explicit update/delete/complete and entity ambiguity. Keep approval and ownership checks. Exercise real follow-up + confirmation, not just structured first responses.

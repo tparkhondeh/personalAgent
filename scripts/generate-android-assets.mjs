@@ -1,15 +1,14 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import sharp from "sharp";
 import { sharedMobileTheme } from "./shared-mobile-theme.mjs";
 import ts from "typescript";
-import { tiaIconSvg } from "./tia-logo.mjs";
+import { tiaInlineIconSvg } from "./tia-logo.mjs";
+import { generateBrandAssets } from "./generate-brand-assets.mjs";
 import { generateAlarmSoundAssets } from "./generate-alarm-sounds.mjs";
 
 const projectRoot = process.cwd();
 const alarmSoundScript = await generateAlarmSoundAssets(projectRoot);
 const resourceRoot = path.join(projectRoot, "android", "app", "src", "main", "res");
-const publicRoot = path.join(projectRoot, "public");
 const mobileRoot = path.join(projectRoot, "mobile-shell");
 const appearanceSource=await readFile(path.join(projectRoot,"src/lib/appearance.ts"),"utf8");
 const appearance=appearanceSource.match(/String\.raw`([\s\S]*?)`;/)?.[1];
@@ -24,38 +23,7 @@ const nativePalettes=['light','dark'].map(mode=>{
 });
 await writeFile(path.join(resourceRoot,'values','appearance.xml'),`<resources>\n${nativePalettes.join('\n')}\n</resources>\n`);
 
-function appIconSvg(_background = "#F7F7FF", transparent = false) {
-  void _background;
-  return Buffer.from(tiaIconSvg({transparent}));
-}
-
-function roundAppIconSvg() {
-  return Buffer.from(tiaIconSvg({round:true}));
-}
-
-const densities = [
-  ["mdpi", 48, 108],
-  ["hdpi", 72, 162],
-  ["xhdpi", 96, 216],
-  ["xxhdpi", 144, 324],
-  ["xxxhdpi", 192, 432],
-];
-
-for (const [density, iconSize, foregroundSize] of densities) {
-  const directory = path.join(resourceRoot, `mipmap-${density}`);
-  await mkdir(directory, { recursive: true });
-  await sharp(appIconSvg()).resize(iconSize, iconSize).png().toFile(path.join(directory, "ic_launcher.png"));
-  await sharp(roundAppIconSvg()).resize(iconSize, iconSize).png().toFile(path.join(directory, "ic_launcher_round.png"));
-  await sharp(appIconSvg("#00000000", true)).resize(foregroundSize, foregroundSize).png().toFile(path.join(directory, "ic_launcher_foreground.png"));
-}
-
-await writeFile(path.join(publicRoot, "icon.svg"), appIconSvg());
-await sharp(appIconSvg()).resize(192, 192).png().toFile(path.join(publicRoot, "icon-192.png"));
-await sharp(appIconSvg()).resize(512, 512).png().toFile(path.join(publicRoot, "icon-512.png"));
-await sharp(appIconSvg()).resize(180, 180).png().toFile(path.join(publicRoot, "apple-touch-icon.png"));
-const favicon=await sharp(appIconSvg()).resize(32,32).png().toBuffer();
-const ico=Buffer.alloc(22);ico.writeUInt16LE(1,2);ico.writeUInt16LE(1,4);ico[6]=32;ico[7]=32;ico.writeUInt16LE(1,10);ico.writeUInt16LE(32,12);ico.writeUInt32LE(favicon.length,14);ico.writeUInt32LE(22,18);
-await writeFile(path.join(projectRoot,'src/app/favicon.ico'),Buffer.concat([ico,favicon]));
+await generateBrandAssets(projectRoot);
 
 const sampleRate = 44_100;
 const durationSeconds = 2.4;
@@ -130,6 +98,7 @@ if (!offlineScriptMarker.test(recoveryHtml)) {
   throw new Error("The Android recovery page is missing its generated offline script marker.");
 }
 const generatedRecovery = recoveryHtml
+  .replace(/<span data-tia-brand>[\s\S]*?<\/span>/, () => `<span data-tia-brand>${tiaInlineIconSvg()}</span>`)
   .replace(/<script id="hamrah-appearance">[\s\S]*?<\/script>/,()=>`<script id="hamrah-appearance">${appearance}</script>`)
   .replace(
     offlineDocumentMarker,
