@@ -43,6 +43,17 @@ jobs:
       - run: pnpm lint
       - run: pnpm test
       - run: node scripts/qa-private-backup.mjs
+      - name: Verify append-only Staging backup and separate restore with synthetic data
+        run: |
+          if ! command -v sqlite3 >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y sqlite3
+          fi
+          bash -n scripts/backup-tia-staging.sh
+          bash -n scripts/qa-tia-staging-backup.sh
+          qa_dir=$(mktemp -d "$RUNNER_TEMP/tia-backup-XXXXXX")
+          mkdir -p artifacts/web-readiness
+          bash scripts/qa-tia-staging-backup.sh scripts/backup-tia-staging.sh "$qa_dir" > artifacts/web-readiness/staging-backup.json
       - run: pnpm build
       - name: Package web-only staging candidate (never deploy automatically)
         run: |
