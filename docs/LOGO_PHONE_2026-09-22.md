@@ -11,7 +11,7 @@
 
 The command tools and ADB run on a Windows VMware guest (`VMware7,1`) with an active `rdp-tcp` session. Its active network is virtual Ethernet, with a separate Tailscale adapter; it is not the physical laptop's hotspot Wi-Fi adapter. This matches the owner's remote-desktop description. ADB lists **zero authorized devices**. This is not proof that phone data is absent.
 
-The physical laptop and phone network cannot be inspected from this workspace. No network scan, public debugging port, port forwarding, tunnel, firewall change or pairing was attempted. The Linux application host is another machine; internet access to it does not put the phone on its local network.
+The physical laptop and phone network cannot be inspected from this workspace. No network scan, public debugging port, port forwarding, tunnel, firewall change or pairing was attempted. ADB5037 listens only on127.0.0.1. The Linux application host is another machine; internet access to it does not put the phone on its local network.
 
 [Android's supported wireless workflow](https://developer.android.com/tools/adb#connect-to-a-device-over-wi-fi) requires a supported Android version (phone Android11+) and a shared wireless network with the computer performing pairing. Use current official Platform Tools **on the physical laptop**, not this RDP desktop. Providing a hotspot does not by itself prove that the phone's Wireless debugging can run.
 
@@ -30,6 +30,8 @@ Determine whether another trusted Wi-Fi is available for BOTH the phone and phys
 If only this phone's hotspot is available and Wireless debugging will not enable, retain the old app. The safe alternatives are temporary trusted shared Wi-Fi or a future data cable; no public-port workaround. Owner has not yet supplied a reply to the shared-Wi-Fi question. No request to re-identify app name/version is necessary.
 
 Original signing material remains unavailable in the previously scoped search; this turn did not broaden that search into unrelated projects/accounts. APK40 has no in-app offline export. Its recorded backup policy does not establish an accessible backup. A new identity is NOT authorized here. Do not deliver an incompatible internal build as an update.
+
+Fresh read-only inspection of the retained public APK40 matched SHA256 `909bf6f8b5dbb46f937210a787215006cfd7b223eaf880a359636fc1b2262fe9`, package `ir.wealthos.personalagent.stable40`, versionCode40 and version1.0.40. Manifest says `debuggable=true`, `allowBackup=false`. If the phone's actual installed binary matches, authorized local debugging may allow a scoped extraction route to be evaluated. This is NOT proof of installed identity, availability of `run-as`, successful backup or safe restoration into another identity. Those checks await a real connection; no root/bypass is proposed.
 
 ## Logo and editable sources
 
@@ -63,7 +65,20 @@ Working tree was clean before the snapshot. No database/environment/signing file
 - Android `:app:lintDebug :app:testDebugUnitTest` passed, including resource compilation and11 Java tests/zero failures. Lint has six warnings and no errors; existing flatDir/SDK-tool-version warnings remain. No new APK was offered or installed.
 - Actual browser: desktop1280×720 and mobile390×844 login render the new geometry,44px mark and no horizontal overflow in light/dark. Native-recovery source served separately at390×844 also has a48px mark and no horizontal overflow; visually reviewed. Original light preference and viewport were restored. This browser test is NOT a native-device test.
 - Re-running both generators yielded identical SVG, monochrome, native recovery and PWA recovery hashes.
+- PWA recovery was also rendered as an isolated loopback HTTP503 with its actual restrictive CSP, showing the new logo and Persian retry page with zero captured console errors. No live network settings were modified.
 
 ## Delivery boundary
 
-Local source and local preview contain the new logo. Published APK40 and the owner's installed icon are unchanged. Staging/Production versions must be reported separately; a Git push is not deployment. No new13/14/16 exact-binary acceptance or phone acceptance is claimed. Safe phone-data preservation and installed-signature verification remain the essential APK delivery gate.
+Source and local preview contain the new logo. [Web CI35699727856](https://github.com/tparkhondeh/personalAgent/actions/runs/35699727856) passed tests, backup/restore and packaged-server integration for `8dcfea6e3f9f42d871c0c864c0206e2d3de1575b`. Verified artifact10682530363 ZIP SHA256 `4e023c68abd284eb0f9ad903038bf4ca40f2078d9f8ab19fc688f885c2374099` was deployed to **Staging only** using the project release script.
+
+Fresh application/environment/process backup and migration-on-restored-copy verification: `/home/wealthos_dev/.staging/personal-agent/data/backups/pre-release-20260922T073445Z`. Budget snapshot and a separate integrity/foreign-key-checked restored copy remain private; before/after inspection is byte-identical:12receipts,164434microUSD,zero pending,ACTIVE. No new paid requests. Code rollback target is `1b6676742c759216d1f2516cf8d6026cedf8bcd5`; preserve live data and budget instead of restoring old receipts.
+
+Public HTTPS8443 health reports the exact new commit. Downloaded `icon.svg`, `icon-192.png`, `icon-maskable-512.png` and manifest match local hashes. Actual public login displays the new paths at1280×720 and390×844,44px and no horizontal overflow. Root/login/API remain no-store; worker and recovery are current. Production443 remains the old version/policies and was not changed. No CDN/shared-domain edit was required.
+
+Test link: https://personalagent.wealthos.ir:8443/ . Local http://localhost:3001/ is on this **remote Windows machine**, not automatically the physical laptop or phone.
+
+Published APK40 and the owner's installed icon are unchanged. No new13/14/16 exact-delivery-binary acceptance or phone acceptance is claimed. Safe phone-data preservation and installed-signature verification remain the essential APK delivery gate. The internal Android CI candidate is never a compatible phone update.
+
+### Final internal Android evidence
+
+[Android CI35699728052](https://github.com/tparkhondeh/personalAgent/actions/runs/35699728052) succeeded on Android16:14 instrumentation tests, zero failures/errors/skips; Lint/unit/resource build passed. Evidence artifact10681891847 was independently downloaded, SHA256 `a9f2fac7110724874d0d9d0d081a875808b5e4eecb5bb7175736ccab57276e74` matched, and the cold-launch screenshot was visually reviewed. Actual Persian Tasks screen/RTL is visible; system-UI check is clear; Logcat verification has no failures or observer failures. This is the internal base package loading `http://10.0.2.2:3001/`, NOT the installed stable40 package, a public-server GPT test, a new13/14 matrix or an upgrade candidate. No APK was released for the phone.
