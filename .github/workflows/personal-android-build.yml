@@ -1,0 +1,56 @@
+name: Build unsigned personal Android candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Permanent-package version code newer than 40
+        type: string
+        required: true
+        default: '43'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: personal-android-build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      CI: true
+      NEXT_TELEMETRY_DISABLED: 1
+      TIA_PERSONAL_VERSION: ${{ inputs.version }}
+      OPENAI_API_KEY: ''
+      OPENAI_COST_APPROVED: 'false'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271
+        with:
+          version: 11.19.0
+          run_install: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:generate
+      - name: Install the documented SDK tools
+        run: '"${ANDROID_SDK_ROOT:-$ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;35.0.0"'
+      - name: Build one unsigned non-debuggable candidate and isolated diagnostics
+        run: node scripts/build-personal-android.mjs
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: tia-personal-unsigned-${{ github.run_id }}
+          path: artifacts/personal-unsigned/
+          if-no-files-found: error
+          retention-days: 14

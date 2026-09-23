@@ -10,6 +10,9 @@ server_down_apk="$5"
 ssl_apk="$6"
 api_level="$7"
 staging_expectation="${STAGING_EXPECTATION:-online}"
+release_inspection="${TIA_RELEASE_INSPECTION:-false}"
+runner="androidx.test.runner.AndroidJUnitRunner"
+if [[ "$release_inspection" == true ]]; then runner="ir.wealthos.personalagent.ReleaseQaRunner"; fi
 evidence_dir="artifacts/evidence/android-${api_level}"
 activity_name="${package_name}/ir.wealthos.personalagent.MainActivity"
 
@@ -33,7 +36,18 @@ launch_and_verify() {
   local action="${3:-}"
   adb shell am force-stop "$package_name"
   adb logcat -c
-  adb shell am start -W -n "$activity_name" | tee "$evidence_dir/${label}-launch.txt"
+  if [[ "$release_inspection" == true ]]; then
+    adb shell am instrument -w -e tiaInspection true "${package_name}.test/$runner" > "$evidence_dir/${label}-inspection.txt" 2>&1 &
+    local ready=false
+    for attempt in {1..40}; do
+      if grep -Fq TIA_RELEASE_INSPECTION_READY "$evidence_dir/${label}-inspection.txt"; then ready=true; break; fi
+      if grep -Fq TIA_RELEASE_INSPECTION_FAILED "$evidence_dir/${label}-inspection.txt"; then break; fi
+      sleep 1
+    done
+    [[ "$ready" == true ]]
+  else
+    adb shell am start -W -n "$activity_name" | tee "$evidence_dir/${label}-launch.txt"
+  fi
   sleep 6
   node scripts/android-webview-inspect.mjs "$package_name" "$evidence_dir/${label}-webview.json" "$expected" "$action"
   capture_verified "$label"
@@ -52,10 +66,14 @@ adb shell svc data enable || true
 adb shell cmd uimode night yes
 
 adb install -r "$stable_apk"
+if [[ "$release_inspection" == true ]]; then
+  node scripts/android-release-coldcheck.mjs "$package_name" "$evidence_dir" "$api_level" "$staging_expectation"
+  adb install -r -t "$test_apk"
+fi
 adb shell pm grant "$package_name" android.permission.POST_NOTIFICATIONS || true
 adb shell appops set "$package_name" SCHEDULE_EXACT_ALARM allow || true
 if [[ "$staging_expectation" == "online" ]]; then
-  launch_and_verify "stable-network-enabled" "خوش برگشتی"
+  launch_and_verify "stable-network-enabled" "فهرست برنامه‌ها"
 else
   launch_and_verify "stable-runner-network-recovery" "اتصال برقرار نشد"
   node scripts/android-webview-inspect.mjs \
@@ -63,8 +81,9 @@ else
   capture_verified stable-runner-local-fallback
 fi
 
-adb install -r "$test_apk"
-adb shell am instrument -w "${package_name}.test/androidx.test.runner.AndroidJUnitRunner" \
+adb shell am force-stop "$package_name"
+adb install -r -t "$test_apk"
+adb shell am instrument -w "${package_name}.test/$runner" \
   | tee "$evidence_dir/instrumented-tests.txt"
 grep -Fq "OK (" "$evidence_dir/instrumented-tests.txt"
 
@@ -107,12 +126,16 @@ rm -f "$evidence_dir/test-key.pem"
 
 adb install -r "$stable_apk"
 if [[ "$staging_expectation" == "online" ]]; then
-  launch_and_verify "stable-restored" "خوش برگشتی"
+  launch_and_verify "stable-restored" "فهرست برنامه‌ها"
 else
   launch_and_verify "stable-restored-recovery" "اتصال برقرار نشد"
   node scripts/android-webview-inspect.mjs \
     "$package_name" "$evidence_dir/stable-restored-local-webview.json" "فهرست برنامه‌ها" "open-offline"
   capture_verified stable-restored-local
+fi
+
+if [[ "$release_inspection" == true ]]; then
+  node scripts/android-release-coldcheck.mjs "$package_name" "$evidence_dir/final-cold" "$api_level" "$staging_expectation"
 fi
 
 printf 'Android %s passed: real Persian UI, offline relaunch, DNS, server-down and SSL recovery.\n' "$api_level" \

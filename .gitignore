@@ -53,6 +53,10 @@ yarn-error.log*
 /android/build/
 *.jks
 *.keystore
+*.p12
+*.pfx
+*.dpapi
+/mobile-shell/tia-build.json
 keystore.properties
 local.properties
 

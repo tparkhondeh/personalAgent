@@ -1,0 +1,8 @@
+{
+  "appName": "tia",
+  "packageId": "ir.wealthos.personalagent.stable40",
+  "endpoint": "https://personalagent.wealthos.ir:8443",
+  "certificateSha256": "abfd097ac3ab887977fb58505b5ae0e40c1fc5b56bf210597476105278f1e3cf",
+  "minimumVersionCode": 43,
+  "firstInstallationRequiresRemovingOldPreview40": true
+}

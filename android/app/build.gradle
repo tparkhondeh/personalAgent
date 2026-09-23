@@ -1,5 +1,12 @@
 apply plugin: 'com.android.application'
 
+// Personal delivery keeps its permanent package; signing happens offline, never in CI.
+def tiaPersonalRelease = providers.gradleProperty('tiaPersonalRelease').orNull == 'true'
+def tiaPersonalVersion = providers.gradleProperty('tiaPersonalVersion').orNull
+if (tiaPersonalRelease && (tiaPersonalVersion == null || !(tiaPersonalVersion ==~ /[1-9][0-9]{1,7}/) || tiaPersonalVersion.toInteger() <= 40)) {
+    throw new GradleException('An explicit personal version code newer than 40 is required')
+}
+
 android {
     namespace = "ir.wealthos.personalagent"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -13,14 +20,22 @@ android {
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        if (tiaPersonalRelease) {
+            applicationId = 'ir.wealthos.personalagent.stable40'
+            versionCode = tiaPersonalVersion.toInteger()
+            versionName = "1.0.${tiaPersonalVersion}"
+            testInstrumentationRunner = 'ir.wealthos.personalagent.ReleaseQaRunner'
+        }
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
              // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    testBuildType = tiaPersonalRelease ? 'release' : 'debug'
     buildTypes {
         release {
+            debuggable false
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

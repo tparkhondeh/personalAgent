@@ -1,6 +1,15 @@
 import type { CapacitorConfig } from "@capacitor/cli";
 
 const developmentServerUrl = process.env.CAPACITOR_SERVER_URL?.trim();
+const personalRelease = process.env.TIA_ANDROID_PERSONAL === "true";
+if (personalRelease) {
+  const permitted = process.env.TIA_ANDROID_DIAGNOSTIC === "true"
+    ? ["https://unreachable.invalid", "https://10.0.2.2:65534", "https://10.0.2.2:8443"]
+    : ["https://personalagent.wealthos.ir:8443"];
+  if (!developmentServerUrl || !permitted.includes(developmentServerUrl)) {
+    throw new Error("Personal Android builds require the approved permanent HTTPS endpoint.");
+  }
+}
 
 if (developmentServerUrl) {
   const parsed = new URL(developmentServerUrl);
@@ -23,10 +32,11 @@ const config: CapacitorConfig = {
   appName: "tia",
   webDir: "mobile-shell",
   backgroundColor: "#F7F7FF",
-  loggingBehavior: developmentServerUrl ? "debug" : "production",
+  loggingBehavior: personalRelease ? "none" : developmentServerUrl ? "debug" : "production",
   android: {
     backgroundColor: "#F7F7FF",
     allowMixedContent: false,
+    ...(personalRelease ? { webContentsDebuggingEnabled: false } : {}),
   },
   plugins: {
     LocalNotifications: {

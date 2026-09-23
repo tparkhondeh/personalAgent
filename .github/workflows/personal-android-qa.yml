@@ -1,0 +1,94 @@
+name: Test exact signed personal APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_tag:
+        description: Private draft holding the signed QA bundle, not the public release
+        type: string
+        required: true
+      bundle_sha256:
+        description: SHA-256 of the locally verified signed QA ZIP
+        type: string
+        required: true
+      android_api:
+        type: choice
+        default: all
+        options: [all, '33', '34', '36']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: personal-android-qa
+  cancel-in-progress: false
+
+jobs:
+  emulator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        api: ${{ fromJSON(inputs.android_api == '33' && '[33]' || inputs.android_api == '34' && '[34]' || inputs.android_api == '36' && '[36]' || '[33,34,36]') }}
+    env:
+      TIA_RELEASE_INSPECTION: 'true'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 24
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Download and verify immutable signed bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_TAG: ${{ inputs.candidate_tag }}
+          BUNDLE_SHA: ${{ inputs.bundle_sha256 }}
+        run: |
+          [[ "$CANDIDATE_TAG" =~ ^tia-personal-qa-[0-9]+-[a-f0-9]{7}$ ]]
+          [[ "$BUNDLE_SHA" =~ ^[a-f0-9]{64}$ ]]
+          mkdir -p artifacts/personal-signed
+          gh release download "$CANDIDATE_TAG" --repo "$GITHUB_REPOSITORY" --pattern signed-qa.zip --dir artifacts
+          printf '%s  %s\n' "$BUNDLE_SHA" artifacts/signed-qa.zip | sha256sum -c -
+          unzip -q artifacts/signed-qa.zip -d artifacts/personal-signed
+          "${ANDROID_SDK_ROOT:-$ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" 'build-tools;35.0.0'
+          node scripts/verify-personal-android.mjs
+          node -e 'const fs=require("fs"),m=require("./artifacts/personal-signed/metadata.json");fs.appendFileSync(process.env.GITHUB_ENV,`APK_FILE=${m.apk}\nAPK_PACKAGE=${m.packageId}\n`);'
+      - name: Probe stable HTTPS separately
+        run: |
+          if curl -fsS --max-time 20 https://personalagent.wealthos.ir:8443/api/health | grep -Fq '"status":"ok"'; then
+            echo STAGING_EXPECTATION=online >> "$GITHUB_ENV"
+          else
+            echo STAGING_EXPECTATION=recovery >> "$GITHUB_ENV"
+          fi
+      - name: Enable emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: ${{ matrix.api }}
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          ram-size: 4096M
+          heap-size: 512M
+          disable-animations: true
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -no-boot-anim -camera-back none
+          script: >-
+            bash scripts/android-emulator-settle.sh artifacts/evidence/android-${{ matrix.api }} &&
+            bash scripts/android-stable-emulator-qa.sh "$APK_PACKAGE" "artifacts/personal-signed/$APK_FILE"
+            artifacts/personal-signed/tia-personal-test.apk artifacts/personal-signed/diagnostic-dns.apk
+            artifacts/personal-signed/diagnostic-server-down.apk artifacts/personal-signed/diagnostic-ssl.apk '${{ matrix.api }}'
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: tia-personal-evidence-${{ matrix.api }}-${{ github.run_id }}
+          path: artifacts/evidence/android-${{ matrix.api }}/
+          retention-days: 14
