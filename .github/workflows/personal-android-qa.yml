@@ -54,11 +54,21 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           CANDIDATE_TAG: ${{ inputs.candidate_tag }}
           BUNDLE_SHA: ${{ inputs.bundle_sha256 }}
+          TIA_SIGNED_QA_URL: ${{ secrets.TIA_SIGNED_QA_URL }}
         run: |
           [[ "$CANDIDATE_TAG" =~ ^tia-personal-qa-[0-9]+-[a-f0-9]{7}$ ]]
           [[ "$BUNDLE_SHA" =~ ^[a-f0-9]{64}$ ]]
           mkdir -p artifacts/personal-signed
-          gh release download "$CANDIDATE_TAG" --repo "$GITHUB_REPOSITORY" --pattern signed-qa.zip --dir artifacts
+          # Drafts require repository edit access. Instead use a short-lived,
+          # exact-asset read capability; never elevate this job's read-only token.
+          node --input-type=module <<'NODE'
+          import {writeFileSync} from 'node:fs';
+          import {execFileSync} from 'node:child_process';
+          const value=process.env.TIA_SIGNED_QA_URL,u=new URL(value);
+          if(u.protocol!=='https:'||u.hostname!=='release-assets.githubusercontent.com')throw Error('Expected an exact GitHub asset read capability');
+          try{execFileSync('curl',['--fail','--silent','--show-error','--connect-timeout','30','--max-time','300','--config','-','--output','artifacts/signed-qa.zip'],{input:'url = '+JSON.stringify(value)+'\n',stdio:['pipe','pipe','pipe']});}
+          catch{throw Error('Signed asset download failed; capability not logged');}
+          NODE
           printf '%s  %s\n' "$BUNDLE_SHA" artifacts/signed-qa.zip | sha256sum -c -
           unzip -q artifacts/signed-qa.zip -d artifacts/personal-signed
           "${ANDROID_SDK_ROOT:-$ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" 'build-tools;35.0.0'
