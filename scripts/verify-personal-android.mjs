@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { createHash } from "node:crypto";
 import { inspectApk } from "./verify-android-upgrade.mjs";
 
 const directory = path.resolve(process.argv[2] || "artifacts/personal-signed");
@@ -19,6 +20,23 @@ const files = [meta.apk, "tia-personal-test.apk", "diagnostic-dns.apk", "diagnos
 assert.deepEqual(Object.keys(meta.files).sort(), [...files].sort());
 for (const name of files) {
   const file = path.join(directory, name);
+  if (name === "tia-personal-test.apk") {
+    // AGP instrumentation APKs legitimately omit versionCode/versionName.
+    // Keep the delivery identity parser strict; inspect this distinct test target.
+    const exe = process.platform === "win32" ? ".exe" : "";
+    const base = path.join(options.sdkRoot, "build-tools", "35.0.0");
+    const run = (program, args) => execFileSync(program, args, { encoding: "utf8", windowsHide: true, timeout: 60000 });
+    const cert = run(path.join(options.javaHome, "bin", "java" + exe), ["-jar", path.join(base, "lib", "apksigner.jar"), "verify", "--print-certs", file]);
+    assert.deepEqual([...cert.matchAll(/^Signer #\d+ certificate SHA-256 digest: ([a-f0-9]{64})$/gmi)].map(m => m[1].toLowerCase()), [policy.certificateSha256]);
+    const badging = run(path.join(base, "aapt" + exe), ["dump", "badging", file]);
+    assert.equal(badging.match(/^package: name='([^']+)'/m)?.[1], policy.packageId + ".test");
+    const manifest = run(path.join(base, "aapt" + exe), ["dump", "xmltree", file, "AndroidManifest.xml"]);
+    assert(manifest.includes('"ir.wealthos.personalagent.ReleaseQaRunner"') && manifest.includes(`"${policy.packageId}"`));
+    const sha256 = createHash("sha256").update(readFileSync(file)).digest("hex");
+    assert.equal(sha256, meta.files[name]);
+    checked.push({ name, sha256 });
+    continue;
+  }
   const identity = await inspectApk(file, options);
   assert.deepEqual(identity.certificates, [policy.certificateSha256]);
   assert.equal(identity.sha256, meta.files[name]);
