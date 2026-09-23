@@ -24,6 +24,7 @@ jobs:
       CI: true
       NEXT_TELEMETRY_DISABLED: 1
       TIA_PERSONAL_VERSION: ${{ inputs.version }}
+      DATABASE_URL: file:./data/unsigned-build-only.db
       OPENAI_API_KEY: ''
       OPENAI_COST_APPROVED: 'false'
     steps:
