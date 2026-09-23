@@ -92,7 +92,9 @@ jobs:
         with:
           api-level: ${{ matrix.api }}
           arch: x86_64
-          target: google_apis
+          # AOSP userdebug images force WebView inspection on even when the
+          # non-debuggable APK disables it. Use Google's production/user image.
+          target: google_apis_playstore
           profile: pixel_6
           ram-size: 4096M
           heap-size: 512M
