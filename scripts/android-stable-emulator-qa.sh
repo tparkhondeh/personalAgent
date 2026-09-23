@@ -74,7 +74,12 @@ adb shell pm grant "$package_name" android.permission.POST_NOTIFICATIONS || true
 adb shell appops set "$package_name" SCHEDULE_EXACT_ALARM allow || true
 if [[ "$staging_expectation" == "online" ]]; then
   launch_and_verify "stable-network-enabled" "فهرست برنامه‌ها"
+  if [[ "${TIA_GPT_QA_ENABLED:-false}" == true ]]; then
+    [[ "$api_level" == 36 && "$release_inspection" == true ]]
+    node scripts/android-public-gpt-qa.mjs "$package_name" "$evidence_dir"
+  fi
 else
+  [[ "${TIA_GPT_QA_ENABLED:-false}" != true ]]
   launch_and_verify "stable-runner-network-recovery" "اتصال برقرار نشد"
   node scripts/android-webview-inspect.mjs \
     "$package_name" "$evidence_dir/stable-runner-local-fallback-webview.json" "فهرست برنامه‌ها" "open-offline"

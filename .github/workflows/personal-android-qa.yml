@@ -15,6 +15,10 @@ on:
         type: choice
         default: all
         options: [all, '33', '34', '36']
+      synthetic_gpt:
+        description: Explicitly authorized bounded synthetic GPT check on API36 only
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -33,6 +37,7 @@ jobs:
         api: ${{ fromJSON(inputs.android_api == '33' && '[33]' || inputs.android_api == '34' && '[34]' || inputs.android_api == '36' && '[36]' || '[33,34,36]') }}
     env:
       TIA_RELEASE_INSPECTION: 'true'
+      TIA_GPT_QA_ENABLED: ${{ inputs.synthetic_gpt && matrix.api == 36 && 'true' || 'false' }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
@@ -72,6 +77,8 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
       - uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        env:
+          TIA_GPT_QA_FIXTURE: ${{ inputs.synthetic_gpt && matrix.api == 36 && secrets.TIA_GPT_QA_FIXTURE || '' }}
         with:
           api-level: ${{ matrix.api }}
           arch: x86_64
