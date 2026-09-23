@@ -4,7 +4,7 @@ export async function dashboardUiQa() {
   const wait=async check=>{for(let n=0;n<40;n++){if(check())return;await new Promise(r=>setTimeout(r,50));}throw Error('Dashboard UI did not settle');};
   const click=selector=>document.querySelector(selector).click();
   const counts=()=>[...document.querySelectorAll('.overview-card strong')].map(el=>Number(el.textContent.replace(/[۰-۹]/g,n=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(n))));
-  click('[data-panel="today"]');click('[data-filter="all"]');
+  click('button[data-panel="today"]');click('[data-filter="all"]');
   const stored=JSON.parse(localStorage.getItem('hamrah-local-v2')||'[]');
   for(const task of stored.filter(t=>t.done))assert(!document.querySelector(`#task-list [data-id="${task.id}"],#dated-list [data-id="${task.id}"]`),'Persisted completed record reappeared after relaunch');
   const doneBefore=Number(document.querySelector('.overview-meeting small').textContent.replace(/[۰-۹]/g,n=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(n)).match(/\d+/)[0]);
@@ -14,8 +14,8 @@ export async function dashboardUiQa() {
   click('#poem-next');const selected=poem.textContent;assert(selected!==before,'Next poem did not advance');
   const saved=JSON.parse(localStorage.getItem('hamrah.poem.v1'));
   assert(window.HamrahPoems[saved.index].join('')===selected,'Rendered and saved poem differ');
-  click('[data-panel="tasks"]');assert(document.querySelector('#poem-next').hidden,'Next control visible outside poem');
-  click('[data-panel="today"]');assert(poem.textContent===selected,'Poem lost when switching tabs');
+  click('button[data-panel="tasks"]');assert(document.querySelector('#poem-next').hidden,'Next control visible outside poem');
+  click('button[data-panel="today"]');assert(poem.textContent===selected,'Poem lost when switching tabs');
   const index=window.HamrahOverview.createPoemNavigator(360,localStorage).current();
   assert(index===saved.index,'Poem preference lost on controller restart');
   const baseline=counts(), prefix='آزمون باکس ';
@@ -40,9 +40,9 @@ export async function dashboardUiQa() {
   assert(counts()[0]===totals[0]-1&&counts()[3]===totals[3]-1,'Completed meeting still in remaining counters');
   const doneAfter=Number(document.querySelector('.overview-meeting small').textContent.replace(/[۰-۹]/g,n=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(n)).match(/\d+/)[0]);
   assert(doneAfter===doneBefore+1,'Completed meeting count missing');
-  click('[data-panel="tasks"]');assert(!find('meeting'),'Completed meeting reappeared in Tasks');
-  click('[data-panel="calendar"]');assert(!document.querySelector(`#dated-list [data-id="${completedId}"]`),'Completed meeting remains in calendar');
-  click('[data-panel="today"]');
+  click('button[data-panel="tasks"]');assert(!find('meeting'),'Completed meeting reappeared in Tasks');
+  click('button[data-panel="calendar"]');assert(!document.querySelector(`#dated-list [data-id="${completedId}"]`),'Completed meeting remains in calendar');
+  click('button[data-panel="today"]');
   const beforeEdit=counts();find('personal').querySelector('[data-action="edit"]').click();
   document.querySelector('#task-category').value='company';document.querySelector('#task-form').requestSubmit();
   await wait(()=>counts()[1]===beforeEdit[1]-1);assert(counts()[2]===beforeEdit[2]+1,'Editing category did not recount');

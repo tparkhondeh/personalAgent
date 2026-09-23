@@ -18,7 +18,9 @@ stable=0
 previous=""
 while (( elapsed < 600 )); do
   boot="$(adb shell getprop sys.boot_completed | tr -d '\r')"
-  pid="$(adb shell pidof com.google.android.gms.persistent | tr -d '\r' || true)"
+  # Play services 26.34 moves persistent services into its main process after
+  # the normal first-boot update. Watch both identities, not a retired PID name.
+  pid="$(adb shell pidof com.google.android.gms.persistent com.google.android.gms | tr -d '\r' || true)"
   printf 'attempt=%s elapsed=%s boot=%s gms=%s\n' "$boot_attempt" "$elapsed" "$boot" "$pid" >> "$evidence/emulator-settle.txt"
   if [[ "$boot" == 1 && -n "$pid" && "$pid" == "$previous" ]]; then
     stable=$((stable + 10))

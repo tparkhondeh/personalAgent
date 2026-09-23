@@ -17,7 +17,7 @@ export async function persianSpeechFixtureQa(base64, waitUntil) {
   const original=navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
   try {
     navigator.mediaDevices.getUserMedia=async()=>destination.stream;
-    document.querySelector('[data-panel="assistant"]').click();
+    document.querySelector('button[data-panel="assistant"]').click();
     document.querySelector('#voice-start').click();
     await waitUntil(()=>!document.querySelector('#voice-stop').hidden,'Fixture recording did not start');
     source.start();await new Promise(r=>setTimeout(r,decoded.duration*1000+400));
@@ -27,7 +27,7 @@ export async function persianSpeechFixtureQa(base64, waitUntil) {
     assert(document.querySelector('#assistant-result').textContent.includes('خوش'),'Voice text was not delivered to the assistant');
     document.querySelector('#local-plan-cancel')?.click();
     document.querySelector('#voice-cancel').click();
-    document.querySelector('[data-panel="today"]').click();
+    document.querySelector('button[data-panel="today"]').click();
     return{actualPersianText:result,syntheticMicrophone:true,realRecorderToAssistant:true,noEffectsBeforeConfirmation:true,audioSentExternally:false};
   } finally {
     navigator.mediaDevices.getUserMedia=original;

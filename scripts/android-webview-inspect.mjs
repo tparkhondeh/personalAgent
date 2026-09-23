@@ -7,6 +7,7 @@ import { contrastRatio } from "./color-contrast.mjs";
 import { persianSpeechFixtureQa } from "./android-persian-speech-qa.mjs";
 import { dashboardUiQa } from "./dashboard-ui-qa.mjs";
 import { poemLayoutQa } from "./poem-layout-qa.mjs";
+import { bundledStartupQa } from "./bundled-startup-qa.mjs";
 
 const packageName = process.argv[2];
 const outputPath = resolve(process.argv[3] || "artifacts/android/webview.json");
@@ -115,7 +116,7 @@ async function inspect() {
   if(result && /^(appearance|assert)-(light|dark)$/.test(action)) {
     const theme=action.split('-')[1];
     const check=await evaluate(`(async()=>{
-      ${action.startsWith('appearance-')?`document.querySelector('[data-panel="settings"]').click();document.querySelector('[data-appearance="${theme}"]').click();`:''}
+      ${action.startsWith('appearance-')?`document.querySelector('button[data-panel="settings"]').click();document.querySelector('[data-appearance="${theme}"]').click();`:''}
       await new Promise(r=>setTimeout(r,500));
       const current=document.documentElement.dataset.theme;
       const bg=getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
@@ -146,12 +147,10 @@ async function inspect() {
     writeFileSync(outputPath.replace(/\.json$/,'-contrast.json'),JSON.stringify(contrast.result.result.value,null,2));
   }
   if (result && action === "open-offline") {
-    const startup = await evaluate(`(() => {
-      if (document.querySelector('.app')?.dataset.panel !== 'tasks' || !document.querySelector('[data-panel="tasks"]')?.classList.contains('active') || !document.querySelector('#today-panel')?.classList.contains('active')) throw Error('Ordinary bundled launch must open Tasks');
-      if (document.querySelector('#task-modal')?.classList.contains('open')) throw Error('Ordinary launch must not open the editor');
-      return { tasks: true, editorClosed: true };
-    })()`);
+    const startup = await evaluate(`(${bundledStartupQa.toString()})()`);
     if(startup.result.exceptionDetails)throw Error('Bundled startup failed: '+JSON.stringify(startup.result.exceptionDetails));
+    mkdirSync(dirname(outputPath), { recursive: true });
+    writeFileSync(outputPath.replace(/\.json$/, '-startup.json'), JSON.stringify(startup.result.result.value, null, 2));
     const dashboard = await evaluate(`(${dashboardUiQa.toString()})()`);
     if(dashboard.result.exceptionDetails)throw Error('Dashboard/poem QA failed: '+JSON.stringify(dashboard.result.exceptionDetails));
     mkdirSync(dirname(outputPath), { recursive: true });
@@ -172,7 +171,7 @@ async function inspect() {
       assert([...document.fonts].some((font) => font.family === 'Vazirmatn' && font.status === 'loaded'), 'Bundled Persian font did not load');
       const plugin = window.Capacitor?.Plugins?.LocalNotifications;
       assert(plugin, 'Native notification bridge missing');
-      document.querySelector('[data-panel="settings"]').click();
+      document.querySelector('button[data-panel="settings"]').click();
       const offsets = [...document.querySelectorAll('input[name=reminder]')];
       assert(offsets.length === 3, 'Three reminder controls missing');
       offsets.forEach((input) => { input.checked = true; });
@@ -197,7 +196,7 @@ async function inspect() {
       }
       const pending = await plugin.getPending();
       assert(task?.notificationIds?.length === 3 && task.notificationIds.every((id) => pending.notifications.some((item) => item.id === id)), 'Three native reminders were not scheduled');
-      document.querySelector('[data-panel="tasks"]').click();
+      document.querySelector('button[data-panel="tasks"]').click();
       const reminderRow=[...document.querySelectorAll('#task-list .item')].find(item=>item.dataset.id===task.id);
       assert(reminderRow,'Scheduled task row missing');
       reminderRow.querySelector('[data-action="toggle"]').click();
@@ -222,7 +221,7 @@ async function inspect() {
       assert(navPaint.includes('145deg')&&navPaint.includes('rgb(91, 112, 181)')&&navPaint.includes('rgb(79, 123, 114)'),'Navigation action lost canonical web gradient');
       assert(topPaint.includes('135deg')&&topPaint.includes('rgb(91, 112, 181)')&&topPaint.includes('rgb(79, 123, 114)'),'Primary action lost canonical web gradient');
       if(window.HamrahAppearance.get()==='dark')assert(getComputedStyle(document.querySelector('.card')).borderTopColor==='rgb(57, 61, 80)','Dark cards retained a light border');
-      document.querySelector('[data-panel="assistant"]').click();
+      document.querySelector('button[data-panel="assistant"]').click();
       assert(!document.querySelector('#assistant-input').disabled,'Local typing is disabled');
       assert(document.querySelector('#assistant-input').getBoundingClientRect().height<=60,'Composer is not initially one line');
       const originalStart=MediaRecorder.prototype.start;let capturedBytes=0,capturedType='';
@@ -262,23 +261,23 @@ async function inspect() {
       const pendingBefore=(await plugin.getPending()).notifications.map(n=>n.id).sort().join(',');
       document.querySelector('#local-plan-confirm').click();
       await new Promise(resolve=>setTimeout(resolve,300));
-      document.querySelector('[data-panel="settings"]').click();
+      document.querySelector('button[data-panel="settings"]').click();
       document.querySelector('#enable-notifications').click();
       await new Promise(resolve=>setTimeout(resolve,500));
       assert((await plugin.getPending()).notifications.map(n=>n.id).sort().join(',')===pendingBefore,'Permission resync ignored approved in-app-only channel');
-      document.querySelector('[data-panel="tasks"]').click();
+      document.querySelector('button[data-panel="tasks"]').click();
       const internal=[...document.querySelectorAll('#task-list .item')].find(item=>item.textContent.includes('کنترل کانال داخلی'));
       assert(internal,'Approved local task missing');
       internal.querySelector('[data-action="delete"]').click();
       document.querySelector('#task-list [data-action="confirm-delete"]').click();
       await waitUntil(()=>!JSON.parse(localStorage.getItem('hamrah-local-v2')||'[]').some(item=>item.id===internal.dataset.id),'In-app test deletion did not finish');
-      document.querySelector('[data-panel="assistant"]').click();
+      document.querySelector('button[data-panel="assistant"]').click();
       document.querySelector('#assistant-input').value='فردا ساعت پنج جلسه با تیم فروش دارم';
       document.querySelector('#assistant-send').click();
       document.querySelector('#local-plan-confirm').click();
       assert(document.querySelector('input[aria-label="ساعت ۲۴ساعته"]').closest('label').querySelector('.field-error')?.textContent.includes('ساعت'),'Missing inline ambiguity error');
       document.querySelector('#local-plan-cancel').click();
-      document.querySelector('[data-panel="today"]').click();
+      document.querySelector('button[data-panel="today"]').click();
       await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
       return { poem: true, gregorianDate: true, persianFont: true, nativeReminders: 3, cancellation: true, sharedPalette:true, persianPlanner:true, editableApproval:true, noEffectsBeforeConfirmation:true, approvedChannelIsolation:true, jalaliPicker:true, clock24:true, simplifiedApproval:true, compactApproval:true, voiceCapture: true, voiceCancel: true, composerSingleLine: true };
     })()`);
@@ -292,7 +291,7 @@ async function inspect() {
       writeFileSync(outputPath.replace(/\.json$/,'-poems.json'),JSON.stringify(poem.result.result.value,null,2));
       // Supply the same real user activation as tapping the voice UI. Programmatic
       // clicks alone can leave fixture audio suspended by WebView's autoplay policy.
-      const activation=await evaluate(`(()=>{const b=document.querySelector('[data-panel="assistant"]').getBoundingClientRect();return{x:b.x+b.width/2,y:b.y+b.height/2,w:innerWidth,h:innerHeight};})()`);
+      const activation=await evaluate(`(()=>{const b=document.querySelector('button[data-panel="assistant"]').getBoundingClientRect();return{x:b.x+b.width/2,y:b.y+b.height/2,w:innerWidth,h:innerHeight};})()`);
       if(activation.result.exceptionDetails)throw new Error('Cannot locate assistant activation');
       const prefix=outputPath.replace(/\.json$/,'-speech-system-ui');
       execFileSync(process.execPath,['scripts/android-system-ui-check.mjs',prefix],{stdio:'inherit'});
@@ -310,7 +309,7 @@ async function inspect() {
     }
     // A real emulator keyboard, not just a resized browser viewport.
     const keyboardSetup=await evaluate(`(async()=>{
-      document.querySelector('[data-panel="assistant"]').click();
+      document.querySelector('button[data-panel="assistant"]').click();
       document.querySelector('#assistant-input').value='پس فردا ساعت 17 بررسی کیبورد بساز';
       document.querySelector('#assistant-send').click();
       const review=document.querySelector('#assistant-result');review.querySelector('.approval-details').open=true;
@@ -346,7 +345,7 @@ async function inspect() {
     const cleanup=await evaluate(`(async()=>{
       document.querySelector('#local-plan-cancel').click();
       if(!document.querySelector('#assistant-result').textContent.includes('لغو شد'))throw Error('Keyboard draft cancellation missing');
-      document.querySelector('[data-panel="today"]').click();window.scrollTo(0,0);
+      document.querySelector('button[data-panel="today"]').click();window.scrollTo(0,0);
       await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
       if(!document.querySelector('#today-panel').classList.contains('active'))throw Error('Today panel did not reopen');
       return true;
