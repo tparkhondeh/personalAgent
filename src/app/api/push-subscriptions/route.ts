@@ -25,10 +25,23 @@ export async function POST(request: Request) {
   if (parsed.data.userId !== session.user.id) return jsonError("حساب تغییر کرده است؛ صفحه را تازه کنید", 409);
   if (!isSupportedPushEndpoint(parsed.data.endpoint)) return jsonError("سرویس Push این مرورگر پشتیبانی نمی‌شود؛ از یادآوری داخل برنامه استفاده کنید", 422);
   try {
-    // The unique endpoint may already belong to another account. Never transfer it.
-    await db.pushSubscription.upsert({ where: { endpoint: parsed.data.endpoint, userId: session.user.id }, update: { p256dh: parsed.data.keys.p256dh, auth: parsed.data.keys.auth }, create: { userId: session.user.id, endpoint: parsed.data.endpoint, p256dh: parsed.data.keys.p256dh, auth: parsed.data.keys.auth } });
-  } catch (error) {
-    if (error && typeof error === "object" && "code" in error && error.code === "P2002") return jsonError("اشتراک قبلی باید روی همین دستگاه لغو شود", 409);
+    const where = { endpoint: parsed.data.endpoint, userId: session.user.id };
+    const data = { p256dh: parsed.data.keys.p256dh, auth: parsed.data.keys.auth };
+    // Do not use upsert's extended WHERE as an ownership boundary: the native
+    // SQLite conflict-update path may only target the unique endpoint. Every
+    // update below is explicitly owner-scoped; create cannot replace a row.
+    const updated = await db.pushSubscription.updateMany({ where, data });
+    if (updated.count === 0) {
+      try { await db.pushSubscription.create({ data: { ...where, ...data } }); }
+      catch (error) {
+        if (!(error && typeof error === "object" && "code" in error && error.code === "P2002")) throw error;
+        // A concurrent registration of THIS owner may be retried once. Another
+        // owner's endpoint remains untouched and must be rejected.
+        const retried = await db.pushSubscription.updateMany({ where, data });
+        if (retried.count === 0) return jsonError("اشتراک قبلی باید روی همین دستگاه لغو شود", 409);
+      }
+    }
+  } catch {
     return jsonError("ثبت اعلان انجام نشد", 503);
   }
   return Response.json({ ok: true }, { status: 201 });

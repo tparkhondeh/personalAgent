@@ -56,7 +56,9 @@ try {
   const first = subscription('device-one'), second = subscription('device-two');
   await call('/api/push-subscriptions', 'POST', first, 201);
   await call('/api/push-subscriptions', 'POST', second, 201);
-  await call('/api/push-subscriptions', 'POST', { ...first, userId: other.id }, 409, otherCookie);
+  await call('/api/push-subscriptions', 'POST', { ...first, userId: other.id, keys: { p256dh: 'other-public', auth: 'other-auth' } }, 409, otherCookie);
+  const kept = (await db.execute({ sql: 'SELECT userId,p256dh,auth FROM PushSubscription WHERE endpoint=?', args: [first.endpoint] })).rows[0];
+  assert.equal(kept.userId, owner.id); assert.equal(kept.p256dh, first.keys.p256dh); assert.equal(kept.auth, first.keys.auth); checks += 3;
   await call('/api/push-subscriptions', 'DELETE', first, 409, otherCookie);
   await call('/api/push-subscriptions', 'DELETE', { ...first, userId: other.id }, 200, otherCookie);
   assert.equal((await db.execute({ sql: 'SELECT userId FROM PushSubscription WHERE endpoint=?', args: [first.endpoint] })).rows[0]?.userId, owner.id); checks++;

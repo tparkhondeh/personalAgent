@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-const mocks = vi.hoisted(() => ({ owner: "account-a" as string | null, upsert: vi.fn(), remove: vi.fn(), logout: vi.fn(), session: vi.fn() }));
+const mocks = vi.hoisted(() => ({ owner: "account-a" as string | null, update: vi.fn(), create: vi.fn(), remove: vi.fn(), logout: vi.fn(), session: vi.fn() }));
 vi.mock("@/lib/api", () => ({ requireApiSession: async () => mocks.owner ? { user: { id: mocks.owner } } : null, jsonError: (error: string, status: number) => Response.json({ error }, { status }) }));
-vi.mock("@/lib/db", () => ({ db: { pushSubscription: { upsert: mocks.upsert, deleteMany: mocks.remove } } }));
+vi.mock("@/lib/db", () => ({ db: { pushSubscription: { updateMany: mocks.update, create: mocks.create, deleteMany: mocks.remove } } }));
 vi.mock("@/lib/rate-limit", () => ({ guardUserRateLimit: () => null }));
 vi.mock("@/lib/push-config", () => ({ publicWebPushConfig: () => ({ publicKey: null }) }));
 vi.mock("@/lib/auth", () => ({ auth: { api: { getSession: mocks.session } } }));
@@ -15,10 +15,14 @@ const request = (method: string, body?: unknown, path = "push-subscriptions", he
 beforeEach(() => {
   vi.resetAllMocks(); mocks.owner = "account-a"; rows = [];
   vi.stubEnv("BETTER_AUTH_URL", "http://localhost:3999");
-  mocks.upsert.mockImplementation(async ({ where, create, update }) => {
-    const row = rows.find(row => row.endpoint === where.endpoint);
-    if (row && row.userId !== where.userId) throw { code: "P2002" };
-    if (row) Object.assign(row, update); else rows.push({ ...create });
+  mocks.update.mockImplementation(async ({ where, data }) => {
+    const row = rows.find(row => row.endpoint === where.endpoint && row.userId === where.userId);
+    if (row) Object.assign(row, data);
+    return { count: row ? 1 : 0 };
+  });
+  mocks.create.mockImplementation(async ({ data }) => {
+    if (rows.some(row => row.endpoint === data.endpoint)) throw { code: "P2002" };
+    rows.push({ ...data }); return data;
   });
   mocks.remove.mockImplementation(async ({ where }) => {
     const matching = rows.filter(row => Object.entries(where).every(([key, value]) => row[key as keyof Subscription] === value));
@@ -40,7 +44,8 @@ describe("exact browser binding and account-safe logout", () => {
     expect((await POST(request("POST", device()))).status).toBe(201);
     await POST(request("POST", device("two")));
     mocks.owner = "account-b";
-    expect((await POST(request("POST", device("one", "account-b")))).status).toBe(409);
+    expect((await POST(request("POST", { ...device("one", "account-b"), keys: { p256dh: "other-public", auth: "other-auth" } }))).status).toBe(409);
+    expect(rows[0]).toMatchObject({ userId: "account-a", p256dh: "synthetic-public", auth: "synthetic-auth" });
     expect((await DELETE(request("DELETE", device()))).status).toBe(409);
     expect(await (await DELETE(request("DELETE", device("one", "account-b")))).json()).toEqual({ ok: true, revoked: false });
     expect(rows).toHaveLength(2);
@@ -53,7 +58,25 @@ describe("exact browser binding and account-safe logout", () => {
   it.each([POST, DELETE])("rejects stale-account requests before any DB mutation", async handler => {
     mocks.owner = "account-b";
     expect((await handler(request("POST", device()))).status).toBe(409);
-    expect(mocks.upsert).not.toHaveBeenCalled(); expect(mocks.remove).not.toHaveBeenCalled();
+    expect(mocks.update).not.toHaveBeenCalled(); expect(mocks.create).not.toHaveBeenCalled(); expect(mocks.remove).not.toHaveBeenCalled();
+  });
+  it("retries a same-owner concurrent create once without replacing ownership", async () => {
+    mocks.create.mockImplementationOnce(async ({ data }) => { rows.push({ ...data }); throw { code: "P2002" }; });
+    expect((await POST(request("POST", device()))).status).toBe(201);
+    expect(mocks.create).toHaveBeenCalledOnce(); expect(mocks.update).toHaveBeenCalledTimes(2);
+    expect(rows).toHaveLength(1); expect(rows[0].userId).toBe("account-a");
+  });
+  it("rejects a concurrent other-owner create without changing its keys", async () => {
+    mocks.create.mockImplementationOnce(async ({ data }) => { rows.push({ ...data, userId: "account-b", p256dh: "other-public" }); throw { code: "P2002" }; });
+    expect((await POST(request("POST", device()))).status).toBe(409);
+    expect(mocks.create).toHaveBeenCalledOnce(); expect(mocks.update).toHaveBeenCalledTimes(2);
+    expect(rows[0]).toMatchObject({ userId: "account-b", p256dh: "other-public" });
+  });
+  it("reports unavailable storage without retrying unrelated failures", async () => {
+    mocks.create.mockRejectedValueOnce(Error("private database failure"));
+    const response = await POST(request("POST", device()));
+    expect(response.status).toBe(503); expect(await response.text()).not.toContain("private");
+    expect(mocks.create).toHaveBeenCalledOnce(); expect(mocks.update).toHaveBeenCalledOnce();
   });
   it("redacts cleanup failure and does not claim deletion", async () => {
     mocks.remove.mockRejectedValue(new Error("private endpoint/key details"));
