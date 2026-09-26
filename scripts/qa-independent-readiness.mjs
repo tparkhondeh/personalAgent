@@ -30,8 +30,12 @@ for (const [path, method] of [["/api/tasks/synthetic-missing", "PATCH"], ["/api/
 const prefs = { timezone: "Asia/Tehran", locale: "fa-IR", workdayStartsAt: "09:00", workdayEndsAt: "18:00", workingDays: ["SAT", "SUN"], defaultReminderMins: 60, defaultReminderOffsets: [1440, 180, 60], quietHoursStartsAt: "00:00", quietHoursEndsAt: "00:00", smsEscalationEnabled: false, callEscalationEnabled: false };
 check("invalid-timezone-rejected", (await request("/api/preferences", "PUT", { ...prefs, timezone: "Not/A_Timezone" })).status, 422);
 check("valid-preferences-saved", (await request("/api/preferences", "PUT", prefs)).status, 200);
+const pushAccountResponse = await request("/api/push-subscriptions");
+check("owned-push-configuration", pushAccountResponse.status, 200);
+const pushAccount = await pushAccountResponse.json();
+assert(typeof pushAccount.userId === "string" && pushAccount.userId);
 for (const endpoint of ["https://127.0.0.1/internal", "https://untrusted.example/push", "https://fcm.googleapis.com.evil.example/send", "http://fcm.googleapis.com/send"]) {
-  check(`unsafe-push-rejected-${endpoint}`, (await request("/api/push-subscriptions", "POST", { endpoint, keys: { p256dh: "synthetic", auth: "synthetic" } })).status, 422);
+  check(`unsafe-push-rejected-${endpoint}`, (await request("/api/push-subscriptions", "POST", { userId: pushAccount.userId, endpoint, keys: { p256dh: "synthetic", auth: "synthetic" } })).status, 422);
 }
 const date = new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10);
 const proposalResponse = await request("/api/agent", "POST", { message: `${date} ساعت پنج عصر جلسه با تیم فروش دارم؛ یک روز قبل، سه ساعت قبل و یک ساعت قبل یادم بنداز.`, localOnly: true });

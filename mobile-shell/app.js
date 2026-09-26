@@ -99,10 +99,10 @@
   }
   $("#task-priority").addEventListener("change", updateManualRepeatDisclosure);
 
-  async function ensureNotificationAccess(openSettings = false) {
+  async function ensureNotificationAccess(openSettings = false, requestPermission = true) {
     if (!localNotifications) { alarmStatus.textContent = "اعلان بومی در این محیط در دسترس نیست."; return false; }
     let permission = await localNotifications.checkPermissions();
-    if (permission.display !== "granted") permission = await localNotifications.requestPermissions();
+    if (permission.display !== "granted" && requestPermission) permission = await localNotifications.requestPermissions();
     if (permission.display !== "granted") { alarmStatus.textContent = "اجازه اعلان داده نشد؛ از تنظیمات گوشی آن را فعال کنید."; return false; }
     if (openSettings && localNotifications.checkExactNotificationSetting) {
       const exact = await localNotifications.checkExactNotificationSetting();
@@ -114,10 +114,71 @@
   // Keep mapping persistence, native scheduling and per-task cancellation in one queue.
   let alarmWork = Promise.resolve();
   let alarmSyncNotice = "";
-  const cancelledAlarmVersions = new Map();
-  const alarmVersion = task => JSON.stringify([task.updatedAt, task.deadline, task.title]);
+  const alarmVersion = task => JSON.stringify([task.updatedAt, task.deadline, task.title, task.done, task.archived, task.approvedPlan, task.notificationIds]);
   function enqueueAlarmWork(action) {
     const next = alarmWork.then(action); alarmWork = next.catch(() => {}); return next;
+  }
+  function cancellationReceipts(task) {
+    const receipts = task.alarmCancellations === undefined ? [] : task.alarmCancellations;
+    if (!Array.isArray(receipts) || receipts.some(receipt => !receipt ||
+      !Number.isSafeInteger(receipt.id) || receipt.id < 1 || receipt.id > 2147483647 || receipt.taskId !== task.id)) {
+      throw new Error("رسید لغو یادآوری معتبر نیست؛ اطلاعات قبلی حفظ شد.");
+    }
+    return receipts;
+  }
+  function reserveAlarmCancellations(previous, next) {
+    if (!previous) return next;
+    const receipts = new Map(cancellationReceipts(previous).map(receipt => [receipt.id, receipt]));
+    const policy = task => JSON.stringify([task.deadline, task.priority, task.approvedPlan ? {
+      channels: [...task.approvedPlan.channels].sort(), reminderOffsets: task.approvedPlan.reminderOffsets,
+      escalation: task.approvedPlan.escalation, repeatCount: task.approvedPlan.repeatCount,
+      repeatMinutes: task.approvedPlan.repeatMinutes, timezone: task.approvedPlan.timezone,
+    } : { reminderOffsets: domain.normalizeOffsets(task.reminderOffsets), urgentRepeatPolicy: domain.manualRepeatPolicy(task) }]);
+    if (!next.done && !next.archived && policy(previous) === policy(next)) {
+      // Title-only/no-op edits retain exact IDs/times/sounds, including elapsed
+      // entries and legacy mappings. New preferences never re-arm old alarms.
+      return { ...next, notificationIds: previous.notificationIds, notificationId: previous.notificationId,
+        notificationSchedule: previous.notificationSchedule, alarmCancellations: [...receipts.values()] };
+    }
+    for (const id of domain.notificationIds(previous)) receipts.set(id, { id, taskId: previous.id });
+    // This field is committed in the SAME task-store write as the edit/completion.
+    return { ...next, alarmCancellations: [...receipts.values()] };
+  }
+  async function drainAlarmCancellations() {
+    for (const snapshot of tasks) {
+      const receipts = cancellationReceipts(snapshot);
+      if (!receipts.length) continue;
+      if (!localNotifications) throw new Error("ارتباط با زنگ گوشی برای تکمیل لغو لازم است.");
+      const matches = item => item.extra?.owner === "hamrah-local" &&
+        receipts.some(receipt => item.id === receipt.id && item.extra?.taskId === receipt.taskId);
+      const pending = (await localNotifications.getPending()).notifications;
+      if (pending.some(item => item.extra?.owner === "hamrah-local" && !item.extra?.taskId && receipts.some(receipt => receipt.id === item.id))) {
+        throw new Error("مالک یادآوری قدیمی احراز نشد؛ رسید لغو حفظ شد.");
+      }
+      const owned = pending.filter(matches);
+      if (owned.length) {
+        await localNotifications.cancel({ notifications: owned.map(({ id }) => ({ id })) });
+      }
+      // Capacitor 8.3 keeps delivered records in getPending after cancel().
+      // Delivered .data is Android extras, not our extra.owner/taskId. Establish
+      // ownership from stored metadata, then dismiss only the exact native pair.
+      const stored = (await localNotifications.getPending()).notifications;
+      const delivered = (await localNotifications.getDeliveredNotifications()).notifications;
+      const remove = delivered.filter(item => item.tag == null &&
+        (stored.some(row => row.id === item.id && matches(row)) ||
+          !stored.some(row => row.id === item.id) && owned.some(row => row.id === item.id)));
+      if (remove.length) await localNotifications.removeDeliveredNotifications({ notifications: remove });
+      if ((await localNotifications.getPending()).notifications.some(matches) ||
+          (await localNotifications.getDeliveredNotifications()).notifications.some(item => remove.some(row => row.id === item.id && row.tag == item.tag))) {
+        throw new Error("لغو زنگ گوشی هنوز تأیید نشد.");
+      }
+      // A lost reply or a failed acknowledgement leaves the durable receipts intact.
+      // Re-read current tasks: another synchronous save may have occurred during await.
+      const next = tasks.map(task => task.id === snapshot.id ? { ...task,
+        alarmCancellations: cancellationReceipts(task).filter(receipt => !receipts.some(old => old.id === receipt.id && old.taskId === receipt.taskId)),
+      } : task);
+      if (!saveTasks(next)) throw new Error("لغو انجام شد، اما رسید آن ذخیره نشد؛ دوباره تلاش کنید.");
+    }
   }
   const localAlarmScheduler = alarmSounds.createDeviceAlarmScheduler({
     owner: "hamrah-local",
@@ -133,12 +194,14 @@
       return "approved-local-notifications";
     },
   });
-  async function scheduleNotification(task, kind = "task") {
+  async function scheduleNotification(task, kind = "task", requestPermission = true) {
     return enqueueAlarmWork(async () => {
+      await drainAlarmCancellations();
       const current = kind === "test" ? task : tasks.find(item => item.id === task.id);
       if (!localNotifications || !current || current.done || current.archived || !current.deadline) return false;
       task = current;
-      if (kind !== "test" && cancelledAlarmVersions.get(task.id) === alarmVersion(task)) return false;
+      const version = alarmVersion(task);
+      const stillCurrent = () => kind === "test" || tasks.some(item => item.id === task.id && !item.done && !item.archived && alarmVersion(item) === version);
       if (kind !== "test" && task.approvedPlan && !task.approvedPlan.channels.some(c=>c==="ALARM"||c==="NATIVE")) return false;
       const alarm=kind==="test" || !task.approvedPlan || task.approvedPlan.channels.includes("ALARM");
       let mapping = task.notificationSchedule;
@@ -162,6 +225,7 @@
         if (times.some(time => !Number.isFinite(time))) throw new Error("زمان یادآوری معتبر نیست.");
         const usedIds = new Set(tasks.flatMap(domain.notificationIds));
         const nativePending = await localNotifications.getPending();
+        if (!stillCurrent()) return false;
         for (const item of nativePending.notifications) usedIds.add(item.id);
         mapping = { version: 1, entries: [...new Set(times)].map(at => {
           let id; do { id = notificationId(); } while (usedIds.has(id)); usedIds.add(id); return {id, at};
@@ -173,9 +237,12 @@
         }
         Object.assign(task, {notificationIds:snapshot.notificationIds, notificationSchedule:mapping});
       }
-      if (kind !== "test" && cancelledAlarmVersions.get(task.id) === alarmVersion(task)) return false;
-      if (!(await ensureNotificationAccess(false))) return false;
-      if (kind !== "test" && cancelledAlarmVersions.get(task.id) === alarmVersion(task)) return false;
+      // Mapping persistence changes notificationIds; capture the version after that write.
+      const scheduledVersion = alarmVersion(task);
+      const maySchedule = () => kind === "test" || tasks.some(item => item.id === task.id && !item.done && !item.archived && alarmVersion(item) === scheduledVersion);
+      if (!maySchedule()) return false;
+      if (!(await ensureNotificationAccess(false, requestPermission))) return false;
+      if (!maySchedule()) return false;
       const result = await localAlarmScheduler.sync(async () => mapping.entries.map(entry => ({
         id: entry.id, at: entry.at, alarm,
         title: kind === "test" ? "آزمایش هشدار tia" : "یادآوری برنامه", body: task.title, largeBody: task.title,
@@ -183,16 +250,21 @@
       })), {cancelObsolete:false});
       if (result.legacySound) alarmSyncNotice = alarmSounds.LEGACY_ALARM_SOUND_HELP;
       if (alarmSyncNotice) alarmStatus.textContent = alarmSyncNotice;
+      if (!maySchedule()) return false; // The queued durable cancellation removes a late native write.
       return result.scheduled + result.retained > 0;
     });
   }
-  async function cancelNotifications(task) {
-    cancelledAlarmVersions.set(task.id, alarmVersion(task));
-    return enqueueAlarmWork(async () => {
-      const current = tasks.find(item => item.id === task.id);
-      const ids = [...new Set([...domain.notificationIds(task), ...domain.notificationIds(current || {})])];
-      if (localNotifications && ids.length) await localNotifications.cancel({notifications:ids.map(id=>({id}))});
-    });
+  async function cancelNotifications() {
+    return enqueueAlarmWork(drainAlarmCancellations);
+  }
+  async function retryLocalAlarms() {
+    await cancelNotifications();
+    if (!localNotifications) return 0;
+    let accepted = 0;
+    for (const task of tasks.filter(item => !item.done && !item.archived && item.deadline)) {
+      if (await scheduleNotification(task, "task", false)) accepted++;
+    }
+    return accepted;
   }
 
   function taskMarkup(task) {
@@ -252,9 +324,8 @@
     const existing = tasks.find((task) => task.id === data.get("id"));
     const deadlineValue = String(data.get("deadline") || "");
     if(deadlineValue && (!window.HamrahInputs.persianParts(deadlineValue.split("T")[0])||!window.HamrahInputs.validTime24(deadlineValue.split("T")[1]||""))){$("#form-reminders").textContent="تاریخ شمسی و ساعت ۲۴ساعته معتبر وارد کن.";return;}
-    if (existing) { try { await cancelNotifications(existing); } catch { if (submitGeneration === form.submitGeneration) $("#form-reminders").textContent = "لغو یادآوری قبلی کامل نشد؛ دوباره تلاش کن."; return; } }
     if (submitGeneration !== form.submitGeneration) return;
-    const task = { ...existing, id: existing?.id || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())), title, category: String(data.get("category") || "personal"), priority: String(data.get("priority") || "normal"), deadline: deadlineValue ? new Date(deadlineValue).toISOString() : null, reminderOffsets: existing?.approvedPlan ? existing.approvedPlan.reminderOffsets : domain.normalizeOffsets(existing?.reminderOffsets || reminderOffsets), urgentRepeatPolicy: domain.manualRepeatPolicy(existing, repeatSettings), notificationIds: [], notificationId: undefined, notificationSchedule: undefined, done: existing?.done || false, updatedAt:new Date().toISOString() };
+    const task = reserveAlarmCancellations(existing, { ...existing, id: existing?.id || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())), title, category: String(data.get("category") || "personal"), priority: String(data.get("priority") || "normal"), deadline: deadlineValue ? new Date(deadlineValue).toISOString() : null, reminderOffsets: existing?.approvedPlan ? existing.approvedPlan.reminderOffsets : domain.normalizeOffsets(existing ? existing.reminderOffsets : reminderOffsets), urgentRepeatPolicy: domain.manualRepeatPolicy(existing, repeatSettings), notificationIds: [], notificationId: undefined, notificationSchedule: undefined, done: existing?.done || false, updatedAt:new Date().toISOString() });
     if(task.approvedPlan){task.approvedPlan={...task.approvedPlan,quietStart:"00:00",quietEnd:"00:00"};}
     if(task.approvedPlan?.durationMinutes && task.deadline)task.endsAt=new Date(Date.parse(task.deadline)+task.approvedPlan.durationMinutes*60000).toISOString();
     const next = existing ? tasks.map((item) => item.id === task.id ? task : item) : [task, ...tasks];
@@ -268,6 +339,8 @@
     // The closed-modal guard rejects duplicate submits; the generation guards
     // prevent an older alarm result from changing a newer form's feedback.
     submitButton.disabled = false;
+    try { if (existing) await cancelNotifications(); }
+    catch { notify("done — تغییر ذخیره شد؛ لغو زنگ قبلی هنوز تأیید نشد. از تنظیمات دوباره تلاش کن."); return; }
     if (task.deadline && !task.done) {
       try { const scheduled = await scheduleNotification(task); notify(scheduled ? "done — فقط روی این دستگاه ذخیره شد؛ یادآوری‌ها تنظیم شدند." : "done — فقط روی این دستگاه ذخیره شد؛ یادآوری به زمان آینده و اجازه اعلان نیاز دارد."); }
       catch { notify("done — فقط روی این دستگاه ذخیره شد، اما تنظیم یادآوری کامل نشد؛ از تنظیمات دوباره تلاش کن."); }
@@ -282,22 +355,24 @@
     if (!button) return;
     const id = button.closest("[data-id]")?.dataset.id;
     const task = tasks.find((item) => item.id === id);
-    if (!task || task.done || pendingActions.has(id)) return;
+    if (!task || task.done || task.archived || pendingActions.has(id)) return;
     if (button.dataset.action === "edit") { openForm(task); return; }
     if (button.dataset.action === "delete") { pendingDelete = id; render(); return; }
     if (button.dataset.action === "cancel-delete") { pendingDelete = ""; render(); return; }
     pendingActions.add(id);
     try {
       if (button.dataset.action === "toggle") {
-        await cancelNotifications(task);
-        if (!saveTasks(tasks.map(item => item.id === id ? { ...item, done: true, updatedAt: new Date().toISOString() } : item))) { render(); return; }
+        if (!saveTasks(tasks.map(item => item.id === id ? reserveAlarmCancellations(item, { ...item, done: true, updatedAt: new Date().toISOString() }) : item))) { render(); return; }
+        render();
+        await cancelNotifications();
       }
       if (button.dataset.action === "confirm-delete") {
-        await cancelNotifications(task);
-        if (!saveTasks(tasks.filter(item => item.id !== id))) { render(); return; }
+        if (!saveTasks(tasks.map(item => item.id === id ? reserveAlarmCancellations(item, { ...item, archived: true, updatedAt: new Date().toISOString() }) : item))) { render(); return; }
         pendingDelete = "";
+        render();
+        await cancelNotifications();
       }
-    } catch { $("#page-status").textContent = "ذخیره یا لغو یادآوری کامل نشد؛ دوباره تلاش کن."; render(); return; }
+    } catch { $("#page-status").textContent = "تغییر ذخیره شد؛ لغو زنگ هنوز تأیید نشد. از تنظیمات دوباره تلاش کن."; render(); return; }
     finally { pendingActions.delete(id); }
     render();
   }
@@ -311,6 +386,13 @@
   let agentDraft = null, agentBusy = false;
   const planner = window.HamrahPlanner;
   const draftKey = "hamrah-confirmed-local-draft-v1";
+  function immutablePlan(value) {
+    const freeze = item => {
+      if (item && typeof item === "object") { Object.values(item).forEach(freeze); Object.freeze(item); }
+      return item;
+    };
+    return freeze(JSON.parse(JSON.stringify(value)));
+  }
   function planningItems() { return tasks.filter(t=>!t.done && !t.archived).map(t=>({id:t.id,title:t.title,entity:t.category==="meeting"?"MEETING":"TASK",category:t.category==="company"?"WORK":"PERSONAL",priority:t.priority.toUpperCase(),alertPolicy:t.approvedPlan?JSON.stringify(t.approvedPlan):null,dueAt:t.deadline,startsAt:t.category==="meeting"?t.deadline:null,endsAt:t.endsAt,updatedAt:t.updatedAt||t.id})); }
   function showAgentDraft(extraMessage = "") {
     const root=$("#assistant-result"); root.hidden=false;
@@ -325,20 +407,28 @@
 
     ];
     const choices=(key,values)=>'<label>'+({category:"دسته",priority:"اولویت",recurrence:"تکرار برنامه"}[key])+'<select data-plan="'+key+'">'+Object.entries(values).map(([v,label])=>'<option value="'+v+'"'+(p[key]===v?' selected':'')+'>'+label+'</option>').join("")+'</select></label>';
-    root.innerHTML='<h3>پیش‌نمایش تأیید — نسخه '+toFa(agentDraft.revision)+'</h3><p>پردازش محلی؛ بدون ارسال اطلاعات. </p><p>'+escapeText(extraMessage)+'</p><div class="form-grid">'+fields.map(([label,key,type,value])=>'<label class="field">'+label+'<input data-plan="'+key+'" type="'+type+'" value="'+escapeText(String(value))+'"/></label>').join("")+choices("priority",{NORMAL:"عادی",IMPORTANT:"مهم",URGENT:"فوری"})+choices("recurrence",{NONE:"ندارد",DAILY:"روزانه",WEEKLY:"هفتگی"})+'</div><div class="reminder-options">'+[1440,180,60].map(m=>'<label><input type="checkbox" data-offset="'+m+'" '+(p.reminderOffsets.includes(m)?"checked":"")+'>'+offsetLabels[m]+'</label>').join("")+'</div><div class="reminder-options">'+Object.entries({IN_APP:"داخل برنامه",PUSH:"Push؛ نیازمند اتصال",NATIVE:"Notification",ALARM:"Alarm گوشی"}).map(([v,label])=>'<label><input type="checkbox" data-channel="'+v+'" '+(p.channels.includes(v)?"checked":"")+'>'+label+'</label>').join("")+'</div><label><input type="checkbox" id="local-escalation" '+(p.escalation?"checked":"")+'>تشدید هشدار فوری پس از موعد</label><p>'+p.defaults.map(escapeText).join("؛ ")+'</p>'+[...check.questions,...check.warnings].map(t=>'<p>'+escapeText(t)+'</p>').join("")+'<p>تبدیل صوت آفلاین در دسترس نیست. برای وویس از نسخه متصل استفاده کن. تماس و پیامک واقعی غیرفعال‌اند.</p><div class="settings-actions"><button id="local-plan-confirm" class="primary" '+''+'>ثبت</button><button id="local-plan-cancel" class="secondary">انصراف</button></div><p id="local-plan-status" role="status"></p>';
+    root.innerHTML='<h3>پیش‌نمایش تأیید — نسخه '+toFa(agentDraft.revision)+'</h3><p>پردازش محلی؛ بدون ارسال اطلاعات. </p><p>'+escapeText(extraMessage)+'</p><div class="form-grid">'+fields.map(([label,key,type,value])=>'<label class="field">'+label+'<input data-plan="'+key+'" type="'+type+'" value="'+escapeText(String(value))+'"/></label>').join("")+choices("priority",{NORMAL:"عادی",IMPORTANT:"مهم",URGENT:"فوری"})+choices("recurrence",{NONE:"ندارد",DAILY:"روزانه",WEEKLY:"هفتگی"})+'</div><div class="reminder-options">'+[1440,180,60].map(m=>'<label><input type="checkbox" data-offset="'+m+'" '+(p.reminderOffsets.includes(m)?"checked":"")+'>'+offsetLabels[m]+'</label>').join("")+'</div><div class="reminder-options">'+Object.entries({IN_APP:"داخل برنامه",PUSH:"Push؛ نیازمند اتصال",NATIVE:"Notification",ALARM:"Alarm گوشی"}).map(([v,label])=>'<label><input type="checkbox" data-channel="'+v+'" '+(p.channels.includes(v)?"checked":"")+'>'+label+'</label>').join("")+'</div><label><input type="checkbox" id="local-escalation" '+(p.escalation?"checked":"")+'>تشدید هشدار فوری پس از موعد</label><p>'+p.defaults.map(escapeText).join("؛ ")+'</p>'+[...check.questions,...check.warnings].map(t=>'<p>'+escapeText(t)+'</p>').join("")+'<p>تبدیل صوت روی همین دستگاه انجام می‌شود؛ متن پیشنهادی فقط پس از تأیید ثبت می‌شود. تماس و پیامک واقعی غیرفعال‌اند.</p><div class="settings-actions"><button id="local-plan-confirm" class="primary" '+''+'>ثبت</button><button id="local-plan-cancel" class="secondary">انصراف</button></div><p id="local-plan-status" role="status"></p>';
     const grid=root.querySelector(".form-grid");
     const repeatInput=root.querySelector('[data-plan="repeatCount"]');
     if(repeatInput){repeatInput.min="0";repeatInput.max="6";repeatInput.step="1";}
     const intervalInput=root.querySelector('[data-plan="repeatMinutes"]');
     if(intervalInput){intervalInput.min="10";intervalInput.max="1440";intervalInput.step="1";}
     const operation=document.createElement("p");operation.textContent=({CREATE:"ثبت مورد جدید",UPDATE:"ویرایش مورد انتخاب‌شده",COMPLETE:"تکمیل مورد انتخاب‌شده",DELETE:"حذف و بایگانی مورد انتخاب‌شده"})[p.operation];grid.before(operation);
-    const changed=()=>{agentDraft.revision++;agentDraft.questions=[];localStorage.setItem(draftKey,JSON.stringify(agentDraft));showAgentDraft("جزئیات تغییر کرد؛ نسخه تازه را بررسی و ثبت کن.");};
+    const changed=(rebuild=true)=>{
+      if(agentBusy || agentDraft?.status!=="PENDING")return;
+      planner.normalizePlanForReview(p,planningItems());
+      agentDraft.revision++;agentDraft.questions=[];
+      try { localStorage.setItem(draftKey,JSON.stringify(agentDraft)); }
+      catch { $("#local-plan-status").textContent="پیشنهاد ذخیره نشد؛ دوباره ویرایش کن و پیام حافظه را بررسی کن.";return; }
+      if(rebuild)showAgentDraft("جزئیات تغییر کرد؛ نسخه تازه را بررسی و ثبت کن.");
+      else { updatePreview();$("#local-plan-status").textContent="جزئیات تغییر کرد؛ نسخه تازه را بررسی و ثبت کن."; }
+    };
     const categoryLabel=document.createElement("label");categoryLabel.textContent="دسته‌بندی";const categorySelect=document.createElement("select");
     for(const [v,label] of Object.entries({PERSONAL:"شخصی",WORK:"شرکتی",MEETING:"جلسه"})){if(p.operation!=="CREATE"&&((p.entity==="MEETING")!==(v==="MEETING")))continue;categorySelect.add(new Option(label,v));}
-    categorySelect.value=p.entity==="MEETING"?"MEETING":p.category;categorySelect.onchange=()=>{p.entity=categorySelect.value==="MEETING"?"MEETING":"TASK";if(p.entity==="TASK")p.category=categorySelect.value;changed();};categoryLabel.append(categorySelect);grid.append(categoryLabel);
-    for(const [key,label] of [["date","تاریخ شمسی"],["time","ساعت ۲۴ساعته"]]){const wrapper=document.createElement("label");wrapper.textContent=label;const control=document.createElement("span");wrapper.append(control);grid.append(wrapper);window.HamrahControls[key](control,p[key],v=>{p[key]=v;if(key==="time")p.ambiguousTime=null;changed();});}
+    categorySelect.value=p.entity==="MEETING"?"MEETING":p.category;categorySelect.onchange=()=>{if(agentBusy || agentDraft?.status!=="PENDING")return;p.entity=categorySelect.value==="MEETING"?"MEETING":"TASK";if(p.entity==="TASK")p.category=categorySelect.value;changed();};categoryLabel.append(categorySelect);grid.append(categoryLabel);
+    for(const [key,label] of [["date","تاریخ شمسی"],["time","ساعت ۲۴ساعته"]]){const wrapper=document.createElement("label");wrapper.textContent=label;const control=document.createElement("span");wrapper.append(control);grid.append(wrapper);window.HamrahControls[key](control,p[key],v=>{if(agentBusy || agentDraft?.status!=="PENDING")return;p[key]=v;if(key==="time")p.ambiguousTime=null;changed(false);});}
     const actions=root.querySelector(".settings-actions"), editButton=document.createElement("button");
-    editButton.className="secondary";editButton.textContent="ویرایش";editButton.onclick=()=>{root.querySelector('.approval-details').open=true;root.scrollIntoView({block:'start'});root.querySelector('[data-plan="title"]').focus();resizeApproval();};actions.insertBefore(editButton,$("#local-plan-cancel"));
+    editButton.className="secondary";editButton.textContent="ویرایش";editButton.onclick=()=>{if(agentBusy)return;root.querySelector('.approval-details').open=true;root.scrollIntoView({block:'start'});root.querySelector('[data-plan="title"]').focus();resizeApproval();};actions.insertBefore(editButton,$("#local-plan-cancel"));
     const timeline=document.createElement("ul"), localTime=new Intl.DateTimeFormat("fa-IR",{timeZone:p.timezone,dateStyle:"medium",timeStyle:"short",hourCycle:"h23",calendar:"persian"});
     for(const entry of planner.plannedReminderTimes(p)){const line=document.createElement("li");line.textContent=entry.offset+" دقیقه قبل: "+localTime.format(new Date(entry.scheduledFor));timeline.appendChild(line);}actions.before(timeline);
     if(p.channels.some(c=>c==="PUSH"||c==="IN_APP")){const note=document.createElement("p");note.textContent="Push و مرکز اعلان حساب در حالت محلی فعال نیستند؛ Notification و Alarm به اجازه دستگاه نیاز دارند.";actions.before(note);}
@@ -349,27 +439,42 @@
     const statusNode=$('#local-plan-status');
     for(const node of [...root.childNodes])if(node!==actions&&node!==statusNode)editor.append(node);
     root.classList.add('compact-review');actions.classList.add('approval-actions');
-    const summary=planner.approvalSummary(p), compact=document.createElement('div');compact.className='approval-summary';compact.setAttribute('aria-label','خلاصه پیشنهاد');
+    const compact=document.createElement('div');compact.className='approval-summary';compact.setAttribute('aria-label','خلاصه پیشنهاد');
     const operationTitle=document.createElement('h3');operationTitle.textContent=({CREATE:'بررسی پیش از ایجاد',UPDATE:'بررسی پیش از ویرایش',COMPLETE:'بررسی پیش از تکمیل',DELETE:'بررسی پیش از حذف و بایگانی'})[p.operation];
-    compact.innerHTML='<h3>'+escapeText(p.title||'عنوان تعیین نشده')+'</h3><p>'+escapeText(summary.category+' · '+summary.priority+' · '+summary.when)+'</p><p>یادآوری: '+escapeText(summary.reminders)+'</p><p>هشدار: '+escapeText(summary.channels)+'</p>'+(summary.recurrence?'<p>تکرار برنامه: '+escapeText(summary.recurrence)+'</p>':'')+(summary.followUp?'<p>'+escapeText(summary.followUp)+'</p>':'');
-    for(const warning of [...check.warnings,...(p.channels.some(c=>c==='PUSH'||c==='IN_APP')?['Push و مرکز اعلان حساب در حالت محلی فعال نیستند.']:[]),...(p.operation==='DELETE'?['این تأیید، مورد انتخاب‌شده را حذف و هشدارهای آن را لغو می‌کند.']:[])]){const note=document.createElement('p');note.className='approval-warning';note.textContent=warning;compact.append(note);}
+    function updatePreview() {
+      const summary=planner.approvalSummary(p), currentCheck=planner.inspectPlan(p,new Date(),planningItems());
+      compact.innerHTML='<h3>'+escapeText(p.title||'عنوان تعیین نشده')+'</h3><p>'+escapeText(summary.category+' · '+summary.priority+' · '+summary.when)+'</p><p>یادآوری: '+escapeText(summary.reminders)+'</p><p>هشدار: '+escapeText(summary.channels)+'</p>'+(summary.recurrence?'<p>تکرار برنامه: '+escapeText(summary.recurrence)+'</p>':'')+(summary.followUp?'<p>'+escapeText(summary.followUp)+'</p>':'');
+      for(const warning of [...currentCheck.questions,...currentCheck.warnings,...(p.channels.some(c=>c==='PUSH'||c==='IN_APP')?['Push و مرکز اعلان حساب در حالت محلی فعال نیستند.']:[]),...(p.operation==='DELETE'?['این تأیید، مورد انتخاب‌شده را حذف و هشدارهای آن را لغو می‌کند.']:[])]){const note=document.createElement('p');note.className='approval-warning';note.textContent=warning;compact.append(note);}
+      timeline.replaceChildren();
+      for(const entry of planner.plannedReminderTimes(p)){const line=document.createElement('li');line.textContent=entry.offset+' دقیقه قبل: '+localTime.format(new Date(entry.scheduledFor));timeline.append(line);}
+      const revision=editor.querySelector('h3');if(revision)revision.textContent='پیش‌نمایش تأیید — نسخه '+toFa(agentDraft.revision);
+    }
+    updatePreview();
     for(const m of p.reminderOffsets.filter(m=>![1440,180,60].includes(m))){const label=document.createElement('label');const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.checked=true;checkbox.dataset.offset=String(m);label.append(checkbox,document.createTextNode(toFa(m)+' دقیقه قبل'));editor.append(label);}
     root.replaceChildren(operationTitle,compact,actions,details,statusNode);
     details.addEventListener('toggle',resizeApproval);resizeApproval();
     root.querySelectorAll("[data-plan],[data-offset],[data-channel],#local-escalation").forEach(input=>input.addEventListener("change",()=>{
+      if(agentBusy || agentDraft?.status!=="PENDING")return;
       if(input.dataset.plan) {const key=input.dataset.plan;p[key]=["durationMinutes","occurrenceCount","repeatCount","repeatMinutes"].includes(key)?(input.value?Number(input.value):null):input.value;}
       if(input.dataset.offset){const m=Number(input.dataset.offset);p.reminderOffsets=input.checked?[...new Set([...p.reminderOffsets,m])].sort((a,b)=>b-a):p.reminderOffsets.filter(v=>v!==m);}
       if(input.dataset.channel){const c=input.dataset.channel;p.channels=input.checked?[...new Set([...p.channels,c])]:p.channels.filter(v=>v!==c);}
       if(input.id==="local-escalation")p.escalation=input.checked;
-      agentDraft.revision++;agentDraft.questions=[]; localStorage.setItem(draftKey,JSON.stringify(agentDraft));showAgentDraft("جزئیات تغییر کرد؛ نسخه تازه را بررسی و تأیید کن.");
+      changed(input.dataset.plan==="recurrence" || input.dataset.plan==="repeatCount" || input.id==="local-escalation");
     }));
-    $("#local-plan-cancel").onclick=()=>{agentDraft.status="CANCELLED";localStorage.setItem(draftKey,JSON.stringify(agentDraft));agentDraft=null;showAgentDraft("لغو شد؛ چیزی ثبت یا زمان‌بندی نشد.");};
+    $("#local-plan-cancel").onclick=()=>{if(agentBusy || agentDraft?.status!=="PENDING")return;try{localStorage.setItem(draftKey,JSON.stringify({...agentDraft,status:"CANCELLED"}));agentDraft=null;showAgentDraft("لغو شد؛ چیزی ثبت یا زمان‌بندی نشد.");}catch{$("#local-plan-status").textContent="لغو پیشنهاد ذخیره نشد؛ دوباره تلاش کن.";}};
     $("#local-plan-confirm").onclick=async()=>{
-      if(agentBusy)return;agentBusy=true;$("#local-plan-confirm").disabled=true;
+      if(agentBusy || agentDraft?.status!=="PENDING")return;
+      agentBusy=true;
+      const controls=[...root.querySelectorAll("input,select,button")].map(node=>({node,disabled:node.disabled}));
+      controls.forEach(({node})=>{node.disabled=true;});root.setAttribute("aria-busy","true");
       try{
         const stored=JSON.parse(localStorage.getItem(draftKey)||"null");
-        if(!stored||stored.id!==agentDraft.id||stored.revision!==agentDraft.revision||stored.status!=="PENDING")throw new Error("نسخه پیشنهاد تغییر کرده است.");
-        const errors=[...planner.inspectPlan(p,new Date(),planningItems()).questions,...(agentDraft.questions||[])];
+        if(!stored||stored.id!==agentDraft.id||stored.revision!==agentDraft.revision||stored.status!=="PENDING"||JSON.stringify(stored.plan)!==JSON.stringify(p))throw new Error("نسخه پیشنهاد تغییر کرده است.");
+        const approved=immutablePlan(p), receipt={id:stored.id,revision:stored.revision};
+        if(tasks.some(task=>task.approvalReceipt?.id===receipt.id && task.approvalReceipt.revision===receipt.revision)){
+          agentDraft=null;await retryLocalAlarms();showAgentDraft("این پیشنهاد قبلاً ثبت شده است؛ دوباره ایجاد نشد.");render();return;
+        }
+        const errors=[...planner.inspectPlan(approved,new Date(),planningItems()).questions,...(agentDraft.questions||[])];
         if(errors.length){
           details.open=true;
           root.querySelectorAll("[data-approval-error]").forEach(e=>e.remove());
@@ -379,28 +484,27 @@
           }
           throw new Error(errors[0]);
         }
-        const existing=p.targetId?tasks.find(t=>t.id===p.targetId):null;
-        if(p.operation!=="CREATE" && (!existing||(existing.updatedAt||existing.id)!==p.targetUpdatedAt))throw new Error("مورد انتخاب‌شده تغییر کرده؛ دوباره درخواست بده.");
-        // Claim before any await; repeated clicks/reloads cannot create another entity.
-        agentDraft.status="EXECUTING";localStorage.setItem(draftKey,JSON.stringify(agentDraft));
-        if(existing)await cancelNotifications(existing);
-        const instant=planner.planInstant(p.date,p.time,p.timezone);
-        const task={...existing,id:existing?.id||agentDraft.id,title:p.title,category:p.entity==="MEETING"?"meeting":p.category==="WORK"?"company":"personal",priority:p.priority.toLowerCase(),deadline:instant?.toISOString()??null,endsAt:instant&&p.durationMinutes?new Date(instant.getTime()+p.durationMinutes*60000).toISOString():null,reminderOffsets:p.reminderOffsets,notificationIds:[],notificationId:undefined,notificationSchedule:undefined,done:p.operation==="COMPLETE",archived:p.operation==="DELETE",updatedAt:new Date().toISOString(),approvedPlan:p};
-        const series=p.operation==="CREATE"&&p.recurrence!=="NONE"?planner.planOccurrences(p).map((o,i)=>({...task,id:i?task.id+"-"+i:task.id,deadline:o.instant,notificationIds:[],endsAt:o.instant&&p.durationMinutes?new Date(Date.parse(o.instant)+p.durationMinutes*60000).toISOString():null})):[task];
+        const existing=approved.targetId?tasks.find(t=>t.id===approved.targetId):null;
+        if(approved.operation!=="CREATE" && (!existing||existing.done||existing.archived||(existing.updatedAt||existing.id)!==approved.targetUpdatedAt))throw new Error("مورد انتخاب‌شده تغییر کرده؛ دوباره درخواست بده.");
+        const instant=planner.planInstant(approved.date,approved.time,approved.timezone);
+        const task=reserveAlarmCancellations(existing,{...existing,id:existing?.id||receipt.id,title:approved.title,category:approved.entity==="MEETING"?"meeting":approved.category==="WORK"?"company":"personal",priority:approved.priority.toLowerCase(),deadline:instant?.toISOString()??null,endsAt:instant&&approved.durationMinutes?new Date(instant.getTime()+approved.durationMinutes*60000).toISOString():null,reminderOffsets:approved.reminderOffsets,notificationIds:[],notificationId:undefined,notificationSchedule:undefined,done:approved.operation==="COMPLETE",archived:approved.operation==="DELETE",updatedAt:new Date().toISOString(),approvedPlan:approved,approvalReceipt:receipt});
+        const series=approved.operation==="CREATE"&&approved.recurrence!=="NONE"?planner.planOccurrences(approved).map((o,i)=>({...task,id:i?task.id+"-"+i:task.id,deadline:o.instant,notificationIds:[],endsAt:o.instant&&approved.durationMinutes?new Date(Date.parse(o.instant)+approved.durationMinutes*60000).toISOString():null})):[task];
         const next=existing?tasks.map(t=>t.id===task.id?task:t):[...series,...tasks];
         if(!saveTasks(next)) {
-          agentDraft.status="PENDING";
-          localStorage.setItem(draftKey,JSON.stringify(agentDraft));
           throw new Error("ثبت انجام نشد؛ اطلاعات قبلی حفظ شده است. پیام حافظه را بررسی کنید.");
         }
-        agentDraft.status="EXECUTED";localStorage.setItem(draftKey,JSON.stringify(agentDraft));agentDraft=null;
+        // No await precedes this atomic task/receipt commit. A failed save leaves
+        // the draft PENDING; a failed draft acknowledgement cannot replay this receipt.
+        try{localStorage.setItem(draftKey,JSON.stringify({...stored,status:"EXECUTED"}));}catch{/* The task-store receipt is authoritative. */}
+        agentDraft=null;render();
         let result="ثبت محلی انجام شد؛ هنوز با حساب سرور همگام نشده است.";
-        if(p.channels.includes("PUSH"))result+=" Push در حالت آفلاین ارسال نمی‌شود.";
-        if(p.operation==="CREATE"||p.operation==="UPDATE"){
-          try{if(p.channels.some(c=>c==="ALARM"||c==="NATIVE")){let scheduled=0;for(const item of series){if(await scheduleNotification(item))scheduled++;}result+=scheduled===series.length?" Notification تنظیم شد.":" برخی اعلان‌ها تنظیم نشدند؛ زمان آینده و اجازه گوشی لازم است.";}}catch{result+=" ثبت انجام شد، اما Notification کامل تنظیم نشد.";}
-        }
+        if(approved.channels.includes("PUSH"))result+=" Push در حالت آفلاین ارسال نمی‌شود.";
+        try{
+          await cancelNotifications();
+          if((approved.operation==="CREATE"||approved.operation==="UPDATE")&&approved.channels.some(c=>c==="ALARM"||c==="NATIVE")){let scheduled=0;for(const item of series){if(await scheduleNotification(item))scheduled++;}result+=scheduled===series.length?" Notification تنظیم شد.":" برخی اعلان‌ها تنظیم نشدند؛ زمان آینده و اجازه گوشی لازم است.";}
+        }catch{result+=" تغییر ذخیره شد؛ لغو یا تنظیم زنگ کامل نشد. از تنظیمات دوباره تلاش کن.";}
         showAgentDraft(result);render();
-      }catch(error){$("#local-plan-status").textContent=error.message||"ثبت انجام نشد؛ دوباره بررسی کن.";}finally{agentBusy=false;if($("#local-plan-confirm"))$("#local-plan-confirm").disabled=false;}
+      }catch(error){statusNode.textContent=error.message||"ثبت انجام نشد؛ دوباره بررسی کن.";}finally{agentBusy=false;controls.forEach(({node,disabled})=>{node.disabled=disabled;});root.setAttribute("aria-busy","false");}
     };
   }
   function replyToMessage() {
@@ -453,11 +557,9 @@
     if (enablingNotifications) return;
     enablingNotifications = true; $("#enable-notifications").disabled = true; alarmSyncNotice = "";
     try {
+      await cancelNotifications();
       if (await ensureNotificationAccess(true)) {
-        let accepted = 0;
-        for (const task of tasks.filter(item => !item.done && !item.archived && item.deadline)) {
-          if (await scheduleNotification(task)) accepted++;
-        }
+        const accepted = await retryLocalAlarms();
         alarmStatus.textContent = `${toFa(accepted)} برنامه دارای یادآوری تنظیم‌شده است؛ زمان زنگ‌های قبلی حفظ شد. ${alarmSyncNotice}`;
       }
     } catch { alarmStatus.textContent = "فعال‌سازی اعلان کامل نشد؛ دوباره تلاش کنید."; }
@@ -533,4 +635,7 @@
   window.addEventListener("storage", renderHeader);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) { renderHeader(); render(); } });
   showPanel(panel);
+  // Reconcile durable cancellations even for hidden completed/deleted records,
+  // then retry only missing future alarms with their persisted IDs and times.
+  void retryLocalAlarms().catch(()=>{alarmStatus.textContent="لغو یا تنظیم زنگ‌های ذخیره‌شده کامل نشد؛ از تنظیمات دوباره تلاش کن.";});
 })();

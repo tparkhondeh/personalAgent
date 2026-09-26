@@ -273,6 +273,7 @@ function mobileFixture() {
     $$: () => filters, render: vi.fn(), closeForm: () => { state.open = false; },
     showPanel: (panel: string) => { state.panel = panel; },
     domain: context.window.HamrahOffline, reminderOffsets: [1440, 180, 60], repeatSettings,
+    reserveAlarmCancellations: (_previous: unknown, next: unknown) => next,
   });
   Object.assign(context.window, { HamrahInputs: { persianParts, validTime24 } });
   Object.defineProperties(context, { tasks: { get: () => state.tasks }, filter: { get: () => state.filter, set: value => { state.filter = value; } } });
@@ -361,13 +362,13 @@ describe("bundled manual form save", () => {
     vi.advanceTimersByTime(5000); expect(f.status.textContent).toContain(warning);
   });
 
-  it("keeps invalid input and previous-reminder cancellation failures open without success", async () => {
+  it("keeps invalid input open and reports saved edits whose cancellation still needs retry", async () => {
     vi.useFakeTimers(); const f = mobileFixture(); f.formValues.set("deadline", "invalid:T99:99");
     await f.submit(); expect(f.saveTasks).not.toHaveBeenCalled(); expect(f.state.open).toBe(true);
     f.formValues.set("deadline", "2026-09-15T09:00"); await f.submit();
     f.state.open = true; f.cancelNotifications.mockRejectedValue(new Error("cancel failed"));
-    await f.submit(); expect(f.state.open).toBe(true);
-    expect(f.status.textContent).not.toContain("done"); expect(f.restored()).toHaveLength(1);
-    expect(f.errors.textContent).toContain("لغو یادآوری قبلی کامل نشد");
+    await f.submit(); expect(f.state.open).toBe(false);
+    expect(f.status.textContent).toContain("تغییر ذخیره شد"); expect(f.restored()).toHaveLength(1);
+    expect(f.status.textContent).toContain("لغو زنگ قبلی هنوز تأیید نشد");
   });
 });

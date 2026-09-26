@@ -81,6 +81,14 @@ jobs:
           else
             echo STAGING_EXPECTATION=recovery >> "$GITHUB_ENV"
           fi
+      - name: Verify the permanent-signed upgrade baseline
+        run: |
+          curl --fail --silent --show-error --connect-timeout 30 --max-time 180 \
+            -L https://github.com/tparkhondeh/personalAgent/releases/download/personal-1.0.43/tia-1.0.43.apk \
+            -o artifacts/upgrade-from-43.apk
+          printf '%s  %s\n' '9d0353738ce22965c33e58fe495efd894a37419f2f03042b4917bef003db9406' 'artifacts/upgrade-from-43.apk' | sha256sum -c -
+          node scripts/verify-android-upgrade.mjs artifacts/upgrade-from-43.apk "artifacts/personal-signed/$APK_FILE" > artifacts/upgrade-identity.json
+          echo TIA_UPGRADE_BASELINE_APK=artifacts/upgrade-from-43.apk >> "$GITHUB_ENV"
       - name: Enable emulator acceleration
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules

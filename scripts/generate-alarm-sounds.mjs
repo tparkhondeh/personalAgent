@@ -45,7 +45,7 @@ function createController() {
   let storage; try { storage=window.localStorage; } catch {}
   return createAlarmSoundController({native:window.Capacitor?.getPlatform?.()==="android",plugin:nativePlugin(),storage,createAudio:url=>new Audio(url),assetBase:"./alarm-sounds/"});
 }
-return {ALARM_SOUNDS,ALARM_SOUND_HELP,LEGACY_ALARM_SOUND_HELP,createController,createDeviceAlarmScheduler,
+return {ALARM_SOUNDS,ALARM_SOUND_HELP,LEGACY_ALARM_SOUND_HELP,createController,createDeviceAlarmScheduler,installAccountAlarmPrivacyGuard,
 mount:root=>mountAlarmSoundSettings(root,createController()),
 prepareAlarm:(ensureLegacy,legacyChannelId)=>prepareDeviceAlarmChannel(nativePlugin(),ensureLegacy,legacyChannelId)};
 })();\n`;

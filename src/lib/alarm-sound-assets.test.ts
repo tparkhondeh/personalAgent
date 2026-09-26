@@ -41,5 +41,6 @@ describe("original sound assets and the actual offline helper",()=>{
     expect(await helper.prepareAlarm(legacy,"old")).toMatchObject({channelId:"tia-alarm-v1-pulse",sound:"tia_alarm_pulse_v1.wav",legacySound:false});
     expect(legacy).not.toHaveBeenCalled();
     expect(typeof helper.mount).toBe("function");expect(typeof helper.createDeviceAlarmScheduler).toBe("function");
+    expect(typeof helper.installAccountAlarmPrivacyGuard).toBe("function");
   });
 });

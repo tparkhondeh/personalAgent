@@ -66,21 +66,43 @@ self.addEventListener("fetch", (event) => {
   })());
 });
 
+// Kept in parity with src/lib/push-navigation.ts by synthetic worker tests.
+function safePushPath(value) {
+  return typeof value === "string" && /^(?:\/|\/\?view=tasks(?:&taskId=[a-zA-Z0-9_-]{1,128})?|\/\?view=calendar(?:&meetingId=[a-zA-Z0-9_-]{1,128})?)$/.test(value) ? value : "/";
+}
+
+async function currentPushAccount(userId) {
+  if (typeof userId !== "string" || !userId) return false;
+  try {
+    const response = await fetch("/api/push-subscriptions", { credentials: "same-origin", cache: "no-store", signal: AbortSignal.timeout(5000) });
+    return response.ok && (await response.json()).userId === userId;
+  } catch { return false; } // Offline/expired/uncertain sessions fail closed.
+}
+
 self.addEventListener("push", (event) => {
-  const data = event.data ? event.data.json() : {};
-  event.waitUntil(self.registration.showNotification(data.title || "tia", {
-    body: data.body || "یک یادآوری تازه داری",
+  let data;
+  try { data = event.data ? event.data.json() : {}; } catch { return; }
+  // Also redact payloads queued by an older server before logout/account switch.
+  event.waitUntil((async () => {
+    if (!data || !await currentPushAccount(data.userId)) return;
+    await self.registration.showNotification("tia", {
+    body: "یادآوری تازه‌ای داری؛ برای مشاهده وارد برنامه شو.",
     icon: "/icon.svg",
     badge: "/icon.svg",
-    data: { url: data.url || "/" },
-    tag: data.tag || "hamrah-reminder",
+    data: { url: safePushPath(data.url), userId: data.userId },
+    tag: /^tia-[a-f0-9]{64}$/.test(data.tag) ? data.tag : `tia-${crypto.randomUUID()}`,
     requireInteraction: Boolean(data.urgent),
     renotify: Boolean(data.urgent),
     vibrate: data.urgent ? [300, 150, 300, 150, 500] : [180, 100, 180],
-  }));
+    });
+  })());
 });
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  event.waitUntil(clients.openWindow(event.notification.data?.url || "/"));
+  event.waitUntil((async () => {
+    const data = event.notification.data;
+    const url = await currentPushAccount(data?.userId) ? safePushPath(data?.url) : "/";
+    await clients.openWindow(url);
+  })());
 });

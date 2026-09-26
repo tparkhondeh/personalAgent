@@ -9,11 +9,15 @@ import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createSubmissionController } from "@/lib/create-submission";
 import { authClient } from "@/lib/auth-client";
+import { logoutWithPushCleanup } from "@/lib/push-client";
+import { logoutWithNativeFence, NATIVE_CLEANUP_WARNING } from "@/lib/logout-session";
+import { selectPushTarget } from "@/lib/push-navigation";
 import { enableNotificationsForDevice } from "@/lib/notification-access";
 import { defaultPreferences, PreferencesPanel, type UserPreferences } from "@/components/preferences-panel";
 import { NotificationCenter, type AppNotification } from "@/components/notification-center";
 import { buildEscalationPlan, defaultEscalationPolicy } from "@/lib/escalations";
-import { clearNativeEscalationAlarms, syncNativeEscalationAlarms, cancelNativeEscalationAlarms, isNativeAndroid, type NativeEscalationAlarm } from "@/lib/native-escalations";
+import { syncNativeEscalationAlarms, cancelNativeEscalationAlarms, isNativeAndroid, type NativeEscalationAlarm } from "@/lib/native-escalations";
+import { setNativeAlarmAccount, watchNativeAlarmSession, type NativeAlarmPrivacyStatus } from "@/lib/native-alarm-session";
 import { cancelDeviceRemindersFromResponse } from "@/lib/device-cancellation";
 import { startForegroundRefresh } from "@/lib/foreground-refresh";
 import { getDailyRumiSelection, getRumiSelection, rumiSelectionCount } from "@/lib/daily-rumi";
@@ -22,7 +26,7 @@ import { REMINDER_OFFSET_OPTIONS } from "@/lib/reminder-offsets";
 import { AgentAssistant } from "@/components/agent-assistant";
 import { ActionIcon } from "@/components/action-icon";
 import { fitProgramList } from "@/lib/list-viewport";
-import { clearApprovedDeviceReminders, syncApprovedDeviceReminders } from "@/lib/approved-device-reminders";
+import { syncApprovedDeviceReminders } from "@/lib/approved-device-reminders";
 import { readGuestItems, saveGuestItems, type GuestItem as Item } from "@/lib/guest-items";
 import { manualItemMoment, tehranWeek } from "@/lib/web-calendar";
 import { initialDashboardView, type DashboardView as View } from "@/lib/startup-navigation";
@@ -91,13 +95,30 @@ export function PersonalAgentDashboard() {
 }
 
 function SessionDashboard({ session }: { session: ReturnType<typeof authClient.useSession>["data"] }) {
+  const [nativePrivacy, setNativePrivacy] = useState<NativeAlarmPrivacyStatus>({ state: "cleaning", canSchedule: false, message: "" });
+  const nativeWatcher = useRef<ReturnType<typeof watchNativeAlarmSession> | null>(null);
   useEffect(() => {
-    const clear=()=>{void Promise.allSettled([clearApprovedDeviceReminders(),clearNativeEscalationAlarms()]);};
-    if(!session?.user.id)return clear;
+    // Run on guest startup too, retaining warnings and focus/visibility retries.
+    let stopped = false;
+    const start = () => {
+      try {
+        const watcher = watchNativeAlarmSession(session?.user.id ?? null, setNativePrivacy);
+        nativeWatcher.current = watcher;
+      } catch {
+        // Storage/bridge initialization can fail before the native watcher exists.
+        setNativePrivacy({ state: "blocked", canSchedule: false, message: NATIVE_CLEANUP_WARNING });
+        nativeWatcher.current = { retry: async () => { if (!stopped) start(); return { state: "blocked", canSchedule: false, message: NATIVE_CLEANUP_WARNING }; }, stop() {} };
+      }
+    };
+    start();
+    return () => { stopped = true; const watcher = nativeWatcher.current; nativeWatcher.current = null; watcher?.stop(); };
+  }, [session?.user.id]);
+  useEffect(() => {
+    if (!session?.user.id || !nativePrivacy.canSchedule) return;
     const sync=()=>{void syncApprovedDeviceReminders().catch(()=>{});};
     sync(); const interval=setInterval(sync,30000); window.addEventListener("focus",sync);
-    return()=>{clearInterval(interval);window.removeEventListener("focus",sync);clear();};
-  },[session?.user.id]);
+    return()=>{clearInterval(interval);window.removeEventListener("focus",sync);};
+  },[session?.user.id, nativePrivacy.canSchedule]);
   const [items, setItems] = useState<Item[]>([]);
   const [guestStorageReady, setGuestStorageReady] = useState(false);
   const guestSnapshot = useRef<string | null | undefined>(undefined);
@@ -107,6 +128,7 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
   const [saving, setSaving] = useState(false);
   const submission = useRef(createSubmissionController(() => crypto.randomUUID()));
   const [editing, setEditing] = useState<Item | null>(null);
+  const pushTargetHandled = useRef(false);
   const [composerDate, setComposerDate] = useState<string>();
   const [pendingDelete, setPendingDelete] = useState("");
   const [loading, setLoading] = useState(false);
@@ -120,6 +142,8 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
   const [notificationStatus, setNotificationStatus] = useState("");
   const [notificationEnabling, setNotificationEnabling] = useState(false);
   const notificationActivation = useRef(false);
+  const logoutPending = useRef(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const [notificationCenter, setNotificationCenter] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
@@ -202,13 +226,22 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
       const [tasksResponse, meetingsResponse] = await Promise.all([fetch("/api/tasks"), fetch("/api/meetings")]);
       if (!tasksResponse.ok || !meetingsResponse.ok) throw new Error("دریافت برنامه انجام نشد");
       const [{ data: tasks }, { data: meetings }] = await Promise.all([tasksResponse.json(), meetingsResponse.json()]);
-      setItems([...(tasks as ApiTask[]).map(taskToItem), ...(meetings as ApiMeeting[]).map(meetingToItem)].sort((a, b) => new Date(itemMoment(a) || "9999").getTime() - new Date(itemMoment(b) || "9999").getTime()));
+      const ownedItems = [...(tasks as ApiTask[]).map(taskToItem), ...(meetings as ApiMeeting[]).map(meetingToItem)].sort((a, b) => new Date(itemMoment(a) || "9999").getTime() - new Date(itemMoment(b) || "9999").getTime());
+      setItems(ownedItems);
+      if (!pushTargetHandled.current) {
+        pushTargetHandled.current = true;
+        // Resolve only against this authenticated account's fetched items. The
+        // URL contains an opaque ID, never an item's title or editable fields.
+        const target = selectPushTarget(window.location.search, ownedItems);
+        if (target) { setEditing(target); setComposer(true); }
+      }
     } catch (error) { setMessage(error instanceof Error ? error.message : "دریافت برنامه انجام نشد"); }
     finally { setLoading(false); }
   }, [session?.user]);
 
   useEffect(() => {
     if (!hydrated || (!signedIn && !guestStorageReady)) return;
+    if (isNativeAndroid() && !nativePrivacy.canSchedule) return;
     let cancelled = false, syncing = false;
     async function syncEscalations() {
       if (cancelled || syncing) return;
@@ -251,7 +284,7 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
     void syncEscalations().catch(() => undefined);
     const stopRefresh = isNativeAndroid() ? startForegroundRefresh(syncEscalations, window, document) : () => {};
     return () => { cancelled = true; stopRefresh(); };
-  }, [escalationRevision, hydrated, items, preferences, signedIn, guestStorageReady]);
+  }, [escalationRevision, hydrated, items, preferences, signedIn, guestStorageReady, nativePrivacy.canSchedule]);
 
   const loadNotifications = useCallback(async () => {
     if (!session?.user) return;
@@ -338,13 +371,34 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
   }
 
   async function enableNotifications() {
-    if (notificationActivation.current) return;
+    if (notificationActivation.current || logoutPending.current) return;
     notificationActivation.current = true;
     setNotificationEnabling(true);
     setNotificationStatus("");
-    try { const result = await enableNotificationsForDevice(); setNotificationStatus(result.message); }
+    try { const result = await enableNotificationsForDevice(session?.user.id); setNotificationStatus(result.message); }
     catch (error) { setNotificationStatus(error instanceof Error ? error.message : "فعال‌سازی اعلان ناموفق بود"); }
     finally { notificationActivation.current = false; setNotificationEnabling(false); }
+  }
+
+  async function logout() {
+    if (!session?.user.id || logoutPending.current) return;
+    logoutPending.current = true;
+    setLoggingOut(true);
+    const watcher = nativeWatcher.current;
+    try {
+      await logoutWithNativeFence({
+        userId: session.user.id,
+        setNativeAccount: setNativeAlarmAccount,
+        signOut: () => logoutWithPushCleanup(session.user.id, options => authClient.signOut(options), isNativeAndroid()),
+        getFreshAccount: async () => (await authClient.getSession({ fetchOptions: { cache: "no-store" } })).data?.user.id ?? null,
+        isCurrent: () => nativeWatcher.current === watcher,
+        onUnconfirmedCleanup: () => setNativePrivacy({ state: "blocked", canSchedule: false, message: NATIVE_CLEANUP_WARNING }),
+      });
+    }
+    catch {
+      setMessage("خروج امن تأیید نشد؛ حساب را تازه کن و دوباره تلاش کن. اعلان این دستگاه ممکن است نیاز به فعال‌سازی دوباره داشته باشد.");
+    }
+    finally { logoutPending.current = false; setLoggingOut(false); }
   }
 
   async function markNotificationsRead(id?: string) {
@@ -430,7 +484,7 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
       <div className="brand"><TiaMark/><div><strong dir="ltr">tia</strong><small>دستیار شخصی تو</small></div></div>
       <nav aria-label="ناوبری اصلی"><Nav active={view === "today"} label="امروز" onClick={() => { setView("today"); setFilter("all"); }} /><Nav active={view === "tasks"} label="کارها" badge={open} onClick={() => setView("tasks")} /><Nav active={view === "calendar"} label="تقویم" onClick={() => setView("calendar")} /><Nav active={view === "assistant"} label="tia" onClick={() => setView("assistant")} /><button className="nav-button sidebar-add" aria-label="برنامه جدید" title="برنامه جدید" onClick={() => openComposer()}><ActionIcon name="plus" /></button></nav>
       <div className="sidebar-section"><span className="section-label">فضاها</span>{(Object.keys(categories) as Category[]).map((key) => <button className="space-button" key={key} onClick={() => { setView("tasks"); setFilter(key); }}><i className={categories[key][1]} />{categories[key][0]}<small>{items.filter((item) => item.category === key && !item.done).length}</small></button>)}</div>
-      <div className="profile"><div className="avatar">{session?.user.name?.slice(0, 1) || "ه"}</div><div><strong>{session?.user.name || "نسخه آزمایشی"}</strong><small>{signedIn ? "حساب متصل است" : "برای ذخیره دائمی وارد شو"}</small></div>{signedIn ? <button aria-label="خروج" title="خروج" onClick={() => authClient.signOut()}>خروج</button> : <Link className="login-link" href="/login">ورود</Link>}</div>
+      <div className="profile"><div className="avatar">{session?.user.name?.slice(0, 1) || "ه"}</div><div><strong>{session?.user.name || "نسخه آزمایشی"}</strong><small>{signedIn ? "حساب متصل است" : "برای ذخیره دائمی وارد شو"}</small></div>{signedIn ? <button aria-label="خروج" title="خروج" disabled={loggingOut} onClick={() => void logout()}>{loggingOut ? "در حال خروج…" : "خروج"}</button> : <Link className="login-link" href="/login">ورود</Link>}</div>
     </aside>
     <section className="workspace">
       <header className="topbar">
@@ -443,6 +497,7 @@ function SessionDashboard({ session }: { session: ReturnType<typeof authClient.u
         <div className="top-actions"><button className="icon-button" aria-label="تنظیمات" title="تنظیمات" onClick={() => setView("settings")}><ActionIcon name="settings" /></button><button className="icon-button" aria-label={unreadNotifications ? `اعلان‌ها، ${unreadNotifications} خوانده‌نشده` : "اعلان‌ها"} title="مرکز اعلان‌ها" onClick={() => { const next = !notificationCenter; setNotificationCenter(next); if (next) void loadNotifications(); }}><ActionIcon name="bell" />{unreadNotifications > 0 && <span className="unread-dot" aria-hidden="true" />}</button></div>
       </header>
       {message && <p className="page-message">{message}</p>}
+      {nativePrivacy.message && <p className="page-message" role="alert">{nativePrivacy.state === "cleaning" ? NATIVE_CLEANUP_WARNING : nativePrivacy.message}{(nativePrivacy.state === "blocked" || nativePrivacy.state === "cleaning") && <button onClick={() => void nativeWatcher.current?.retry()}>تلاش دوباره برای پاک‌سازی</button>}</p>}
       {manualSaveSuccess && <p className="page-message" role="status" aria-live="polite" aria-atomic="true" style={{ position: "fixed", bottom: "calc(88px + env(safe-area-inset-bottom))", insetInline: 16, margin: "0 auto", width: "fit-content", maxWidth: "calc(100% - 32px)", zIndex: 100, background: "var(--surface-solid)", borderColor: "var(--line)", color: "var(--ink)" }}>{manualSaveSuccess}</p>}
       {view === "settings" ? <PreferencesPanel key={preferences ? "stored" : "default"} initial={preferences} signedIn={signedIn} onSaved={setPreferences} onNativePermissionChanged={() => setEscalationRevision((value) => value + 1)} /> : view === "assistant" ? <Assistant onAdd={() => openComposer()} onChanged={loadRemote} /> : view === "calendar" ? <Calendar items={items} onEdit={openComposer} onAdd={(date) => openComposer(null, date)} /> : <>
         <section className="dashboard-overview" aria-label={view === "today" ? "آمار برنامه‌های امروز، همه وضعیت‌ها" : "آمار فهرست فعلی، همه وضعیت‌ها"}>{overview.map(group => <article key={group.key} className={`overview-card overview-${group.key}`} aria-label={group.name}><span dir="ltr">{group.label}</span><strong>{group.total.toLocaleString("fa-IR")}</strong><small>{group.done.toLocaleString("fa-IR")} انجام‌شده</small></article>)}</section>

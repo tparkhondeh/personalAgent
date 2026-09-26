@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   signedIn: true, taskFind: vi.fn(), meetingFind: vi.fn(), taskUpdate: vi.fn(), meetingUpdate: vi.fn(),
   preference: vi.fn(), reminderFind: vi.fn(), reminderUpdate: vi.fn(), reminderCreate: vi.fn(),
   escalationUpdate: vi.fn(), escalationFind: vi.fn(), taskDelete: vi.fn(), meetingDelete: vi.fn(), calendar: vi.fn(), audit: vi.fn(), auditFind: vi.fn(), transaction: vi.fn(),
+  taskCreate: vi.fn(), meetingCreate: vi.fn(), reminderCount: vi.fn(),
 }));
 vi.mock("@/lib/api", () => ({
   requireApiSession: async () => mocks.signedIn ? { user: { id: "synthetic-owner" } } : null,
@@ -14,10 +15,14 @@ vi.mock("@/lib/db", () => ({ db: {
   task: { findFirst: mocks.taskFind, update: mocks.taskUpdate },
   meeting: { findFirst: mocks.meetingFind, update: mocks.meetingUpdate },
   userPreference: { findUnique: mocks.preference },
+  reminder: { count: mocks.reminderCount },
   $transaction: mocks.transaction,
 } }));
 import { PATCH as patchTask, DELETE as deleteTask } from "@/app/api/tasks/[id]/route";
 import { PATCH as patchMeeting, DELETE as deleteMeeting } from "@/app/api/meetings/[id]/route";
+import { POST as createTask } from "@/app/api/tasks/route";
+import { POST as createMeeting } from "@/app/api/meetings/route";
+import { readAlertPolicy } from "@/lib/alert-policy";
 
 type Item = {
   id: string; userId: string; title: string; status: string; priority: string;
@@ -29,7 +34,7 @@ type Reminder = {
   channel: string; status: string; idempotencyKey: string; sentAt: Date | null;
 };
 type Attempt = { id: string; userId: string; taskId: string; level: string; status: string };
-type Receipt = { userId: string; entityId: string; entityType: string; action: string; result?: string };
+type Receipt = { id?: string; input?: string; userId: string; entityId: string; entityType: string; action: string; result?: string };
 type Where = { id?: string | { in?: string[]; notIn?: string[] }; userId?: string; taskId?: string; meetingId?: string; status?: string | { in: string[] }; channel?: string | { in: string[] }; level?: string };
 const now = new Date("2026-09-20T11:30:00.000Z");
 const deadline = new Date("2026-09-20T14:00:00.000Z");
@@ -74,15 +79,18 @@ beforeEach(() => {
   }
   mocks.taskUpdate.mockImplementation(async ({ data }) => update(task, data));
   mocks.meetingUpdate.mockImplementation(async ({ data }) => update(meeting, data));
+  mocks.taskCreate.mockImplementation(async ({ data }) => update(task, data));
+  mocks.meetingCreate.mockImplementation(async ({ data }) => update(meeting, data));
   mocks.preference.mockResolvedValue({ defaultReminderMins: 60, defaultReminderOffsets: "1440,180,60" });
   mocks.reminderFind.mockImplementation(async ({ where }) => structuredClone(reminders.filter(row => matches(row, where))));
+  mocks.reminderCount.mockImplementation(async ({ where }) => reminders.filter(row => matches(row, where)).length);
   mocks.reminderUpdate.mockImplementation(async ({ where, data }) => {
     const selected = reminders.filter(row => matches(row, where)); selected.forEach(row => Object.assign(row, data)); return { count: selected.length };
   });
   mocks.reminderCreate.mockImplementation(async ({ data }: { data: Reminder[] }) => {
     for (const row of data) {
       if (reminders.some(existing => existing.idempotencyKey === row.idempotencyKey)) throw new Error("Duplicate reminder key");
-      reminders.push({ ...row, id: `new-${reminders.length}`, sentAt: null });
+      reminders.push({ ...row, status: row.status ?? "PENDING", id: `new-${reminders.length}`, sentAt: null });
     }
     return { count: data.length };
   });
@@ -100,10 +108,51 @@ beforeEach(() => {
   mocks.taskDelete.mockImplementation(async () => { taskDeleted = true; reminders = reminders.filter(row => row.taskId !== task.id || row.userId !== task.userId); return task; });
   mocks.meetingDelete.mockImplementation(async () => { meetingDeleted = true; reminders = reminders.filter(row => row.meetingId !== meeting.id || row.userId !== meeting.userId); return meeting; });
   mocks.transaction.mockImplementation(async callback => callback({
-    task: { findFirst: mocks.taskFind, update: mocks.taskUpdate, delete: mocks.taskDelete }, meeting: { findFirst: mocks.meetingFind, update: mocks.meetingUpdate, delete: mocks.meetingDelete },
+    task: { create: mocks.taskCreate, findFirst: mocks.taskFind, update: mocks.taskUpdate, delete: mocks.taskDelete }, meeting: { create: mocks.meetingCreate, findFirst: mocks.meetingFind, update: mocks.meetingUpdate, delete: mocks.meetingDelete },
     userPreference: { findUnique: mocks.preference }, reminder: { findMany: mocks.reminderFind, updateMany: mocks.reminderUpdate, createMany: mocks.reminderCreate },
-    escalationAttempt: { findMany: mocks.escalationFind, updateMany: mocks.escalationUpdate }, calendarEvent: { upsert: mocks.calendar }, auditLog: { create: mocks.audit, findFirst: mocks.auditFind },
+    escalationAttempt: { findMany: mocks.escalationFind, updateMany: mocks.escalationUpdate }, calendarEvent: { upsert: mocks.calendar, create: vi.fn() }, auditLog: { create: mocks.audit, findFirst: mocks.auditFind, findUnique: mocks.auditFind },
   }));
+});
+
+describe("manual create scheduling and durable custom offsets", () => {
+  const post = (body: unknown, key = "synthetic-create-key-0001") => new Request("http://localhost:3999/api/test", { method: "POST", headers: { origin: "http://localhost:3999", "content-type": "application/json", "idempotency-key": key }, body: JSON.stringify(body) });
+  it.each(["task", "meeting"] as const)("creates only the one future reminder for a two-hour %s; retries do not resurrect completed schedules", async kind => {
+    const at = new Date(now.getTime() + 120 * 60000).toISOString();
+    const input = kind === "task" ? { title: "ساختگی", category: "PERSONAL", dueAt: at } : { title: "ساختگی", startsAt: at, endsAt: new Date(now.getTime() + 180 * 60000).toISOString() };
+    const create = kind === "task" ? createTask : createMeeting;
+    for (let i = 0; i < 2; i++) {
+      const result = await (await create(post(input))).json();
+      expect(result.meta.remindersScheduled).toBe(1);
+      expect(reminders).toHaveLength(1);
+      expect(reminders[0].scheduledFor.toISOString()).toBe(new Date(now.getTime() + 60 * 60000).toISOString());
+    }
+    await (kind === "task" ? patchTask : patchMeeting)(request({ status: "DONE" }), params);
+    const replay = await (await create(post(input))).json();
+    expect(replay.data.status).toBe("DONE"); expect(replay.meta.remindersScheduled).toBe(0);
+    expect(reminders.every(row => row.status === "CANCELLED")).toBe(true);
+    expect(kind === "task" ? mocks.taskCreate : mocks.meetingCreate).toHaveBeenCalledOnce();
+  });
+  it.each([0, 30])("persists %s-minute manual offsets across create, due edits and retries without inventing escalation consent", async minutes => {
+    const result = await createTask(post({ title: "ساختگی", category: "PERSONAL", dueAt: deadline.toISOString(), reminderMinutes: minutes }));
+    expect(result.status).toBe(201); expect(readAlertPolicy(task.alertPolicy)).toBeNull();
+    const later = new Date(deadline.getTime() + 86400000);
+    await patchTask(request({ dueAt: later.toISOString() }), params);
+    await patchTask(request({ dueAt: later.toISOString() }), params);
+    expect(reminders.filter(row => row.status === "PENDING").map(row => row.scheduledFor.toISOString())).toEqual([new Date(later.getTime() - minutes * 60000).toISOString()]);
+  });
+  it("persists a PATCH-only custom offset even when the task currently has no date", async () => {
+    task.dueAt = null;
+    await patchTask(request({ reminderMinutes: 30 }), params);
+    expect(reminders).toHaveLength(0); expect(readAlertPolicy(task.alertPolicy)).toBeNull();
+    await patchTask(request({ dueAt: deadline.toISOString() }), params);
+    expect(reminders.map(row => row.scheduledFor.toISOString())).toEqual(["2026-09-20T13:30:00.000Z"]);
+  });
+  it.each(["task", "meeting"] as const)("does not queue past or exactly-now %s reminders", async kind => {
+    const input = kind === "task" ? { title: "ساختگی", category: "PERSONAL", dueAt: now.toISOString(), reminderMinutes: 0 } : { title: "ساختگی", startsAt: new Date(now.getTime() + 60 * 60000).toISOString(), endsAt: deadline.toISOString() };
+    const result = await (await (kind === "task" ? createTask : createMeeting)(post(input))).json();
+    expect(result.meta.remindersScheduled).toBe(0); expect(reminders).toHaveLength(0);
+    expect(mocks.reminderCreate).not.toHaveBeenCalled();
+  });
 });
 
 describe("successful mutations return owned device cancellation IDs without another fetch", () => {

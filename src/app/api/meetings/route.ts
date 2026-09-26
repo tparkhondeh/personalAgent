@@ -4,7 +4,7 @@ import { validAgentOrigin } from "@/lib/agent-origin";
 import { meetingInputSchema } from "@/lib/validation";
 import { reminderIdempotencyKey } from "@/lib/reminders";
 import { guardUserRateLimit } from "@/lib/rate-limit";
-import { buildReminderSchedule, parseStoredReminderOffsets } from "@/lib/reminder-offsets";
+import { futureReminderSchedule, parseStoredReminderOffsets } from "@/lib/reminder-offsets";
 import { createExactlyOnce, createFailure, createRequestIdentity } from "@/lib/create-request";
 
 export async function GET(request: Request) {
@@ -29,10 +29,12 @@ export async function POST(request: Request) {
   const meeting = await createExactlyOnce(db, identity, async (tx) => {
     const created = await tx.meeting.create({ data: { ...parsed.data, attendees: JSON.stringify(parsed.data.attendees), startsAt: new Date(parsed.data.startsAt), endsAt: new Date(parsed.data.endsAt), userId: session.user.id } });
     await tx.calendarEvent.create({ data: { title: created.title, startsAt: created.startsAt, endsAt: created.endsAt, meetingId: created.id } });
-    await tx.reminder.createMany({ data: buildReminderSchedule(created.startsAt, reminderOffsets).map(({ scheduledFor }) => ({ userId: session.user.id, meetingId: created.id, scheduledFor, channel: "PUSH", idempotencyKey: reminderIdempotencyKey(session.user.id, created.id, scheduledFor, "PUSH") })) });
+    const schedule = futureReminderSchedule(created.startsAt, reminderOffsets);
+    if (schedule.length) await tx.reminder.createMany({ data: schedule.map(({ scheduledFor }) => ({ userId: session.user.id, meetingId: created.id, scheduledFor, channel: "PUSH", idempotencyKey: reminderIdempotencyKey(session.user.id, created.id, scheduledFor, "PUSH") })) });
     await tx.auditLog.create({ data: { userId: session.user.id, action: "MEETING_CREATED", entityType: "Meeting", entityId: created.id, input: JSON.stringify({ title: created.title, startsAt: created.startsAt }) } });
     return created;
   }, (tx, id) => tx.meeting.findFirst({ where: { id, userId: session.user.id } }));
-  return Response.json({ data: meeting, meta: { remindersScheduled: reminderOffsets.length } }, { status: 201 });
+  const remindersScheduled = await db.reminder.count({ where: { userId: session.user.id, meetingId: meeting.id, status: { in: ["PENDING", "DEVICE_PENDING"] } } });
+  return Response.json({ data: meeting, meta: { remindersScheduled } }, { status: 201 });
   } catch (error) { return createFailure(error); }
 }

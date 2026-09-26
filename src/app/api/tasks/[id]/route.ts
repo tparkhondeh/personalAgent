@@ -5,8 +5,7 @@ import { taskUpdateSchema } from "@/lib/validation";
 import { reminderIdempotencyKey, shouldScheduleTaskReminder } from "@/lib/reminders";
 import { guardUserRateLimit } from "@/lib/rate-limit";
 import { parseStoredReminderOffsets } from "@/lib/reminder-offsets";
-import { storedReminderSchedule } from "@/lib/stored-reminder-schedule";
-import { readAlertPolicy } from "@/lib/alert-policy";
+import { manualReminderPolicy, storedReminderSchedule } from "@/lib/stored-reminder-schedule";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   if (!validAgentOrigin(request)) return jsonError("مبدأ درخواست مجاز نیست", 403);
@@ -22,10 +21,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const owned = { id, userId: session.user.id };
     const existing = await tx.task.findFirst({ where: owned });
     if (!existing) return jsonError("کار پیدا نشد", 404);
-    const oldPolicy = readAlertPolicy(existing.alertPolicy);
     const updated = await tx.task.update({ where: owned, data: {
       ...updates,
-      alertPolicy: oldPolicy && reminderMinutes !== undefined ? JSON.stringify({ ...oldPolicy, reminderOffsets: [reminderMinutes] }) : undefined,
+      alertPolicy: reminderMinutes !== undefined ? manualReminderPolicy(reminderMinutes, existing.alertPolicy) : undefined,
       startAt: updates.startAt === null ? null : updates.startAt ? new Date(updates.startAt) : undefined,
       dueAt: updates.dueAt === null ? null : updates.dueAt ? new Date(updates.dueAt) : undefined,
       completedAt: updates.status === "DONE" ? existing.completedAt ?? new Date() : updates.status ? null : undefined,

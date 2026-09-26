@@ -55,9 +55,17 @@ describe("connected native alarm adapters",()=>{
   });
   it("account-boundary cleanup includes both private alarm owners and rejects a late JSON response",()=>{
     const source=readFileSync("src/components/personal-agent-dashboard.tsx","utf8");
-    expect(source).toContain("Promise.allSettled([clearApprovedDeviceReminders(),clearNativeEscalationAlarms()])");
-    expect(source).toContain('window.removeEventListener("focus",sync);clear();');
-    expect(source).toContain("const result = await response.json();\n        if (cancelled) return;\n        const alarms");
+    expect(source).toContain("watchNativeAlarmSession(session?.user.id ?? null, setNativePrivacy)");
+    expect(source).toMatch(/watcher(?:\?\.|\.)stop\(\)/);
+    expect(source).toContain("!nativePrivacy.canSchedule");
+    // Native cleanup is bounded inside the logout helper; uncertain cleanup must
+    // keep its privacy fence without trapping authentication logout in this UI.
+    const logout=source.split("async function logout()")[1].split("async function markNotificationsRead")[0];
+    expect(logout).toContain("await logoutWithNativeFence({");
+    expect(logout).toMatch(/setNativeAccount:\s*setNativeAlarmAccount/);
+    expect(logout).toContain("signOut: () => logoutWithPushCleanup(");
+    expect(logout).toContain("isCurrent: () => nativeWatcher.current === watcher");
+    expect(source).toMatch(/const result = await response\.json\(\);\s*if \(cancelled\) return;\s*const alarms/);
   });
   it("urgent owner cleanup cancels existing alarms while a late native reply is pending",async()=>{
     const {syncNativeEscalationAlarms,clearNativeEscalationAlarms}=await import("./native-escalations");

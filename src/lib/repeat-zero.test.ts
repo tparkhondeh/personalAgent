@@ -4,10 +4,10 @@ import { describe, expect, it, vi } from "vitest";
 import * as planner from "./agent-planner";
 import type { Plan } from "./agent-planner";
 import { buildEscalationPlan, defaultEscalationPolicy } from "./escalations";
-import { createDeviceAlarmScheduler, type DeviceAlarmSchedulerPort } from "./device-alarm-scheduler";
+import { createDeviceAlarmScheduler, type DeviceAlarmSchedulerPort, type ScheduledDeviceAlarm } from "./device-alarm-scheduler";
 
 type RepeatSettings = { repeatCount: number; repeatMinutes: number };
-type Task = { id?: string; deadline?: string; done?: boolean; archived?: boolean; priority?: string; reminderOffsets?: number[]; approvedPlan?: Plan; urgentRepeatPolicy?: RepeatSettings; notificationIds?: number[] };
+type Task = { id?: string; deadline?: string; done?: boolean; archived?: boolean; priority?: string; reminderOffsets?: number[]; approvedPlan?: Plan; urgentRepeatPolicy?: RepeatSettings; notificationIds?: number[]; alarmCancellations?: { id: number; taskId: string }[] };
 type Storage = { getItem: (key: string) => string | null; setItem: (key: string, value: string) => void };
 type Result = { ok: boolean; value?: RepeatSettings | null };
 type Domain = {
@@ -194,30 +194,61 @@ describe("offline repeat settings event handlers", () => {
 });
 
 describe("approved zero reaches the offline scheduling adapter", () => {
-  function fixture(item = task(urgentPlan({ reminderOffsets: [0] }))) {
-    const localNotifications = { schedule: vi.fn(async () => {}), cancel: vi.fn(async () => {}), createChannel: vi.fn(async () => {}), getPending:vi.fn(async()=>({notifications:[]})), checkPermissions:vi.fn(async()=>({display:"granted"})) };
-    const saveTasks = vi.fn(() => true), ensureNotificationAccess = vi.fn(async () => true);
+  function fixture(item = task(urgentPlan({ reminderOffsets: [0] })), pending: ScheduledDeviceAlarm[] = [], delivered: {id:number;tag?:string|null}[] = []) {
+    const state = { tasks: [item], saved: JSON.stringify([item]), pending: structuredClone(pending), delivered: structuredClone(delivered), savedAtCancel: "" };
+    const localNotifications = {
+      schedule: vi.fn(async ({notifications}: {notifications:ScheduledDeviceAlarm[]}) => { state.pending.push(...notifications); }),
+      cancel: vi.fn(async ({notifications}: {notifications:{id:number}[]}) => {
+        state.savedAtCancel = state.saved;
+        // Cap8.3 keeps delivered source records until the separate remove call.
+        state.pending = state.pending.filter(p => !notifications.some(n => n.id === p.id) || state.delivered.some(d => d.id === p.id));
+      }),
+      createChannel: vi.fn(async () => {}),
+      getPending: vi.fn(async () => ({notifications:structuredClone(state.pending)})),
+      getDeliveredNotifications: vi.fn(async () => ({notifications:structuredClone(state.delivered)})),
+      removeDeliveredNotifications: vi.fn(async ({notifications}: {notifications:{id:number;tag?:string|null}[]}) => {
+        state.delivered = state.delivered.filter(d => !notifications.some(n => n.id === d.id && n.tag == d.tag));
+        state.pending = state.pending.filter(p => !notifications.some(n => n.id === p.id));
+      }),
+      checkPermissions: vi.fn(async () => ({display:"granted"})),
+    };
+    const saveTasks = vi.fn((next = state.tasks) => { state.saved = JSON.stringify(next); state.tasks = next; return true; });
+    const ensureNotificationAccess = vi.fn(async () => true);
     let nextId = 100;
     const start = app.indexOf("  // Keep mapping persistence"), end = app.indexOf("  function taskMarkup(", start);
     expect(start).toBeGreaterThan(0); expect(end).toBeGreaterThan(start);
-    const adapter = vm.runInNewContext(app.slice(start, end) + ";({scheduleNotification, cancelNotifications})", {
+    const handlerStart = app.indexOf("  async function handleListAction("), handlerEnd = app.indexOf('  list.addEventListener("click", handleListAction)', handlerStart);
+    expect(handlerStart).toBeGreaterThan(0); expect(handlerEnd).toBeGreaterThan(handlerStart);
+    const environment = {
       domain: { ...domain, notificationTimes: (value: Task, shared: typeof planner) => domain.notificationTimes(value, shared, now.getTime()) },
-      planner, localNotifications, saveTasks, ensureNotificationAccess, tasks: [item], channelId: "synthetic-urgent", notificationId: () => ++nextId,
+      planner, localNotifications, saveTasks, ensureNotificationAccess, channelId: "synthetic-urgent", notificationId: () => ++nextId,
       alarmStatus:{textContent:""},
+      pendingActions:new Set(),render:vi.fn(),$:()=>({textContent:""}),
       alarmSounds:{createDeviceAlarmScheduler:(port:DeviceAlarmSchedulerPort)=>createDeviceAlarmScheduler({...port,now:()=>now.getTime()}),prepareAlarm:async()=>({channelId:"synthetic-urgent",sound:"tia_alarm_dawn_v1.wav",legacySound:false})},
-    }) as { scheduleNotification: (value: Task) => Promise<boolean>; cancelNotifications: (value: Task) => Promise<void> };
-    return { item, adapter, localNotifications, saveTasks, ensureNotificationAccess };
+    };
+    Object.defineProperty(environment,"tasks",{get:()=>state.tasks});
+    const adapter = vm.runInNewContext(app.slice(start,end) + app.slice(handlerStart,handlerEnd) + ";({scheduleNotification, cancelNotifications,handleListAction})",environment) as {
+      scheduleNotification: (value: Task) => Promise<boolean>; cancelNotifications: () => Promise<void>; handleListAction: (event: unknown) => Promise<void>;
+    };
+    return { get item(){return state.tasks[0];}, state, adapter, localNotifications, saveTasks, ensureNotificationAccess,
+      complete:()=>adapter.handleListAction({target:{closest:()=>({dataset:{action:"toggle"},closest:()=>({dataset:{id:item.id}})})}}),
+    };
   }
-  it("persists one initial alarm ID, dispatches once, and cancels it after completion/reload", async () => {
+  it.each([false,true])("persists one initial alarm ID, dispatches once, and cancels it after completion/reload (delivered=%s)", async delivered => {
     const f = fixture();
     expect(await f.adapter.scheduleNotification(f.item)).toBe(true);
     expect(f.item.notificationIds).toEqual([101]);
     expect(f.localNotifications.schedule).toHaveBeenCalledExactlyOnceWith({ notifications: [expect.objectContaining({ id: 101, schedule: { at: new Date(f.item.deadline!), allowWhileIdle: true } })] });
     expect(f.saveTasks.mock.invocationCallOrder[0]).toBeLessThan(f.localNotifications.schedule.mock.invocationCallOrder[0]);
-    const completed = JSON.parse(JSON.stringify({ ...f.item, done: true }));
-    await f.adapter.cancelNotifications(completed);
-    expect(f.localNotifications.cancel).toHaveBeenCalledExactlyOnceWith({ notifications: [{ id: 101 }] });
-    expect(await f.adapter.scheduleNotification(completed)).toBe(false);
+    const reloaded = fixture(JSON.parse(f.state.saved)[0],f.state.pending,delivered?[{id:101,tag:null}]:[]);
+    await reloaded.complete();
+    expect(reloaded.localNotifications.cancel).toHaveBeenCalledExactlyOnceWith({ notifications: [{ id: 101 }] });
+    expect(JSON.parse(reloaded.state.savedAtCancel)).toEqual([expect.objectContaining({done:true,alarmCancellations:[{id:101,taskId:f.item.id}]})]);
+    expect(reloaded.state.pending).toEqual([]);expect(reloaded.state.delivered).toEqual([]);
+    expect(JSON.parse(reloaded.state.saved)).toEqual([expect.objectContaining({done:true,alarmCancellations:[]})]);
+    expect(reloaded.localNotifications.removeDeliveredNotifications).toHaveBeenCalledTimes(delivered?1:0);
+    expect(await reloaded.adapter.scheduleNotification(reloaded.item)).toBe(false);
+    expect(reloaded.localNotifications.schedule).not.toHaveBeenCalled();
     expect(f.localNotifications.schedule).toHaveBeenCalledTimes(1);
   });
   it("does not dispatch when permissions or persistence fail", async () => {

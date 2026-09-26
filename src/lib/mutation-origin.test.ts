@@ -19,7 +19,7 @@ const routes = [
   ["POST tasks", tasks.POST], ["PATCH task", task.PATCH], ["DELETE task", task.DELETE],
   ["POST meetings", meetings.POST], ["PATCH meeting", meeting.PATCH], ["DELETE meeting", meeting.DELETE],
   ["PUT preferences", preferences.PUT], ["PATCH notifications", notifications.PATCH],
-  ["POST escalations", escalations.POST], ["PATCH escalations", escalations.PATCH], ["POST push", push.POST],
+  ["POST escalations", escalations.POST], ["PATCH escalations", escalations.PATCH], ["POST push", push.POST], ["DELETE push", push.DELETE],
 ] as const;
 beforeEach(() => { vi.clearAllMocks(); vi.stubEnv("BETTER_AUTH_URL", "https://personalagent.wealthos.ir:8443"); });
 afterEach(() => vi.unstubAllEnvs());

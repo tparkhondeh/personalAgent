@@ -22,7 +22,7 @@ describe("ordinary launch opens Tasks without opening an editor", () => {
     expect(manifest.id).toBe("/");
     expect(initialDashboardView(new URL(manifest.start_url, "https://example.invalid").search)).toBe("tasks");
   });
-  it("the generated Android implementation follows exactly the same launch policy", () => {
+  it("the generated Android implementation follows exactly the same launch policy", async () => {
     const context = { window: {} as { HamrahOverview: { initialDashboardView: typeof initialDashboardView } }, URLSearchParams };
     runInNewContext(readFileSync("mobile-shell/content.js", "utf8"), context);
     for (const search of ["", "?view=assistant", "?view=tasks", "?view=today", "?view=calendar&item=123", "?view=new", "?view=tasks&view=calendar"]) {
@@ -30,7 +30,28 @@ describe("ordinary launch opens Tasks without opening an editor", () => {
     }
     const shell = readFileSync("mobile-shell/app.js", "utf8");
     expect(shell).toContain("let panel = overview.initialDashboardView(window.location.search)");
-    expect(shell).toMatch(/showPanel\(panel\);\s*\}\)\(\);\s*$/);
+    const startupStart=shell.lastIndexOf("\n  showPanel(panel);");
+    expect(startupStart).toBeGreaterThan(0);
+    expect(shell).toMatch(/\}\)\(\);\s*$/);
+    const startup=shell.slice(startupStart).replace(/\}\)\(\);\s*$/, "");
+    // Execute the real startup tail: durable cleanup may follow initial rendering,
+    // but neither success nor failure may switch the requested panel/open a form.
+    for (const search of ["", "?view=new", "?view=assistant", "?view=calendar&item=123"]) {
+      for (const rejected of [false,true]) {
+        const selected=context.window.HamrahOverview.initialDashboardView(search),calls:string[]=[];
+        const alarmStatus={textContent:""};
+        runInNewContext(startup,{
+          panel:selected,alarmStatus,
+          showPanel:(panel:string)=>calls.push(`panel:${panel}`),
+          openForm:()=>calls.push("form"),
+          retryLocalAlarms:()=>{calls.push("drain");return rejected?Promise.reject(Error("synthetic bridge failure")):Promise.resolve(0);},
+        });
+        expect(calls).toEqual([`panel:${initialDashboardView(search)}`,"drain"]);
+        await Promise.resolve();
+        expect(calls).toEqual([`panel:${initialDashboardView(search)}`,"drain"]);
+        expect(Boolean(alarmStatus.textContent)).toBe(rejected);
+      }
+    }
     const html = readFileSync("mobile-shell/index.html", "utf8");
     expect(html).toContain('id="task-modal" class="modal"');
     expect(html).toContain("data-open-form");

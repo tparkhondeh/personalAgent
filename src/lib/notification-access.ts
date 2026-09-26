@@ -6,7 +6,7 @@ import { enablePushNotifications } from "@/lib/push-client";
 
 // Permission is not delivery. Native WebViews must never enter the Web Push path.
 // This action does not create tasks, send a test alert or change reminder times.
-export async function enableNotificationsForDevice() {
+export async function enableNotificationsForDevice(expectedUserId?: string) {
   if (Capacitor.isNativePlatform()) {
     if (Capacitor.getPlatform() !== "android" || !Capacitor.isPluginAvailable("LocalNotifications")) {
       return { mode: "native", enabled: false, message: "ارتباط با اعلان گوشی در دسترس نیست؛ برنامه را دوباره باز کن." } as const;
@@ -32,7 +32,7 @@ export async function enableNotificationsForDevice() {
     }
   }
 
-  const result = await enablePushNotifications();
+  const result = await enablePushNotifications(expectedUserId);
   return {
     mode: result.mode,
     enabled: true,

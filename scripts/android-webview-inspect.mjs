@@ -8,6 +8,8 @@ import { persianSpeechFixtureQa } from "./android-persian-speech-qa.mjs";
 import { dashboardUiQa } from "./dashboard-ui-qa.mjs";
 import { poemLayoutQa } from "./poem-layout-qa.mjs";
 import { bundledStartupQa } from "./bundled-startup-qa.mjs";
+import { androidUpgradeQa, assertUpgradeQaHost } from "./android-upgrade-qa.mjs";
+import { androidDeliveredNotificationQa, assertDeliveredQaHost } from "./android-delivered-notification-qa.mjs";
 
 const packageName = process.argv[2];
 const outputPath = resolve(process.argv[3] || "artifacts/android/webview.json");
@@ -20,6 +22,11 @@ const adb = (...args) => execFileSync("adb", args, { encoding: "utf8" }).trim();
 const delay = (milliseconds) => new Promise((resolveDelay) => setTimeout(resolveDelay, milliseconds));
 
 async function inspect() {
+  const upgradePhase = action === 'upgrade-seed' ? 'seed' : action === 'upgrade-check' ? 'check' : null;
+  if (upgradePhase) {
+    assertUpgradeQaHost({ ci: process.env.CI, serial: adb('get-serialno'), emulator: adb('shell', 'getprop', 'ro.kernel.qemu'),
+      packageName, versionCode: adb('shell', 'dumpsys', 'package', packageName).match(/\bversionCode=(\d+)/)?.[1], phase: upgradePhase });
+  }
   const pid = adb("shell", "pidof", packageName).replace(/\r/g, "").split(/\s+/)[0];
   if (!pid) throw new Error(`No running process found for ${packageName}`);
 
@@ -41,7 +48,7 @@ async function inspect() {
 
   const target = targets.find((entry) => entry.type === "page" && entry.webSocketDebuggerUrl) || targets.find((entry) => entry.webSocketDebuggerUrl);
   if (!target) throw new Error("No debuggable Android WebView target was found.");
-  process.stdout.write(`WebView target: ${target.title || "(untitled)"} ${target.url || "(no URL)"}\n`);
+  if (!upgradePhase) process.stdout.write(`WebView target: ${target.title || "(untitled)"} ${target.url || "(no URL)"}\n`);
 
   const socket = new WebSocket(target.webSocketDebuggerUrl);
   await new Promise((resolveOpen, rejectOpen) => {
@@ -72,6 +79,34 @@ async function inspect() {
     });
     socket.send(JSON.stringify({ id: currentId, method: "Runtime.evaluate", params: { expression, returnByValue: true, awaitPromise: true } }));
   });
+
+  if (upgradePhase) {
+    try {
+      // Preserve upgrade evidence before the narrowly scoped appearance restoration.
+      await waitUntil(async () => (await evaluate(`Boolean(document.querySelector('#offline') && document.body.innerText.includes('اتصال برقرار نشد'))`))?.result?.result?.value === true,
+        'Upgrade recovery page unavailable', { attempts: 35, delayMs: 1000 });
+      const opened = await evaluate(`(()=>{document.querySelector('#offline').click();return true;})()`);
+      if (opened.error || opened.result?.exceptionDetails) throw Error('Upgrade could not enter bundled UI');
+      await waitUntil(async () => (await evaluate(`Boolean(document.querySelector('#task-form') && window.HamrahPlanner && window.Capacitor?.Plugins?.LocalNotifications)`))?.result?.result?.value === true,
+        'Upgrade bundled UI unavailable', { attempts: 35, delayMs: 1000 });
+      const checked = await evaluate(`(${androidUpgradeQa.toString()})(${JSON.stringify(upgradePhase)},'ci-emulator-43-to-44')`, 45000);
+      if (checked.error || checked.result?.exceptionDetails || checked.result?.result?.value?.passed !== true) {
+        throw Error('Upgrade QA assertions failed; no data was cleared or automatically reseeded');
+      }
+      const report = { ...checked.result.result.value, packageName, versionCode: upgradePhase === 'seed' ? 43 : 44 };
+      mkdirSync(dirname(outputPath), { recursive: true });
+      writeFileSync(outputPath, JSON.stringify(report, null, 2) + '\n');
+      process.stdout.write(JSON.stringify(report) + '\n');
+      if (upgradePhase === 'check') {
+        const restored = await evaluate(`(${androidUpgradeQa.toString()})('restore-appearance','ci-emulator-43-to-44',${JSON.stringify(report)})`, 45000);
+        if (restored.error || restored.result?.exceptionDetails || restored.result?.result?.value?.passed !== true) {
+          throw Error('Upgrade evidence saved, but fixture appearance restoration failed');
+        }
+        writeFileSync(outputPath.replace(/\.json$/, '') + '-appearance-reset.json', JSON.stringify(restored.result.result.value, null, 2) + '\n');
+      }
+      return;
+    } finally { socket.close(); }
+  }
 
   let lastCandidate = null;
   const waitForText = async (text) => {
@@ -113,15 +148,16 @@ async function inspect() {
   }
 
   const result = await waitForText(requiredText);
-  if(result && /^(appearance|assert)-(light|dark)$/.test(action)) {
-    const theme=action.split('-')[1];
+  if(result && (/^(appearance|assert)-(light|dark)$/.test(action) || action === 'assert-default-light')) {
+    const theme=action.split('-').at(-1);
     const check=await evaluate(`(async()=>{
       ${action.startsWith('appearance-')?`document.querySelector('button[data-panel="settings"]').click();document.querySelector('[data-appearance="${theme}"]').click();`:''}
       await new Promise(r=>setTimeout(r,500));
       const current=document.documentElement.dataset.theme;
+      ${action === 'assert-default-light' ? `if(localStorage.getItem('hamrah-appearance-v1')!==null)throw Error('Default appearance requires an absent web preference');` : ''}
       const bg=getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
       if(current!=='${theme}'||bg!=='${theme==='dark'?'#13151f':'#f7f7ff'}')throw new Error('Explicit appearance mismatch');
-      return {theme:current,bg,native:window.__hamrahNativeTheme,systemDark:matchMedia('(prefers-color-scheme:dark)').matches};
+      return {theme:current,bg,native:window.__hamrahNativeTheme,systemDark:matchMedia('(prefers-color-scheme:dark)').matches,defaultWithoutWebPreference:${action === 'assert-default-light'}};
     })()`);
     if(check.result.exceptionDetails)throw new Error(JSON.stringify(check.result.exceptionDetails));
     mkdirSync(dirname(outputPath),{recursive:true});
@@ -147,6 +183,7 @@ async function inspect() {
     writeFileSync(outputPath.replace(/\.json$/,'-contrast.json'),JSON.stringify(contrast.result.result.value,null,2));
   }
   if (result && action === "open-offline") {
+    assertDeliveredQaHost({ ci: process.env.CI, serial: adb('get-serialno'), emulator: adb('shell', 'getprop', 'ro.kernel.qemu') });
     const startup = await evaluate(`(${bundledStartupQa.toString()})()`);
     if(startup.result.exceptionDetails)throw Error('Bundled startup failed: '+JSON.stringify(startup.result.exceptionDetails));
     mkdirSync(dirname(outputPath), { recursive: true });
@@ -177,7 +214,8 @@ async function inspect() {
       offsets.forEach((input) => { input.checked = true; });
       document.querySelector('#reminder-form').requestSubmit();
       document.querySelector('[data-open-form]').click();
-      document.querySelector('#task-title').value = 'کنترل سه یادآوری اندروید';
+      const reminderTitle = 'tia-qa-delivered-' + crypto.randomUUID();
+      document.querySelector('#task-title').value = reminderTitle;
       assert(!document.querySelector('input[type="date"],input[type="time"],input[type="datetime-local"]'),'Native locale-dependent date/time picker remains');
       const wall=window.HamrahOffline.localDateInput(new Date(Date.now()+2*86400000)).split('T');
       const dateInput=document.querySelector('#task-date-control input');dateInput.value=window.HamrahInputs.dateInputValue(wall[0]);dateInput.dispatchEvent(new Event('change',{bubbles:true}));
@@ -189,21 +227,14 @@ async function inspect() {
       document.querySelector('#task-form').requestSubmit();
       let task;
       for (let attempt = 0; attempt < 40; attempt++) {
-        task = JSON.parse(localStorage.getItem('hamrah-local-v2') || '[]').find((item) => item.title === 'کنترل سه یادآوری اندروید');
+        task = JSON.parse(localStorage.getItem('hamrah-local-v2') || '[]').find((item) => item.title === reminderTitle);
         const pending = await plugin.getPending();
         if (task?.notificationIds?.length === 3 && task.notificationIds.every((id) => pending.notifications.some((item) => item.id === id))) break;
         await new Promise((resolve) => setTimeout(resolve, 150));
       }
       const pending = await plugin.getPending();
       assert(task?.notificationIds?.length === 3 && task.notificationIds.every((id) => pending.notifications.some((item) => item.id === id)), 'Three native reminders were not scheduled');
-      document.querySelector('button[data-panel="tasks"]').click();
-      const reminderRow=[...document.querySelectorAll('#task-list .item')].find(item=>item.dataset.id===task.id);
-      assert(reminderRow,'Scheduled task row missing');
-      reminderRow.querySelector('[data-action="toggle"]').click();
-      for (let attempt = 0; attempt < 30; attempt++) {
-        if (JSON.parse(localStorage.getItem('hamrah-local-v2')||'[]').find(item=>item.id===task.id)?.done && !(await plugin.getPending()).notifications.some((item) => task.notificationIds.includes(item.id))) break;
-        await new Promise((resolve) => setTimeout(resolve, 150));
-      }
+      const deliveredCancellation = await (${androidDeliveredNotificationQa.toString()})(task,'ci-emulator-delivered-qa');
       assert(!(await plugin.getPending()).notifications.some((item) => task.notificationIds.includes(item.id)), 'Completed task reminders were not cancelled');
       assert(JSON.parse(localStorage.getItem('hamrah-local-v2')||'[]').find(item=>item.id===task.id)?.done,'Task completion callback not finished');
       assert(![...document.querySelectorAll('#task-list .item,#dated-list .item')].some(item=>item.dataset.id===task.id),'Completed task remains in an active list');
@@ -270,7 +301,10 @@ async function inspect() {
       assert(internal,'Approved local task missing');
       internal.querySelector('[data-action="delete"]').click();
       document.querySelector('#task-list [data-action="confirm-delete"]').click();
-      await waitUntil(()=>!JSON.parse(localStorage.getItem('hamrah-local-v2')||'[]').some(item=>item.id===internal.dataset.id),'In-app test deletion did not finish');
+      await waitUntil(()=>{
+        const deleted=JSON.parse(localStorage.getItem('hamrah-local-v2')||'[]').find(item=>item.id===internal.dataset.id);
+        return deleted?.archived===true && ![...document.querySelectorAll('#task-list .item,#dated-list .item')].some(item=>item.dataset.id===internal.dataset.id);
+      },'In-app test deletion did not finish');
       document.querySelector('button[data-panel="assistant"]').click();
       document.querySelector('#assistant-input').value='فردا ساعت پنج جلسه با تیم فروش دارم';
       document.querySelector('#assistant-send').click();
@@ -279,8 +313,8 @@ async function inspect() {
       document.querySelector('#local-plan-cancel').click();
       document.querySelector('button[data-panel="today"]').click();
       await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
-      return { poem: true, gregorianDate: true, persianFont: true, nativeReminders: 3, cancellation: true, sharedPalette:true, persianPlanner:true, editableApproval:true, noEffectsBeforeConfirmation:true, approvedChannelIsolation:true, jalaliPicker:true, clock24:true, simplifiedApproval:true, compactApproval:true, voiceCapture: true, voiceCancel: true, composerSingleLine: true };
-    })()`);
+      return { poem: true, gregorianDate: true, persianFont: true, nativeReminders: 3, cancellation: true, deliveredCancellation, sharedPalette:true, persianPlanner:true, editableApproval:true, noEffectsBeforeConfirmation:true, approvedChannelIsolation:true, jalaliPicker:true, clock24:true, simplifiedApproval:true, compactApproval:true, voiceCapture: true, voiceCancel: true, composerSingleLine: true };
+    })()`,60000);
     if (parity?.result?.exceptionDetails) throw new Error(`Offline feature QA failed: ${JSON.stringify(parity.result.exceptionDetails)}`);
     mkdirSync(dirname(outputPath), { recursive: true });
     writeFileSync(outputPath.replace(/\.json$/, "-parity.json"), JSON.stringify(parity.result.result.value, null, 2));

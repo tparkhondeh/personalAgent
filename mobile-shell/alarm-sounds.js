@@ -119,8 +119,27 @@ async function prepareDeviceAlarmChannel(plugin, ensureLegacy, legacyChannelId) 
     await ensureLegacy();
     return { channelId: legacyChannelId, sound: "urgent_alarm.wav", legacySound: true };
 }
+// Account cleanup is deliberately separate from the bundled hamrah-local owner.
+// No imports: the same scheduler is embedded in the offline document generator.
+const ACCOUNT_DEVICE_ALARM_OWNERS = ["hamrah-approved-reminders", "hamrah-urgent-escalation"];
+function isAccountDeviceAlarmOwner(owner) {
+    return ACCOUNT_DEVICE_ALARM_OWNERS.some(value => value === owner);
+}
+let accountEpoch = 0, accountBlocked = false, accountWrites = 0;
+let accountPrivacy;
+function installAccountAlarmPrivacyGuard(callbacks) {
+    accountPrivacy = callbacks;
+    accountBlocked = true;
+    ++accountEpoch;
+    return {
+        fence() { accountBlocked = true; ++accountEpoch; },
+        allow() { accountBlocked = false; },
+        busy: () => accountWrites > 0,
+    };
+}
 function createDeviceAlarmScheduler(port) {
     let generation = 0;
+    const accountOwned = isAccountDeviceAlarmOwner(port.owner);
     const revoked = [];
     let queue = Promise.resolve();
     const now = port.now ?? Date.now;
@@ -132,22 +151,35 @@ function createDeviceAlarmScheduler(port) {
     const matches = (item, receipt) => item.id === receipt.id &&
         Object.entries(receipt.extra ?? {}).every(([key, value]) => item.extra?.[key] === value);
     const isRevoked = (item) => revoked.some(receipt => matches(item, receipt));
-    const cancelOwned = async (receipts) => {
+    const nativeWrite = async (write) => {
+        if (accountOwned)
+            ++accountWrites;
+        try {
+            return await write();
+        }
+        finally {
+            if (accountOwned && --accountWrites === 0)
+                accountPrivacy?.onIdle();
+        }
+    };
+    const cancelOwned = (receipts) => nativeWrite(async () => {
         const pending = await port.getPending();
         const owned = pending.notifications.filter(item => item.extra?.owner === port.owner && (!receipts || receipts.some(receipt => matches(item, receipt))));
         if (owned.length)
             await port.cancel({ notifications: owned.map(({ id }) => ({ id })) });
-    };
+    });
     return {
         sync(load, options = {}) {
             const current = generation;
+            const sessionEpoch = accountEpoch, blockedAtStart = accountOwned && accountBlocked;
+            const stale = () => current !== generation || (accountOwned && (blockedAtStart || accountBlocked || sessionEpoch !== accountEpoch));
             return enqueue(async () => {
                 const result = { scheduled: 0, retained: 0, acceptedIds: [], permissionRequired: false, legacySound: false };
                 const invalidated = () => ({ ...result, retained: 0, acceptedIds: [] });
-                if (current !== generation)
+                if (stale())
                     return invalidated();
                 const requests = await load();
-                if (current !== generation)
+                if (stale())
                     return invalidated();
                 const unique = new Map();
                 for (const request of requests) {
@@ -162,7 +194,7 @@ function createDeviceAlarmScheduler(port) {
                     unique.set(request.id, request);
                 }
                 const pending = (await port.getPending()).notifications;
-                if (current !== generation)
+                if (stale())
                     return invalidated();
                 for (const item of pending) {
                     if (unique.has(item.id) && item.extra?.owner !== port.owner)
@@ -177,8 +209,8 @@ function createDeviceAlarmScheduler(port) {
                 const owned = pending.filter(item => item.extra?.owner === port.owner);
                 const obsolete = owned.filter(item => !unique.has(item.id));
                 if (options.cancelObsolete !== false && obsolete.length)
-                    await port.cancel({ notifications: obsolete.map(({ id }) => ({ id })) });
-                if (current !== generation)
+                    await nativeWrite(() => port.cancel({ notifications: obsolete.map(({ id }) => ({ id })) }));
+                if (stale())
                     return invalidated();
                 const existing = new Set(owned.map(item => item.id));
                 result.acceptedIds = [...unique.keys()].filter(id => existing.has(id));
@@ -192,15 +224,15 @@ function createDeviceAlarmScheduler(port) {
                 if (!missing.length)
                     return retainedResult();
                 const permissions = await port.checkPermissions();
-                if (current !== generation)
+                if (stale())
                     return invalidated();
                 if (permissions.display !== "granted")
                     return { ...retainedResult(), permissionRequired: true };
                 const alarm = missing.some(item => item.alarm) ? await port.prepareAlarm() : undefined;
-                if (current !== generation)
+                if (stale())
                     return invalidated();
                 const notification = missing.some(item => !item.alarm) ? await port.prepareNotification() : undefined;
-                if (current !== generation)
+                if (stale())
                     return invalidated();
                 const notifications = missing.filter(item => item.at > now() && !isRevoked(item)).map(({ at, alarm: isAlarm, extra, ...item }) => ({
                     ...item, channelId: isAlarm ? alarm.channelId : notification,
@@ -211,19 +243,21 @@ function createDeviceAlarmScheduler(port) {
                 }));
                 // Capacitor uses stable numeric IDs. On a partial/ambiguous failure, the next
                 // serialized retry reads pending IDs and only schedules the missing future ones.
-                try {
-                    if (notifications.length)
-                        await port.schedule({ notifications });
-                }
-                finally {
-                    // clear() must not await a stalled fetch/native call. Remove any late or
-                    // partially accepted native writes when that old call finally settles.
-                    const late = notifications.filter(item => current !== generation || isRevoked(item));
-                    if (late.length) {
-                        await port.cancel({ notifications: late.map(({ id }) => ({ id })) });
+                await nativeWrite(async () => {
+                    try {
+                        if (notifications.length)
+                            await port.schedule({ notifications });
                     }
-                }
-                if (current !== generation)
+                    finally {
+                        // clear() must not await a stalled fetch/native call. Remove any late or
+                        // partially accepted native writes when that old call finally settles.
+                        const late = notifications.filter(item => stale() || isRevoked(item));
+                        if (late.length) {
+                            await port.cancel({ notifications: late.map(({ id }) => ({ id })) });
+                        }
+                    }
+                });
+                if (stale())
                     return invalidated();
                 const retained = retainedResult();
                 const accepted = notifications.filter(item => !isRevoked(item));
@@ -246,6 +280,15 @@ function createDeviceAlarmScheduler(port) {
         },
         clear() {
             ++generation;
+            // The session helper journals a two-owner cancellation intent synchronously
+            // before legacy clear callers can reach the bridge. A failed journal is closed.
+            try {
+                if (accountOwned)
+                    accountPrivacy?.onClear();
+            }
+            catch (error) {
+                return Promise.reject(error);
+            }
             // Cancellation starts immediately, not behind a network request. Future
             // syncs still wait for both the old operation and this cancellation barrier.
             const canceled = cancelOwned();
@@ -366,7 +409,7 @@ function createController() {
   let storage; try { storage=window.localStorage; } catch {}
   return createAlarmSoundController({native:window.Capacitor?.getPlatform?.()==="android",plugin:nativePlugin(),storage,createAudio:url=>new Audio(url),assetBase:"./alarm-sounds/"});
 }
-return {ALARM_SOUNDS,ALARM_SOUND_HELP,LEGACY_ALARM_SOUND_HELP,createController,createDeviceAlarmScheduler,
+return {ALARM_SOUNDS,ALARM_SOUND_HELP,LEGACY_ALARM_SOUND_HELP,createController,createDeviceAlarmScheduler,installAccountAlarmPrivacyGuard,
 mount:root=>mountAlarmSoundSettings(root,createController()),
 prepareAlarm:(ensureLegacy,legacyChannelId)=>prepareDeviceAlarmChannel(nativePlugin(),ensureLegacy,legacyChannelId)};
 })();

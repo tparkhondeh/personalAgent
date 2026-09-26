@@ -177,7 +177,7 @@ async function processDueAttempts(userId: string, now: Date, quietHours: QuietHo
       const results = await Promise.allSettled(current.attempt.user.pushSubscriptions.map((subscription) => sendWebPush(subscription, {
         title: highPriority ? "هشدار جدی همراه" : "کار فوری عقب‌افتاده",
         body: current.attempt.task.title,
-        url: "/",
+        url: `/?view=tasks&taskId=${current.attempt.taskId}`,
         tag: attempt.id,
         urgent: highPriority,
       })));

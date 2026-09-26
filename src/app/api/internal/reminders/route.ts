@@ -53,7 +53,8 @@ export async function POST(request: Request) {
       if (!delivery.external) { if (delivery.status === "SENT") sent++; else failed++; continue; }
       const current = await pendingExternal(reminder.id, reminder.userId);
       if (!current) continue;
-      const results = await Promise.allSettled(current.user.pushSubscriptions.map(subscription => sendWebPush(subscription, { title: "tia", body: delivery.title, url: "/", tag: reminder.id })));
+      const url = current.taskId ? `/?view=tasks&taskId=${current.taskId}` : current.meetingId ? `/?view=calendar&meetingId=${current.meetingId}` : "/";
+      const results = await Promise.allSettled(current.user.pushSubscriptions.map(subscription => sendWebPush(subscription, { title: "tia", body: delivery.title, url, tag: reminder.id })));
       const targets = results.map((result, index) => ({ id: current.user.pushSubscriptions[index].id, status: result.status === "rejected" ? "DELIVERY_UNCERTAIN" : result.value.sent ? "SENT" : "NOT_SENT" }));
       const successful = targets.length > 0 && targets.every(target => target.status === "SENT");
       const settled = await pendingExternal(reminder.id, reminder.userId, { status: successful ? "SENT" : "PARTIAL", sentAt: successful ? new Date() : null, lastError: JSON.stringify({ push: targets, ...(targets.length ? {} : { reason: "NO_SUBSCRIPTIONS" }) }) });

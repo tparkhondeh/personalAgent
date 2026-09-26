@@ -68,3 +68,10 @@
 - Voice capture is not transcription. Default tia voice recognition stays on-device, shares its controller between web/APK and feeds only an editable draft. Every voice change must test actual Persian audio, stop-to-draft, cancellation and zero effects before explicit confirmation; a non-empty recording alone is insufficient.
 - Optional own-server ASR requires fresh recording-specific consent, authenticated origin-checked bounded proxy, fixed loopback target, private server-only token, no audio logs/storage, and no silent external fallback. Warm caching may retain weights, never previous audio/recognizer state. Report comparable WER/CER and latency, not just successful decoding; disclose noisy/paused failures and missing real-phone samples.
 - Poetry display text is source-verbatim after NFC/whitespace only. Never reuse search normalization to strip diacritics from display. Audit all 360 source IDs/order/hashes after edits, retain source provenance internally, and distinguish edition transcription from definitive authorship. Measure actual shared-font columns; never force long poems to one line by clipping or unreadable type.
+# قواعد بازبینی نهایی — ۲۶ سپتامبر ۲۰۲۶
+
+- ثبت آفلاین ابتدا باید داده و قصد لغو هشدار را به‌طور پایدار ذخیره کند؛ شکست ذخیره نباید هشدار قبلی را لغو کند. جزئیات تأییدشده در برابر ویرایش و پاسخ دیررس ثابت بمانند.
+- لغو زمان‌بندی، حذف اعلان تحویل‌شده نیست. در Capacitor۸٫۳٫۱، مالکیت اعلان تحویل‌شده با رکورد ذخیره‌شده بومی تطبیق داده شود؛ اعلان سایر برنامه‌ها/حساب‌ها/حالت آفلاین دست‌نخورده بماند. هم mock مطابق رفتار واقعی افزونه و هم تحویل واقعی شبیه‌ساز آزموده شوند.
+- تغییر حساب و خروج باید عملیات بومی معلق را مهار کند؛ شکست پاک‌سازی روشن و قابل تلاش مجدد باشد. Push باید به حساب جاری وابسته باشد و عنوان خصوصی در پیام دیررس پس از خروج افشا نشود.
+- تغییر موعد، فاصله‌های سفارشی و سیاست تأییدشده را حفظ کند؛ یادآور گذشته به صف تازه اضافه نشود. تعداد اعلام‌شده از یادآورهای واقعاً ساخته‌شده محاسبه شود.
+- هر مهاجرت SQLite و رسید اجرای آن یک تراکنش باشند؛ شکست وسط تغییر، اجرای مجدد و حفظ داده/کلید خارجی با پایگاه واقعی ساختگی آزموده شوند.

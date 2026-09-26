@@ -34,10 +34,20 @@ launch_and_verify() {
   local label="$1"
   local expected="$2"
   local action="${3:-}"
+  local appearance_qa="${4:-}"
   adb shell am force-stop "$package_name"
   adb logcat -c
   if [[ "$release_inspection" == true ]]; then
-    adb shell am instrument -w -e tiaInspection true "${package_name}.test/$runner" > "$evidence_dir/${label}-inspection.txt" 2>&1 &
+    local inspection_args=(-e tiaInspection true)
+    if [[ -n "$appearance_qa" ]]; then
+      [[ "${CI:-}" == true && "$(adb get-serialno)" =~ ^emulator-[0-9]+$ && "$(adb shell getprop ro.kernel.qemu | tr -d '\r')" == 1 ]]
+      inspection_args+=(-e tiaAppearanceQa "$appearance_qa")
+      if [[ "$appearance_qa" == restore-upgrade ]]; then
+        [[ "${upgrade_appearance_verified:-}" == true ]]
+        inspection_args+=(-e tiaUpgradeAppearanceVerified 43-to-44)
+      fi
+    fi
+    adb shell am instrument -w "${inspection_args[@]}" "${package_name}.test/$runner" > "$evidence_dir/${label}-inspection.txt" 2>&1 &
     local ready=false
     for attempt in {1..40}; do
       if grep -Fq TIA_RELEASE_INSPECTION_READY "$evidence_dir/${label}-inspection.txt"; then ready=true; break; fi
@@ -45,6 +55,7 @@ launch_and_verify() {
       sleep 1
     done
     [[ "$ready" == true ]]
+    if [[ -n "$appearance_qa" ]]; then grep -Fq TIA_QA_NATIVE_APPEARANCE_ABSENT "$evidence_dir/${label}-inspection.txt"; fi
   else
     adb shell am start -W -n "$activity_name" | tee "$evidence_dir/${label}-launch.txt"
   fi
@@ -64,6 +75,31 @@ adb shell settings put global http_proxy :0 || true
 adb shell svc wifi enable || true
 adb shell svc data enable || true
 adb shell cmd uimode night yes
+
+if [[ -n "${TIA_UPGRADE_BASELINE_APK:-}" ]]; then
+  [[ "$release_inspection" == true && -f "$TIA_UPGRADE_BASELINE_APK" ]]
+  # The workflow separately verified hash, signer, package and increasing version.
+  # This is a fresh synthetic emulator, never a connected owner's phone.
+  adb install "$TIA_UPGRADE_BASELINE_APK"
+  adb install -t "$test_apk"
+  adb shell pm grant "$package_name" android.permission.POST_NOTIFICATIONS
+  adb shell appops set "$package_name" SCHEDULE_EXACT_ALARM allow
+  adb shell settings put global http_proxy 127.0.0.1:9
+  launch_and_verify "upgrade-baseline" "اتصال برقرار نشد" "" "assert-absent"
+  node scripts/android-webview-inspect.mjs "$package_name" "$evidence_dir/upgrade-seed.json" "فهرست برنامه‌ها" "upgrade-seed"
+  adb shell am force-stop "$package_name"
+  adb install -r "$stable_apk"
+  launch_and_verify "upgrade-candidate" "اتصال برقرار نشد"
+  node scripts/android-webview-inspect.mjs "$package_name" "$evidence_dir/upgrade-check.json" "فهرست برنامه‌ها" "upgrade-check"
+  capture_verified upgrade-preserved
+  node --input-type=module -e 'import {readFileSync} from "node:fs"; import {assertUpgradeAppearanceEvidence} from "./scripts/android-upgrade-qa.mjs"; assertUpgradeAppearanceEvidence(...process.argv.slice(1).map(path=>JSON.parse(readFileSync(path,"utf8"))));' \
+    "$evidence_dir/upgrade-seed.json" "$evidence_dir/upgrade-check.json" "$evidence_dir/upgrade-check-appearance-reset.json"
+  upgrade_appearance_verified=true
+  launch_and_verify "upgrade-default-light" "اتصال برقرار نشد" "assert-default-light" "restore-upgrade"
+  unset upgrade_appearance_verified
+  adb shell am force-stop "$package_name"
+  adb shell settings put global http_proxy :0
+fi
 
 adb install -r "$stable_apk"
 if [[ "$release_inspection" == true ]]; then
@@ -98,7 +134,7 @@ node scripts/android-webview-inspect.mjs "$package_name" "$evidence_dir/stable-l
 capture_verified stable-local-fallback
 launch_and_verify "stable-offline-relaunch" "اتصال برقرار نشد"
 adb shell cmd uimode night yes
-launch_and_verify "stable-os-dark-default-light" "اتصال برقرار نشد" "assert-light"
+launch_and_verify "stable-os-dark-default-light" "اتصال برقرار نشد" "assert-default-light" "assert-absent"
 node scripts/android-webview-inspect.mjs "$package_name" "$evidence_dir/stable-dark-local-webview.json" "فهرست برنامه‌ها" "open-offline"
 node scripts/android-webview-inspect.mjs "$package_name" "$evidence_dir/explicit-dark-webview.json" "برنامه امروز" "appearance-dark"
 capture_verified stable-dark-local

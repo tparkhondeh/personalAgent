@@ -32,3 +32,7 @@ export function buildReminderSchedule(reference: Date, offsets: readonly number[
     scheduledFor: new Date(reference.getTime() - minutes * 60_000),
   }));
 }
+
+export function futureReminderSchedule(reference: Date, offsets: readonly number[], now = new Date()) {
+  return buildReminderSchedule(reference, offsets).filter(row => row.scheduledFor > now);
+}

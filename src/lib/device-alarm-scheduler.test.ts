@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { createDeviceAlarmScheduler, type DeviceAlarmRequest, type DeviceAlarmSchedulerPort, type PendingDeviceAlarm, type ScheduledDeviceAlarm } from "./device-alarm-scheduler";
+import { createDeviceAlarmScheduler, installAccountAlarmPrivacyGuard, type DeviceAlarmRequest, type DeviceAlarmSchedulerPort, type PendingDeviceAlarm, type ScheduledDeviceAlarm } from "./device-alarm-scheduler";
 
 const future = 100_000;
 const request = (id: number, alarm = true, at = future): DeviceAlarmRequest => ({ id, alarm, at, title:"tia",body:"آزمون",extra:{attemptId:`attempt-${id}`} });
-function fixture() {
+function fixture(owner = "test-owner") {
   let pending: PendingDeviceAlarm[] = [], time = 10_000, sound = "dawn";
   const port = {
-    owner: "test-owner", now: () => time,
+    owner, now: () => time,
     getPending: vi.fn(async () => ({ notifications: pending })),
     cancel: vi.fn(async ({notifications}: {notifications:{id:number}[]}) => {pending=pending.filter(n=>!notifications.some(x=>x.id===n.id));}),
     schedule: vi.fn(async ({notifications}: {notifications:ScheduledDeviceAlarm[]}) => {pending.push(...notifications);}),
@@ -17,6 +17,17 @@ function fixture() {
   return {port, scheduler:createDeviceAlarmScheduler(port), setPending:(value:PendingDeviceAlarm[])=>{pending=value;},setTime:(value:number)=>{time=value;},setSound:(value:string)=>{sound=value;},pending:()=>pending};
 }
 describe("stable device alarm reconciliation", () => {
+  it("the account privacy fence blocks only the two account owners, not hamrah-local", async () => {
+    const guard=installAccountAlarmPrivacyGuard({onIdle:()=>{},onClear:()=>{}});
+    const approved=fixture("hamrah-approved-reminders"),urgent=fixture("hamrah-urgent-escalation"),local=fixture("hamrah-local");
+    const load=vi.fn(async()=>[request(1)]);
+    expect((await approved.scheduler.sync(load)).acceptedIds).toEqual([]);
+    expect((await urgent.scheduler.sync(load)).acceptedIds).toEqual([]);expect(load).not.toHaveBeenCalled();
+    expect((await local.scheduler.sync(load)).acceptedIds).toEqual([1]);
+    guard.allow();expect((await approved.scheduler.sync(load)).acceptedIds).toEqual([1]);
+    const original=approved.pending()[0];guard.fence();guard.allow();
+    expect((await approved.scheduler.sync(load)).retained).toBe(1);expect(approved.pending()[0]).toBe(original);
+  });
   it("keeps old pending times/sounds while the newly added alarm gets the new selection", async () => {
     const f = fixture();
     await f.scheduler.sync(async () => [request(1)]);

@@ -17,6 +17,8 @@
         || task.archived !== undefined && typeof task.archived !== "boolean"
         || !ids(task.notificationIds)
         || task.notificationId !== undefined && !ids([task.notificationId])
+        || task.alarmCancellations !== undefined && (!Array.isArray(task.alarmCancellations) || !task.alarmCancellations.every(receipt => record(receipt) && ids([receipt.id]) && receipt.taskId === task.id))
+        || task.approvalReceipt !== undefined && (!record(task.approvalReceipt) || typeof task.approvalReceipt.id !== "string" || !task.approvalReceipt.id || !Number.isSafeInteger(task.approvalReceipt.revision) || task.approvalReceipt.revision < 1)
         || task.reminderOffsets !== undefined && (!Array.isArray(task.reminderOffsets) || !task.reminderOffsets.every(v => Number.isSafeInteger(v) && v >= 0))
         || task.approvedPlan !== undefined && (!record(task.approvedPlan) || !Array.isArray(task.approvedPlan.channels) || !task.approvedPlan.channels.every(c => typeof c === "string"))) return false;
       seen.add(task.id);

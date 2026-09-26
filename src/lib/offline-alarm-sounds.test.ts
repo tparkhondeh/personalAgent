@@ -14,6 +14,8 @@ function fixture(initial:Task[]=[{id:"new",title:"زنگ",deadline:new Date(1000
   const notificationTimes=vi.fn(()=>[50000,100000,150000]);
   const localNotifications={
     getPending:vi.fn(async()=>({notifications:state.pending})),
+    getDeliveredNotifications:vi.fn(async()=>({notifications:[]})),
+    removeDeliveredNotifications:vi.fn(async()=>{}),
     checkPermissions:vi.fn(async()=>({display:"granted"})),
     createChannel:vi.fn(async()=>{}),
     schedule:vi.fn(async({notifications}:{notifications:ScheduledDeviceAlarm[]})=>{state.pending.push(...notifications);}),
@@ -26,7 +28,7 @@ function fixture(initial:Task[]=[{id:"new",title:"زنگ",deadline:new Date(1000
   const $=(id:string)=>{if(!buttonNodes.has(id))buttonNodes.set(id,{disabled:false,addEventListener:(_type,cb)=>{handlers.set(id,cb);}});return buttonNodes.get(id)!;};
   const alarmStatus={textContent:""};let nextId=100;
   const env={
-    domain:{notificationIds,notificationTimes},planner:{},localNotifications,saveTasks,ensureNotificationAccess,
+    domain:{notificationIds,notificationTimes,normalizeOffsets:()=>[1440,180,60],manualRepeatPolicy:()=>undefined},planner:{},localNotifications,saveTasks,ensureNotificationAccess,
     notificationId:()=>++nextId,channelId:"urgent-overdue",alarmStatus,$,toFa:String,
     alarmSounds:{
       LEGACY_ALARM_SOUND_HELP:"legacy plugin",
@@ -36,8 +38,9 @@ function fixture(initial:Task[]=[{id:"new",title:"زنگ",deadline:new Date(1000
     Date:class extends Date{static now(){return state.now;}},
   };
   Object.defineProperty(env,"tasks",{get:()=>state.tasks});
-  const api=vm.runInNewContext(app.slice(start,end)+app.slice(buttonsStart,buttonsEnd)+";({scheduleNotification,cancelNotifications})",env) as {
-    scheduleNotification:(task:Task,kind?:string)=>Promise<boolean>;cancelNotifications:(task:Task)=>Promise<void>;
+  const api=vm.runInNewContext(app.slice(start,end)+app.slice(buttonsStart,buttonsEnd)+";({scheduleNotification,cancelNotifications,reserveAlarmCancellations})",env) as {
+    scheduleNotification:(task:Task,kind?:string)=>Promise<boolean>;cancelNotifications:()=>Promise<void>;
+    reserveAlarmCancellations:(previous:Task,next:Task)=>Task;
   };
   return {state,api,notificationTimes,localNotifications,saveTasks,ensureNotificationAccess,alarmStatus,enable:()=>handlers.get("#enable-notifications")!(),testAlarm:()=>handlers.get("#test-alarm")!()};
 }
@@ -90,7 +93,8 @@ describe("actual bundled alarm integration",()=>{
     const started=new Promise<void>(r=>{entered=r;}),waiting=new Promise<void>(r=>{release=r;});
     f.localNotifications.schedule.mockImplementationOnce(async({notifications})=>{entered();await waiting;f.state.pending.push(...notifications);});
     const task=f.state.tasks[0],sync=f.api.scheduleNotification(task);await started;
-    const cancel=f.api.cancelNotifications(task);release();await Promise.all([sync,cancel]);
+    f.saveTasks([f.api.reserveAlarmCancellations(f.state.tasks[0],{...f.state.tasks[0],done:true})]);
+    const cancel=f.api.cancelNotifications();release();await Promise.all([sync,cancel]);
     expect(f.state.pending).toEqual([]);expect(await f.api.scheduleNotification(task)).toBe(false);
     f.state.tasks[0].done=true;const reloaded=fixture(structuredClone(f.state.tasks));
     expect(await reloaded.api.scheduleNotification(reloaded.state.tasks[0])).toBe(false);
@@ -108,9 +112,8 @@ describe("actual bundled alarm integration",()=>{
     const f=fixture();await f.api.scheduleNotification(f.state.tasks[0]);
     const other={id:"other",title:"دیگر",deadline:new Date(100000).toISOString()};f.state.tasks.push(other);
     await f.api.scheduleNotification(other);const otherIds=f.state.pending.slice(3).map(n=>n.id);
-    await f.api.cancelNotifications(f.state.tasks[0]);
-    const edited={...f.state.tasks[0],title:"ویرایش",updatedAt:"second",notificationIds:[],notificationId:undefined,notificationSchedule:undefined};
-    f.state.tasks[0]=edited;f.notificationTimes.mockReturnValue([180000]);
+    const edited={...f.state.tasks[0],title:"ویرایش",updatedAt:"second",deadline:new Date(240000).toISOString(),notificationIds:[],notificationId:undefined,notificationSchedule:undefined};
+    f.state.tasks[0]=f.api.reserveAlarmCancellations(f.state.tasks[0],edited);f.notificationTimes.mockReturnValue([180000]);
     await f.api.scheduleNotification(edited);
     expect(f.state.pending.map(n=>n.id)).toEqual([...otherIds,107]);
     expect(f.state.pending.at(-1)?.schedule.at.getTime()).toBe(180000);
