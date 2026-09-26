@@ -87,6 +87,12 @@ if [[ -n "${TIA_UPGRADE_BASELINE_APK:-}" ]]; then
   adb shell settings put global http_proxy 127.0.0.1:9
   launch_and_verify "upgrade-baseline" "اتصال برقرار نشد" "" "assert-absent"
   node scripts/android-webview-inspect.mjs "$package_name" "$evidence_dir/upgrade-seed.json" "فهرست برنامه‌ها" "upgrade-seed"
+  # Keep the same immediate force-stop inside launch_and_verify: first prove that
+  # v43 itself durably retained the seed. No reseed, extra sleep or APK replacement.
+  launch_and_verify "upgrade-baseline-relaunch" "اتصال برقرار نشد"
+  node scripts/android-webview-inspect.mjs "$package_name" "$evidence_dir/upgrade-baseline-check.json" "فهرست برنامه‌ها" "upgrade-baseline-check"
+  node --input-type=module -e 'import {readFileSync} from "node:fs"; import {assertUpgradeBaselineEvidence} from "./scripts/android-upgrade-qa.mjs"; assertUpgradeBaselineEvidence(...process.argv.slice(1).map(path=>JSON.parse(readFileSync(path,"utf8"))));' \
+    "$evidence_dir/upgrade-seed.json" "$evidence_dir/upgrade-baseline-check.json"
   adb shell am force-stop "$package_name"
   adb install -r "$stable_apk"
   launch_and_verify "upgrade-candidate" "اتصال برقرار نشد"

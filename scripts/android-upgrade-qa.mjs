@@ -1,10 +1,22 @@
 // QA only: the caller verifies the baseline APK/signature and installs with -r.
 // These helpers never uninstall, clear storage, call a server, or read credentials.
 export function assertUpgradeQaHost({ ci, serial, emulator, packageName, versionCode, phase }) {
-  if (!['seed', 'check'].includes(phase) || ci !== 'true' || !/^emulator-\d+$/.test(serial)
+  if (!['seed', 'baseline-check', 'check'].includes(phase) || ci !== 'true' || !/^emulator-\d+$/.test(serial)
       || emulator !== '1' || packageName !== 'ir.wealthos.personalagent.stable40'
-      || Number(versionCode) !== (phase === 'seed' ? 43 : 44)) {
+      || Number(versionCode) !== (phase === 'check' ? 44 : 43)) {
     throw Error('Upgrade QA requires CI, an emulator, stable40 and the exact 43/44 version');
+  }
+}
+
+export function assertUpgradeBaselineEvidence(seed, baseline) {
+  const packageName = 'ir.wealthos.personalagent.stable40';
+  if (seed?.passed !== true || seed.phase !== 'seed' || seed.versionCode !== 43 || seed.packageName !== packageName
+    || baseline?.passed !== true || baseline.phase !== 'baseline-check' || baseline.versionCode !== 43 || baseline.packageName !== packageName
+    || seed.syntheticOnly !== true || baseline.syntheticOnly !== true
+    || seed.initialAppearance !== null || baseline.initialAppearance !== null
+    || !/^[a-f0-9]{64}$/.test(seed.storeHash) || !/^[a-f0-9]{64}$/.test(seed.nativeHash)
+    || seed.storeHash !== baseline.storeHash || seed.nativeHash !== baseline.nativeHash) {
+    throw Error('Upgrade requires matching saved seed and cold baseline durability evidence');
   }
 }
 
@@ -33,7 +45,7 @@ export async function androidUpgradeQa(phase, isolation, savedReport, diagnostic
   const markerKey = prefix + 'manifest-v1';
   const taskKey = 'hamrah-local-v2', draftKey = 'hamrah-confirmed-local-draft-v1';
   const preferenceKeys = ['hamrah-local-reminders-v1', 'hamrah-local-urgent-repeats-v1', 'hamrah-appearance-v1'];
-  assert(isolation === 'ci-emulator-43-to-44' && ['seed', 'check', 'restore-appearance'].includes(phase), 'Missing upgrade QA isolation');
+  assert(isolation === 'ci-emulator-43-to-44' && ['seed', 'baseline-check', 'check', 'restore-appearance'].includes(phase), 'Missing upgrade QA isolation');
   assert(location.origin === 'https://localhost' && window.Capacitor?.getPlatform?.() === 'android', 'Not the private Android origin');
   assert(document.querySelector('#task-form') && document.querySelector('#assistant-input')
     && window.HamrahStorage?.validTasks && window.HamrahPlanner, 'Known bundled UI not ready');
@@ -111,14 +123,23 @@ export async function androidUpgradeQa(phase, isolation, savedReport, diagnostic
   } else {
     diagnostics.stage = 'marker';
     const rawMarker = localStorage.getItem(markerKey);
-    marker = JSON.parse(rawMarker || 'null');
+    // Fixed booleans/enums only: never expose keys, marker contents or parser errors.
+    const stored = snapshot();
+    diagnostics.knownKeys = { tasks: stored.tasks !== null, draft: stored.draft !== null,
+      reminders: stored.preferences[0] !== null, repeats: stored.preferences[1] !== null, appearance: stored.preferences[2] !== null };
+    let parseable = true;
+    try { marker = JSON.parse(rawMarker ?? 'null'); } catch { parseable = false; }
+    diagnostics.marker = { present: rawMarker !== null, parseable,
+      status: rawMarker === null ? 'absent' : ['PREPARING', 'SEEDED'].includes(marker?.status) ? marker.status : 'unrecognized',
+      validSchema: marker?.version === 1 && marker?.prefix === prefix && marker?.origin === location.origin
+        && ['PREPARING', 'SEEDED'].includes(marker?.status),
+      versionMatches: marker?.version === 1, prefixMatches: marker?.prefix === prefix, originMatches: marker?.origin === location.origin };
+    diagnostics.store = hashPair(marker?.storeHash, await hash(stored));
+    const parts = await partHashes(stored);
+    diagnostics.parts = Object.fromEntries(Object.entries(parts).map(([key, value]) => [key, hashPair(marker?.partHashes?.[key], value)]));
     assert(marker?.version === 1 && marker.prefix === prefix && marker.origin === location.origin && marker.status === 'SEEDED',
       'Upgrade marker missing or incomplete; data loss must not be reseeded');
-    const stored = snapshot();
     diagnostics.stage = 'storage';
-    diagnostics.store = hashPair(marker.storeHash, await hash(stored));
-    const parts = await partHashes(stored);
-    diagnostics.parts = Object.fromEntries(Object.entries(parts).map(([key, value]) => [key, hashPair(marker.partHashes?.[key], value)]));
     diagnostics.stage = 'native-mappings';
     diagnostics.native = hashPair(marker.nativeHash, await hash(await pending()));
     diagnostics.stage = 'storage';

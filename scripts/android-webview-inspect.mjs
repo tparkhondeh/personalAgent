@@ -22,7 +22,7 @@ const adb = (...args) => execFileSync("adb", args, { encoding: "utf8" }).trim();
 const delay = (milliseconds) => new Promise((resolveDelay) => setTimeout(resolveDelay, milliseconds));
 
 async function inspect() {
-  const upgradePhase = action === 'upgrade-seed' ? 'seed' : action === 'upgrade-check' ? 'check' : null;
+  const upgradePhase = action === 'upgrade-seed' ? 'seed' : action === 'upgrade-baseline-check' ? 'baseline-check' : action === 'upgrade-check' ? 'check' : null;
   if (upgradePhase) {
     assertUpgradeQaHost({ ci: process.env.CI, serial: adb('get-serialno'), emulator: adb('shell', 'getprop', 'ro.kernel.qemu'),
       packageName, versionCode: adb('shell', 'dumpsys', 'package', packageName).match(/\bversionCode=(\d+)/)?.[1], phase: upgradePhase });
@@ -90,7 +90,7 @@ async function inspect() {
       await waitUntil(async () => (await evaluate(`Boolean(document.querySelector('#task-form') && window.HamrahPlanner && window.Capacitor?.Plugins?.LocalNotifications)`))?.result?.result?.value === true,
         'Upgrade bundled UI unavailable', { attempts: 35, delayMs: 1000 });
       const saveFailure = (result, phase) => {
-        const failure = { passed: false, phase, packageName, versionCode: upgradePhase === 'seed' ? 43 : 44,
+        const failure = { passed: false, phase, packageName, versionCode: upgradePhase === 'check' ? 44 : 43,
           diagnostics: result.error || result.result?.exceptionDetails
             ? { assertion: 'WebView evaluation failed' }
             : result.result?.result?.value?.diagnostics || { assertion: 'Upgrade QA returned no passing report' } };
@@ -102,7 +102,7 @@ async function inspect() {
         saveFailure(checked, upgradePhase);
         throw Error('Upgrade QA assertions failed; no data was cleared or automatically reseeded');
       }
-      const report = { ...checked.result.result.value, packageName, versionCode: upgradePhase === 'seed' ? 43 : 44 };
+      const report = { ...checked.result.result.value, packageName, versionCode: upgradePhase === 'check' ? 44 : 43 };
       mkdirSync(dirname(outputPath), { recursive: true });
       writeFileSync(outputPath, JSON.stringify(report, null, 2) + '\n');
       process.stdout.write(JSON.stringify(report) + '\n');

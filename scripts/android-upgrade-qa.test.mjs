@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { webcrypto } from 'node:crypto';
 import vm from 'node:vm';
-import { androidUpgradeQa, upgradeQaExpression, assertUpgradeQaHost, assertUpgradeAppearanceEvidence } from './android-upgrade-qa.mjs';
+import { androidUpgradeQa, upgradeQaExpression, assertUpgradeQaHost, assertUpgradeBaselineEvidence, assertUpgradeAppearanceEvidence } from './android-upgrade-qa.mjs';
 import { waitUntil } from './qa-wait-until.mjs';
 
 const host = { ci: 'true', serial: 'emulator-5554', emulator: '1', packageName: 'ir.wealthos.personalagent.stable40', versionCode: 43, phase: 'seed' };
@@ -10,6 +10,8 @@ describe('upgrade fixture isolation, no device or network', () => {
   it('accepts only explicit 43 seed and 44 check on a CI emulator', () => {
     expect(() => assertUpgradeQaHost(host)).not.toThrow();
     expect(() => assertUpgradeQaHost({ ...host, phase: 'check', versionCode: 44 })).not.toThrow();
+    expect(() => assertUpgradeQaHost({ ...host, phase: 'baseline-check' })).not.toThrow();
+    expect(() => assertUpgradeQaHost({ ...host, phase: 'baseline-check', versionCode: 44 })).toThrow();
   });
   it.each([{ ci: undefined }, { serial: 'owner-phone' }, { emulator: '0' }, { packageName: 'other.app' }, { versionCode: 44 }, { phase: 'other' }])('rejects unsafe host %j', change => {
     expect(() => assertUpgradeQaHost({ ...host, ...change })).toThrow('Upgrade QA requires');
@@ -121,6 +123,62 @@ describe('controlled upgrade failure diagnostics', () => {
     const result = await check(f);
     expect(result.passed).toBe(false); expect(result.diagnostics.parts.tasks.expected).toBeNull();
   });
+  it.each([
+    [null, 'absent', true], ['{"status":"PREPARING"}', 'PREPARING', true],
+    ['{"status":"private-marker-status"}', 'unrecognized', true], ['private-invalid-json', 'unrecognized', false],
+  ])('reports missing/incomplete markers safely before any native read: %s', async (raw, status, parseable) => {
+    const f = fixture(); await f.freshPage().run('seed');
+    const key = 'tia-qa-upgrade-43-44-manifest-v1';
+    if (raw === null) delete f.storage[key]; else f.storage[key] = raw;
+    f.plugin.getPending = vi.fn(() => { throw Error('Must not reach native checks'); });
+    const before = JSON.stringify(f.storage), result = await check(f);
+    expect(result).toMatchObject({ passed: false, diagnostics: { stage: 'marker',
+      assertion: 'Upgrade marker missing or incomplete; data loss must not be reseeded',
+      marker: { present: raw !== null, status, parseable, validSchema: false },
+      knownKeys: { tasks: true, draft: true, reminders: true, repeats: true, appearance: true } } });
+    expect(result.diagnostics.parts.tasks.actual).toMatch(/^[a-f0-9]{64}$/);
+    expect(JSON.stringify(result)).not.toContain('private-');
+    expect(JSON.stringify(f.storage)).toBe(before); expect(f.plugin.getPending).not.toHaveBeenCalled();
+    expect(f.removeItem).not.toHaveBeenCalled(); expect(f.schedule).toHaveBeenCalledOnce();
+  });
+  it('distinguishes total missing storage from a missing marker alone', async () => {
+    const f = fixture(), result = await check(f);
+    expect(result.passed).toBe(false);
+    expect(Object.values(result.diagnostics.knownKeys)).toEqual([false, false, false, false, false]);
+    expect(f.schedule).not.toHaveBeenCalled(); expect(f.removeItem).not.toHaveBeenCalled();
+  });
+});
+
+describe('v43 durability gate before installing v44', () => {
+  it('requires the original seed hashes and does not restore appearance or mutate the fixture', async () => {
+    const f = fixture(), seeded = await f.freshPage().run('seed'), before = JSON.stringify(f.storage);
+    const baseline = await f.freshPage().run('baseline-check');
+    const stamp = report => ({ ...report, packageName: host.packageName, versionCode: 43 });
+    expect(() => assertUpgradeBaselineEvidence(stamp(seeded), stamp(baseline))).not.toThrow();
+    for (const change of [{ phase: 'check' }, { versionCode: 44 }, { passed: false }, { storeHash: '0'.repeat(64) }, { nativeHash: '1'.repeat(64) }]) {
+      expect(() => assertUpgradeBaselineEvidence(stamp(seeded), { ...stamp(baseline), ...change })).toThrow();
+    }
+    expect(JSON.stringify(f.storage)).toBe(before); expect(f.schedule).toHaveBeenCalledOnce();
+    expect(f.removeItem).not.toHaveBeenCalled(); expect(f.sounds.setSelection).toHaveBeenCalledOnce();
+  });
+  it('fails the v43 gate on missing durable seed and never reseeds', async () => {
+    const f = fixture();
+    const result = await vm.runInContext(upgradeQaExpression('baseline-check'), f.freshPage().context);
+    expect(result).toMatchObject({ passed: false, diagnostics: { stage: 'marker', marker: { present: false } } });
+    expect(f.schedule).not.toHaveBeenCalled(); expect(Object.keys(f.storage)).toEqual([]);
+  });
+  it('cold-relaunches and gates baseline evidence before any candidate install, without new sleeps', () => {
+    const shell = readFileSync('scripts/android-stable-emulator-qa.sh', 'utf8');
+    const seed = shell.indexOf('"upgrade-seed"\n');
+    const relaunch = shell.indexOf('launch_and_verify "upgrade-baseline-relaunch"');
+    const check = shell.indexOf('"upgrade-baseline-check"\n', relaunch);
+    const evidence = shell.indexOf('assertUpgradeBaselineEvidence(...', check);
+    const install = shell.indexOf('adb install -r "$stable_apk"');
+    expect(seed).toBeGreaterThan(0); expect(relaunch).toBeGreaterThan(seed);
+    expect(check).toBeGreaterThan(relaunch); expect(evidence).toBeGreaterThan(check); expect(install).toBeGreaterThan(evidence);
+    expect(shell.slice(seed, install)).not.toMatch(/\bsleep\s+\d/);
+    expect(shell).toContain('set -Eeuo pipefail');
+  });
 });
 
 describe('appearance-only restoration after upgrade evidence', () => {
@@ -175,8 +233,8 @@ describe('appearance-only restoration after upgrade evidence', () => {
 const inspector = readFileSync('scripts/android-webview-inspect.mjs', 'utf8').replace(/\r\n/g, '\n');
 describe('upgrade inspector evidence ordering', () => {
   const branch = inspector.slice(inspector.indexOf('  if (upgradePhase) {\n    try {'), inspector.indexOf('  let lastCandidate'));
-  it.each(['check', 'seed', 'write-failure', 'check-failure', 'restore-failure'])('preserves report-before-restoration ordering: %s', async mode => {
-    const events = [], phase = mode === 'seed' ? 'seed' : 'check';
+  it.each(['check', 'seed', 'baseline-check', 'write-failure', 'check-failure', 'restore-failure'])('preserves report-before-restoration ordering: %s', async mode => {
+    const events = [], phase = ['seed', 'baseline-check'].includes(mode) ? mode : 'check';
     const report = { passed: mode !== 'check-failure', phase };
     const context = vm.createContext({ upgradePhase: phase, upgradeQaExpression, waitUntil,
       packageName: 'ir.wealthos.personalagent.stable40', outputPath: 'upgrade-check.json',
@@ -197,6 +255,7 @@ describe('upgrade inspector evidence ordering', () => {
       expect(events.filter(event => event[0] === 'saved' && event[1] === 'upgrade-check.json')).toHaveLength(1);
       if (mode === 'restore-failure') expect(events[2]).toMatchObject(['saved', 'upgrade-check-failure.json', { passed: false, phase: 'restore-appearance' }]);
     } else expect(events.some(event => event[0] === 'restore')).toBe(false);
+    if (mode === 'baseline-check') expect(events[0][2]).toMatchObject({ passed: true, phase: 'baseline-check', versionCode: 43 });
     if (mode === 'check-failure') {
       expect(events).toHaveLength(1);
       expect(events[0]).toMatchObject(['saved', 'upgrade-check-failure.json', { passed: false, phase: 'check' }]);
