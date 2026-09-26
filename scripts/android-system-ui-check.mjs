@@ -1,10 +1,10 @@
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 export function systemDialog(xml) {
-  if (!xml.includes('<hierarchy')||!xml.includes('</hierarchy>')) throw new Error('Missing Android UI hierarchy');
+  if (!xml.includes('<hierarchy')||!xml.includes('</hierarchy>')||!/<node\b/.test(xml)) throw new Error('Missing Android UI hierarchy');
   xml=xml.replaceAll('&apos;',"'").replaceAll('&#39;',"'");
   const blocked = /resource-id="android:id\/aerr_|text="[^"]*(?:isn.t responding|keeps stopping|has stopped)/i.test(xml);
   const waitNode = [...xml.matchAll(/<node\s[^>]+/g)].map(m=>m[0]).find(n=>/text="Wait"/.test(n));
@@ -16,20 +16,33 @@ export async function captureHierarchy(run,report=()=>{},stamp=`${process.pid}-$
   for(let attempt=0;attempt<3;attempt++){
     // Never read an earlier successful dump after a failed capture.
     const path=`/sdcard/hamrah-qa-${stamp}-${attempt}.xml`;
-    try { run('shell','uiautomator','dump',path); }
-    catch(error){
-      let xml='';try{xml=run('exec-out','cat',path);}catch{}
-      report({attempt,status:error.status??null,stdout:String(error.stdout??''),stderr:String(error.stderr??''),xml});
-      if(error.status!==137)throw error;
-      // A visible error remains a failure even if its capture process was killed.
-      if(xml.includes('</hierarchy>')&&systemDialog(xml).blocked)return xml;
-      if(attempt===2)throw error;
-      await new Promise(resolve=>setTimeout(resolve,500));
-      continue;
+    let stdout='',stderr='',xml='',dumpError,readError,hierarchyError,state;
+    try {
+      const output=run('shell','uiautomator','dump',path);
+      stdout=String(output?.stdout??output??'');stderr=String(output?.stderr??'');
+    } catch(error){
+      dumpError=error;stdout=String(error.stdout??'');stderr=String(error.stderr??'');
     }
-    const xml=run('exec-out','cat',path);
-    systemDialog(xml); // Missing/truncated successful captures always fail closed.
-    return xml;
+    try { xml=run('exec-out','cat',path); } catch(error){ readError=error; }
+    try { state=systemDialog(xml); } catch(error){ hierarchyError=error; }
+    const nullRoot=/ERROR:\s*null root node returned by UiTestAutomationBridge\./.test(stdout+'\n'+stderr);
+    const failed=dumpError||readError||hierarchyError||nullRoot;
+    if(failed)report({attempt,path,status:dumpError?dumpError.status??null:0,stdout,stderr,xml,
+      readStatus:readError?.status??null,readStdout:String(readError?.stdout??''),readStderr:String(readError?.stderr??''),
+      reason:nullRoot?'null-root':dumpError?'dump-failed':readError?'read-failed':'invalid-hierarchy'});
+    // Positive system-error evidence must not disappear behind a truncated dump retry.
+    if(hierarchyError&&/resource-id="android:id\/aerr_/.test(xml+String(readError?.stdout??''))) {
+      throw new Error('System Crash/ANR marker in incomplete Android UI hierarchy');
+    }
+    if(dumpError&&dumpError.status!==137)throw dumpError;
+    // Never retry away a freshly captured Crash/ANR, even after a killed/null-root dump.
+    if(state?.blocked)return xml;
+    if(!failed)return xml;
+    // A missing file can follow null-root; transport/permission errors are not that race.
+    const missingFile=readError&&/No such file or directory/.test(String(readError.stdout??'')+String(readError.stderr??'')+readError.message);
+    if(readError&&!nullRoot&&dumpError?.status!==137&&!missingFile)throw readError;
+    if(attempt===2)throw dumpError||readError||hierarchyError||new Error('UIAutomator returned a null root');
+    await new Promise(resolve=>setTimeout(resolve,500));
   }
   throw new Error('No verified Android hierarchy');
 }
@@ -38,7 +51,14 @@ async function main() {
   const [prefix,mode,imagePath]=process.argv.slice(2);
   if(!prefix)throw new Error('Evidence prefix required');
   mkdirSync(dirname(prefix),{recursive:true});
-  const adb=(...args)=>execFileSync('adb',args,{encoding:'utf8',timeout:45000});
+  const adb=(...args)=>{
+    if(args[0]!=='shell'||args[1]!=='uiautomator')return execFileSync('adb',args,{encoding:'utf8',timeout:45000});
+    // DumpCommand can print null-root on stderr and still exit 0. Preserve both streams.
+    const result=spawnSync('adb',args,{encoding:'utf8',timeout:45000});
+    if(result.error||result.status!==0)throw Object.assign(result.error||new Error('Android hierarchy capture failed'),
+      {status:result.status,stdout:result.stdout,stderr:result.stderr});
+    return {stdout:result.stdout,stderr:result.stderr};
+  };
   const inspect=async(suffix)=>{
     const xml=await captureHierarchy(adb,attempt=>writeFileSync(`${prefix}-${suffix}-capture-${attempt.attempt}.json`,JSON.stringify(attempt)));
     writeFileSync(`${prefix}-${suffix}.xml`,xml);
