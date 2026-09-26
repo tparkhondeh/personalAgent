@@ -67,9 +67,9 @@ describe("bundled offline persistence without destructive fallbacks", () => {
     const recovery = readFileSync("mobile-shell/connection-error.html", "utf8");
     expect(recovery).toContain("window.HamrahStorage");
     const app = readFileSync("mobile-shell/app.js", "utf8");
-    expect(app).toContain('if (!saveTasks(next)) { render(); return; }');
+    expect(app).toContain('if (!(await saveTasks(next))) { render(); return; }');
     // Persist the complete ID/time snapshot before any native scheduling.
-    expect(app).toContain('if (kind !== "test" && !saveTasks(tasks.map(item => item.id === task.id ? snapshot : item)))');
-    expect(app.indexOf('!saveTasks(tasks.map(item => item.id === task.id ? snapshot : item))')).toBeLessThan(app.indexOf('localAlarmScheduler.sync('));
+    expect(app).toContain('if (kind !== "test" && !(await saveTasks(tasks.map(item => item.id === task.id ? snapshot : item))))');
+    expect(app.indexOf('await saveTasks(tasks.map(item => item.id === task.id ? snapshot : item))')).toBeLessThan(app.indexOf('localAlarmScheduler.sync('));
   });
 });

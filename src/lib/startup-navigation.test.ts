@@ -34,21 +34,26 @@ describe("ordinary launch opens Tasks without opening an editor", () => {
     expect(startupStart).toBeGreaterThan(0);
     expect(shell).toMatch(/\}\)\(\);\s*$/);
     const startup=shell.slice(startupStart).replace(/\}\)\(\);\s*$/, "");
+    const load=shell.slice(shell.indexOf("  async function loadTasks"),shell.indexOf("  async function saveTasks"));
     // Execute the real startup tail: durable cleanup may follow initial rendering,
     // but neither success nor failure may switch the requested panel/open a form.
     for (const search of ["", "?view=new", "?view=assistant", "?view=calendar&item=123"]) {
       for (const rejected of [false,true]) {
         const selected=context.window.HamrahOverview.initialDashboardView(search),calls:string[]=[];
         const alarmStatus={textContent:""};
-        runInNewContext(startup,{
+        // Capture the actual boot promise instead of guessing a microtask count.
+        const completed=runInNewContext(load+startup.replace("void loadTasks();","loadTasks();"),{
           panel:selected,alarmStatus,
+          tasks:[],taskStoreReady:false,taskStoreLoading:true,storageWarning:{hidden:true,textContent:""},
+          taskStore:{load:async()=>{calls.push("read");return {ok:true,tasks:[]};}},
+          updateTaskControls:()=>{},render:()=>{},
           showPanel:(panel:string)=>calls.push(`panel:${panel}`),
           openForm:()=>calls.push("form"),
           retryLocalAlarms:()=>{calls.push("drain");return rejected?Promise.reject(Error("synthetic bridge failure")):Promise.resolve(0);},
         });
-        expect(calls).toEqual([`panel:${initialDashboardView(search)}`,"drain"]);
-        await Promise.resolve();
-        expect(calls).toEqual([`panel:${initialDashboardView(search)}`,"drain"]);
+        expect(calls).toEqual([`panel:${initialDashboardView(search)}`,"read"]);
+        await completed;
+        expect(calls).toEqual([`panel:${initialDashboardView(search)}`,"read","drain"]);
         expect(Boolean(alarmStatus.textContent)).toBe(rejected);
       }
     }

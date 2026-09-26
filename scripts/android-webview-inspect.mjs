@@ -107,8 +107,8 @@ async function inspect() {
         'UI persistence page unavailable', { attempts: 35, delayMs: 1000 });
       const opened = await evaluate("(()=>{if(!document.querySelector('#task-form'))document.querySelector('#offline').click();return true;})()");
       if (opened.error || opened.result?.exceptionDetails) throw Error('UI persistence could not open bundled page');
-      await waitUntil(async () => (await evaluate("Boolean(document.querySelector('#task-form') && window.HamrahStorage?.validTasks)"))?.result?.result?.value === true,
-        'UI persistence form unavailable', { attempts: 35, delayMs: 1000 });
+      await waitUntil(async () => (await evaluate("Boolean(document.querySelector('#task-form') && window.HamrahStorage?.validTasks && document.documentElement.dataset.taskStoreState === 'ready')"))?.result?.result?.value === true,
+        'UI persistence durable store unavailable', { attempts: 35, delayMs: 1000 });
       const requestStarted = performance.now();
       const checked = await evaluate(uiPersistenceExpression(phase, mode, uiReceipt), 10000);
       const responseReceived = performance.now();
@@ -144,7 +144,7 @@ async function inspect() {
         'Upgrade recovery page unavailable', { attempts: 35, delayMs: 1000 });
       const opened = await evaluate(`(()=>{document.querySelector('#offline').click();return true;})()`);
       if (opened.error || opened.result?.exceptionDetails) throw Error('Upgrade could not enter bundled UI');
-      await waitUntil(async () => (await evaluate(`Boolean(document.querySelector('#task-form') && window.HamrahPlanner && window.Capacitor?.Plugins?.LocalNotifications)`))?.result?.result?.value === true,
+      await waitUntil(async () => (await evaluate(`Boolean(document.querySelector('#task-form') && window.HamrahPlanner && window.Capacitor?.Plugins?.LocalNotifications${upgradePhase === 'check' ? " && document.documentElement.dataset.taskStoreState === 'ready'" : ''})`))?.result?.result?.value === true,
         'Upgrade bundled UI unavailable', { attempts: 35, delayMs: 1000 });
       const saveFailure = (result, phase) => {
         const failure = { passed: false, phase, packageName, versionCode: upgradePhase === 'check' ? 44 : 43,
@@ -262,6 +262,8 @@ async function inspect() {
     writeFileSync(outputPath.replace(/\.json$/,'-contrast.json'),JSON.stringify(contrast.result.result.value,null,2));
   }
   if (result && action === "open-offline") {
+    await waitUntil(async () => (await evaluate("document.documentElement.dataset.taskStoreState === 'ready'"))?.result?.result?.value === true,
+      'Bundled durable task store unavailable', { attempts: 35, delayMs: 1000 });
     assertDeliveredQaHost({ ci: process.env.CI, serial: adb('get-serialno'), emulator: adb('shell', 'getprop', 'ro.kernel.qemu') });
     const startup = await evaluate(`(${bundledStartupQa.toString()})()`);
     if(startup.result.exceptionDetails)throw Error('Bundled startup failed: '+JSON.stringify(startup.result.exceptionDetails));
@@ -370,7 +372,8 @@ async function inspect() {
       assert(!document.querySelector('#local-plan-confirm').disabled,'In-app-only proposal not ready');
       const pendingBefore=(await plugin.getPending()).notifications.map(n=>n.id).sort().join(',');
       document.querySelector('#local-plan-confirm').click();
-      await new Promise(resolve=>setTimeout(resolve,300));
+      await waitUntil(()=>JSON.parse(localStorage.getItem('hamrah-local-v2')||'[]').some(item=>item.title.includes('کنترل کانال داخلی'))
+        && document.querySelector('#assistant-result').textContent.includes('ثبت محلی انجام شد'),'Approved local task did not finish durable confirmation');
       document.querySelector('button[data-panel="settings"]').click();
       document.querySelector('#enable-notifications').click();
       await new Promise(resolve=>setTimeout(resolve,500));

@@ -40,6 +40,7 @@ function fixture() {
     const context = vm.createContext({ window: {}, document, location: { origin: 'https://localhost', pathname: '/index.html' }, localStorage,
       crypto: webcrypto, TextEncoder, Date, performance, setTimeout: (callback, ms) => ms >= 5000 ? 0 : setTimeout(callback, 0), clearTimeout,
       form, modal: $('#task-modal'), $, $$: () => [], filter: 'all', reminderOffsets: [1440, 180, 60], repeatSettings: { repeatCount: 2, repeatMinutes: 25 },
+      taskStoreReady: true, taskWriteBusy: false, updateTaskControls: vi.fn(), immutablePlan: value => structuredClone(value),
       FormData: class { get(key) { return $(fields[key]).value; } },
       reserveAlarmCancellations: (previous, next) => { expect(previous).toBeUndefined(); return next; },
       closeForm: () => { open = false; }, showPanel: vi.fn(), render: vi.fn(), storageWarning: { hidden: true }, storageFailure: vi.fn(),
@@ -50,10 +51,12 @@ function fixture() {
     vm.runInContext(readFileSync('mobile-shell/storage.js', 'utf8'), context);
     vm.runInContext(readFileSync('mobile-shell/domain.js', 'utf8'), context);
     context.domain = context.window.HamrahOffline;
-    context.taskStore = context.window.HamrahStorage.createTaskStore(localStorage);
+    // This fixture exercises receipt/loss detection with the browser adapter;
+    // offline-native-storage tests exercise the durable native RPC separately.
+    context.taskStore = context.window.HamrahStorage.createTaskStore(localStorage, { nativeRequired: false });
     context.tasks = context.taskStore.load().tasks;
     // Exercise the delivered form handler and task store, not a fake save implementation.
-    vm.runInContext(part('  function saveTasks', '  function notificationId') + part('  form.addEventListener("submit"', '  async function handleListAction'), context);
+    vm.runInContext(part('  async function saveTasks', '  function notificationId') + part('  form.addEventListener("submit"', '  async function handleListAction'), context);
     return { context, $, run: (phase, mode, receipt) => vm.runInContext(uiPersistenceExpression(phase, mode, receipt), context) };
   }
   return { values, writes, page, deny: () => { denySave = true; } };

@@ -57,6 +57,7 @@ function fixture(initial: Task[] = [oldTask()], native: ScheduledDeviceAlarm[] =
     planner,domain:undefined,taskStore:undefined,$,$$:()=>[],root,controls,form,FormData:class{get(key:string){return formValues.get(key);}},
     modal:{classList:{contains:()=>state.open}},storageWarning:{hidden:true},storageFailure:vi.fn(),
     pendingActions:new Set(),pendingDelete:"",filter:"all",repeatSettings:null,reminderOffsets:[60],
+    taskStoreReady:true,taskWriteBusy:false,updateTaskControls:vi.fn(),
     localNotifications,alarmSounds:{createDeviceAlarmScheduler,prepareAlarm:async()=>({channelId:"new-sound",sound:"sound",legacySound:false})},
     alarmStatus:$("alarm"),channelId:"test",notificationId:()=>++nextId,ensureNotificationAccess:async()=>true,
     render:vi.fn(),showPanel:vi.fn(),closeForm:()=>{state.open=false;},openForm:vi.fn(),
@@ -71,7 +72,7 @@ function fixture(initial: Task[] = [oldTask()], native: ScheduledDeviceAlarm[] =
   state.tasks=context.taskStore.load().tasks;
   Object.defineProperty(context,"tasks",{get:()=>state.tasks,set:value=>{state.tasks=value;}});
   // Execute the real handlers, task store and scheduler; no production storage or transport.
-  vm.runInContext(part("  function saveTasks", "  function notificationId")+
+  vm.runInContext(part("  async function saveTasks", "  function notificationId")+
     part("  // Keep mapping persistence", "  function taskMarkup(")+
     part('  form.addEventListener("submit"', "  list.addEventListener")+
     part("  function immutablePlan", "  function showAgentDraft"),context);
@@ -82,7 +83,7 @@ function fixture(initial: Task[] = [oldTask()], native: ScheduledDeviceAlarm[] =
   }
   approve(context.p);
   const click = (action:string) => context.handleListAction({target:{closest:()=>({dataset:{action},closest:()=>({dataset:{id:"old"}})})}}) as Promise<void>;
-  return {state,values,context,localNotifications,formValues,nodes,controls,$,root,approve,
+  return {state,values,localStorage,context,localNotifications,formValues,nodes,controls,$,root,approve,
     submit:()=>submit({preventDefault:()=>{}}),click,confirm:()=>$("#local-plan-confirm").onclick!(),
     retry:()=>context.retryLocalAlarms() as Promise<number>,
     saved:()=>JSON.parse(values.get("hamrah-local-v2")!) as Task[],
@@ -90,6 +91,106 @@ function fixture(initial: Task[] = [oldTask()], native: ScheduledDeviceAlarm[] =
   };
 }
 afterEach(()=>vi.useRealTimers());
+
+async function nativeFixture(initial: Task[] = [oldTask()], alarms = [alarm()]) {
+  const f = fixture(initial, alarms);
+  const canonical = { raw: JSON.stringify(initial), revision: 1 };
+  const pending: {id:string;op:string;nextRaw:string;expectedRevision:number}[] = [];
+  let hold = true;
+  const bridge = {onmessage: (_event:{data:string})=>{void _event;},postMessage:(raw:string)=>{
+    const request=JSON.parse(raw);
+    if(request.op==="cas" && hold)pending.push(request);
+    else reply(request);
+  }};
+  function reply(request:typeof pending[number], error?:string) {
+    if(!error && request.op==="cas") {canonical.raw=request.nextRaw;canonical.revision++;}
+    bridge.onmessage({data:JSON.stringify({id:request.id,...(error?{ok:false,error}:{ok:true,...canonical})})});
+  }
+  f.context.window.TiaTaskStoreNative=bridge;
+  f.context.taskStore=f.context.window.HamrahStorage.createTaskStore(f.localStorage,{timeoutMs:1000});
+  await f.context.taskStore.load();
+  return {...f,canonical,pending,release:(error?:string)=>{hold=false;reply(pending.shift()!,error);}};
+}
+
+describe("native acknowledgement before actual UI mutation effects",()=>{
+  it.each(["edit","toggle","confirm-delete","approval"])("awaits durable %s before publishing state, cancelling or scheduling",async action=>{
+    vi.useFakeTimers();const f=await nativeFixture();const before=f.values.get("hamrah-local-v2");
+    const perform=()=>action==="edit"?f.submit():action==="approval"?f.confirm():f.click(action);
+    const saving=perform();await perform();
+    expect(f.pending).toHaveLength(1);expect(f.context.taskWriteBusy).toBe(true);
+    expect(f.values.get("hamrah-local-v2")).toBe(before);expect(f.state.tasks[0]).toEqual(oldTask());
+    expect(f.localNotifications.cancel).not.toHaveBeenCalled();expect(f.localNotifications.schedule).not.toHaveBeenCalled();
+    expect(f.state.open).toBe(true);expect(f.$("#page-status").textContent).not.toContain("done");
+    f.release();await saving;expect(f.context.taskWriteBusy).toBe(false);
+    expect(f.localNotifications.cancel).toHaveBeenCalledOnce();
+    if(action==="edit")expect(f.state.open).toBe(false);
+  });
+  it.each(["edit","toggle","confirm-delete","approval"])("keeps %s unchanged and read-only after rejected native commit",async action=>{
+    const f=await nativeFixture();const before=f.values.get("hamrah-local-v2");
+    const saving=action==="edit"?f.submit():action==="approval"?f.confirm():f.click(action);
+    f.release("STORAGE");await saving;
+    expect(f.context.taskStoreReady).toBe(false);expect(f.values.get("hamrah-local-v2")).toBe(before);
+    expect(f.state.tasks[0]).toEqual(oldTask());expect(f.state.open).toBe(true);
+    expect(f.localNotifications.cancel).not.toHaveBeenCalled();expect(f.localNotifications.schedule).not.toHaveBeenCalled();
+    expect(f.$("#page-status").textContent).not.toContain("done");
+    expect(JSON.parse(f.values.get("hamrah-confirmed-local-draft-v1")!).status).toBe("PENDING");
+  });
+  it("reserves one new task ID, retains inputs and refuses duplicate retries after unknown acknowledgement",async()=>{
+    vi.useFakeTimers();const f=await nativeFixture([],[]);f.formValues.set("id","");f.formValues.set("deadline","");
+    const saving=f.submit(), reserved=f.context.form.reservedTaskId;
+    expect(typeof reserved).toBe("string");expect(f.pending).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(1001);await saving; // read finds prior revision: not evidence of commit
+    expect(f.context.taskStoreReady).toBe(false);expect(f.context.form.reservedTaskId).toBe(reserved);
+    expect(f.formValues.get("title")).toBe("ویرایش دستی");expect(f.state.open).toBe(true);
+    await f.submit();expect(f.pending).toHaveLength(1);expect(f.saved()).toEqual([]);
+    f.release(); // A late native acknowledgement must not reopen writes.
+    expect(f.context.taskStoreReady).toBe(false);expect(f.$("#page-status").textContent).not.toContain("done");
+  });
+  it("does not close or change feedback for a newer form generation after commit",async()=>{
+    vi.useFakeTimers();const f=await nativeFixture();const saving=f.submit();
+    f.context.form.submitGeneration++;f.$("#page-status").textContent="new form";
+    f.release();await saving;
+    expect(f.state.open).toBe(true);expect(f.$("#page-status").textContent).toBe("new form");
+    expect(f.saved()[0].title).toBe("ویرایش دستی");expect(f.localNotifications.cancel).toHaveBeenCalledOnce();
+  });
+  it("retains approved bytes and does not acknowledge or clear a newer proposal during commit",async()=>{
+    const f=await nativeFixture();const saving=f.confirm();
+    f.context.p.title="unapproved late edit";
+    const newer={id:"newer",revision:8,status:"PENDING",plan:plan("CREATE")};
+    f.context.agentDraft=newer;f.values.set("hamrah-confirmed-local-draft-v1",JSON.stringify(newer));
+    f.release();await saving;
+    expect(f.saved()[0].title).toBe("تأییدشده");expect(f.saved()[0].approvalReceipt).toEqual({id:"approval",revision:1});
+    expect(f.values.get("hamrah-confirmed-local-draft-v1")).toBe(JSON.stringify(newer));
+    expect(f.context.agentDraft).toBe(newer);expect(f.context.showAgentDraft).not.toHaveBeenCalled();
+  });
+  it("persists the notification mapping before requesting permission or scheduling",async()=>{
+    const f=await nativeFixture([{...oldTask(),notificationIds:[],notificationSchedule:undefined}],[]);
+    const access=vi.fn(async()=>true);f.context.ensureNotificationAccess=access;
+    const scheduling=f.context.scheduleNotification(f.state.tasks[0]);
+    await vi.waitFor(()=>expect(f.pending).toHaveLength(1));
+    expect(access).not.toHaveBeenCalled();expect(f.localNotifications.schedule).not.toHaveBeenCalled();
+    expect(f.saved()[0].notificationIds).toEqual([]);
+    f.release();await scheduling;
+    expect(f.saved()[0].notificationIds.length).toBeGreaterThan(0);expect(f.localNotifications.schedule).toHaveBeenCalledOnce();
+  });
+  it.each([true,false])("boot remains unavailable until authoritative read completes: success=%s",async ok=>{
+    const f=fixture();let finish!:(result:object)=>void;
+    const loaded=new Promise(resolve=>{finish=resolve;});
+    const buttons=[{disabled:false},{disabled:true}];
+    f.context.taskStoreReady=false;f.context.taskStoreLoading=true;f.context.taskControls=new Map();
+    f.context.document={documentElement:{dataset:{}},querySelectorAll:()=>buttons};
+    f.context.form.setAttribute=vi.fn();f.context.taskStore={load:()=>loaded};f.context.retryLocalAlarms=vi.fn(async()=>0);
+    vm.runInContext(part("  function updateTaskControls", "  async function saveTasks"),f.context);
+    const loading=f.context.loadTasks();expect(f.context.document.documentElement.dataset.taskStoreState).toBe("loading");
+    expect(buttons.every(button=>button.disabled)).toBe(true);expect(f.context.retryLocalAlarms).not.toHaveBeenCalled();
+    await f.submit();expect(f.state.writes).toBe(0);
+    finish(ok?{ok:true,tasks:[oldTask()]}:{ok:false,reason:"unreadable"});await loading;
+    expect(f.context.document.documentElement.dataset.taskStoreState).toBe(ok?"ready":"error");
+    expect(f.context.taskStoreReady).toBe(ok);expect(f.state.tasks).toEqual([oldTask()]);
+    expect(f.context.retryLocalAlarms).toHaveBeenCalledTimes(ok?1:0);
+    expect(buttons[0].disabled).toBe(!ok);expect(buttons[1].disabled).toBe(true);
+  });
+});
 
 describe("durable offline mutations through actual handlers",()=>{
   it.each(["edit","toggle","confirm-delete","approval"])("failed %s persistence preserves native alarms and permits one retry",async action=>{

@@ -28,6 +28,7 @@ function fixture(initial:Task[]=[{id:"new",title:"زنگ",deadline:new Date(1000
   const $=(id:string)=>{if(!buttonNodes.has(id))buttonNodes.set(id,{disabled:false,addEventListener:(_type,cb)=>{handlers.set(id,cb);}});return buttonNodes.get(id)!;};
   const alarmStatus={textContent:""};let nextId=100;
   const env={
+    taskStoreReady:true,taskWriteBusy:false,
     domain:{notificationIds,notificationTimes,normalizeOffsets:()=>[1440,180,60],manualRepeatPolicy:()=>undefined},planner:{},localNotifications,saveTasks,ensureNotificationAccess,
     notificationId:()=>++nextId,channelId:"urgent-overdue",alarmStatus,$,toFa:String,
     alarmSounds:{

@@ -47,6 +47,7 @@ public class MainActivity extends BridgeActivity {
     private WebViewListener recoveryListener;
     private boolean showingRecovery;
     private AppearanceController appearance;
+    private TaskStoreController taskStorage;
     private TextView loadingLabel;
     private ProgressBar loadingProgress;
     private final Runnable refreshAppearance = () -> { if (!isDestroyed()) applyAppearance(); };
@@ -80,6 +81,9 @@ public class MainActivity extends BridgeActivity {
             origins.add(remote.getScheme() + "://" + remote.getEncodedAuthority());
         }
         appearance = new AppearanceController(this, view, origins, this::applyAppearance);
+        // Unlike appearance, task data is NEVER exposed to the configured public server.
+        // WebMessage injection also covers the private bundled recovery page before loadUrl.
+        taskStorage = new TaskStoreController(this, view, config.getAndroidScheme() + "://" + config.getHostname());
         super.load();
     }
 
@@ -391,6 +395,7 @@ public class MainActivity extends BridgeActivity {
     public void onDestroy() {
         mainHandler.removeCallbacks(refreshAppearance);
         if (appearance != null) appearance.destroy();
+        if (taskStorage != null) taskStorage.destroy();
         cancelLoadTimeout();
         if (contentCheck != null) mainHandler.removeCallbacks(contentCheck);
         if (getBridge() != null) {

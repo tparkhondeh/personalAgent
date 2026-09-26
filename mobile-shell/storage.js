@@ -25,7 +25,108 @@
       return true;
     });
   }
-  function createTaskStore(storage) {
+  // One receiver per WebMessage object, including multiple store instances.
+  const clients = new WeakMap();
+  function nativeClient(bridge, timeoutMs) {
+    if (!bridge || typeof bridge.postMessage !== "function") return null;
+    if (clients.has(bridge)) return clients.get(bridge);
+    const session = window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    let sequence = 0, rejected = null;
+    const pending = new Map();
+    bridge.onmessage = event => {
+      let reply;
+      try { reply = JSON.parse(event.data); } catch { return; }
+      if (!record(reply)) return;
+      if (reply.id === null && reply.ok === false && ["BUSY", "INVALID"].includes(reply.error)) {
+        rejected = reply.error;
+        for (const finish of [...pending.values()]) finish({ ok: false, error: rejected });
+        return;
+      }
+      if (typeof reply.id !== "string") return;
+      const finish = pending.get(reply.id);
+      if (finish) finish(reply);
+    };
+    const request = message => new Promise(resolve => {
+      if (rejected) { resolve({ ok: false, error: rejected }); return; }
+      if (pending.size >= 16) { resolve({ ok: false, error: "BUSY" }); return; }
+      const id = `${session}-${++sequence}`;
+      const timer = setTimeout(() => finish({ ok: false, error: "TIMEOUT" }), timeoutMs);
+      const finish = reply => { clearTimeout(timer); pending.delete(id); resolve(reply); };
+      pending.set(id, finish);
+      try { bridge.postMessage(JSON.stringify({ ...message, id })); }
+      catch { finish({ ok: false, error: "TRANSPORT" }); }
+    });
+    clients.set(bridge, request);
+    return request;
+  }
+  function createNativeTaskStore(storage, bridge, timeoutMs) {
+    const request = nativeClient(bridge, timeoutMs);
+    let expected = null, revision = 0, ready = false, pending = false, blocked = false;
+    const snapshot = () => expected === null ? [] : JSON.parse(expected);
+    const failure = reason => { ready = false; blocked = true; return { ok: false, reason }; };
+    function validReply(reply) {
+      if (!reply || reply.ok !== true || !Number.isSafeInteger(reply.revision)) return false;
+      if (reply.revision === 0) return reply.raw === null;
+      if (reply.revision < 1 || typeof reply.raw !== "string") return false;
+      try { return validTasks(JSON.parse(reply.raw)); } catch { return false; }
+    }
+    function accept(reply) {
+      expected = reply.raw; revision = reply.revision;
+      // Legacy is only a read mirror. Its failure must not undo a durable commit,
+      // and its contents are never a fallback after native initialization.
+      if (expected !== null) { try { storage.setItem(key, expected); } catch { /* retained native authority */ } }
+      ready = true;
+      return { ok: true, tasks: snapshot() };
+    }
+    async function commit(expectedRevision, nextRaw) {
+      let reply = await request({ op: "cas", expectedRevision, nextRaw });
+      if (reply.ok === false && ["TIMEOUT", "TRANSPORT"].includes(reply.error)) {
+        // Never retry the write or allocate another task ID after an unknown reply.
+        // A poisoned native process must reject this read too.
+        reply = await request({ op: "read" });
+      }
+      if (!validReply(reply) || reply.revision !== expectedRevision + 1 || reply.raw !== nextRaw) {
+        return failure(reply.error === "CONFLICT" ? "changed" : "unconfirmed");
+      }
+      return accept(reply);
+    }
+    async function load() {
+      if (blocked || pending || !request) return failure("unreadable");
+      ready = false; pending = true;
+      try {
+        const reply = await request({ op: "read" });
+        if (!validReply(reply)) return failure("unreadable");
+        if (reply.raw !== null) return accept(reply);
+        // Only the explicit native absent envelope permits legacy migration.
+        const raw = storage.getItem(key);
+        if (raw === null) return accept(reply);
+        if (!validTasks(JSON.parse(raw))) return failure("invalid");
+        return await commit(0, raw);
+      } catch { return failure("unreadable"); }
+      finally { pending = false; }
+    }
+    function save(tasks) {
+      if (!ready || blocked) return Promise.resolve({ ok: false, reason: "unreadable" });
+      if (pending) return Promise.resolve({ ok: false, reason: "busy" });
+      let raw;
+      try {
+        if (!validTasks(tasks)) return Promise.resolve({ ok: false, reason: "invalid" });
+        raw = JSON.stringify(tasks);
+        if (!validTasks(JSON.parse(raw))) return Promise.resolve({ ok: false, reason: "invalid" });
+      } catch { return Promise.resolve({ ok: false, reason: "invalid" }); }
+      if (revision >= Number.MAX_SAFE_INTEGER) return Promise.resolve(failure("unwritable"));
+      // Freeze the candidate bytes AND its revision before any asynchronous work.
+      const expectedRevision = revision;
+      pending = true;
+      return commit(expectedRevision, raw).catch(() => failure("unconfirmed")).finally(() => { pending = false; });
+    }
+    return { load, save, snapshot, writable: () => ready && !blocked };
+  }
+  function createTaskStore(storage, options = {}) {
+    const bridge = options.bridge === undefined ? window.TiaTaskStoreNative : options.bridge;
+    const nativeRequired = options.nativeRequired ?? Boolean(bridge || window.HamrahAppearanceNative ||
+      window.Capacitor?.getPlatform?.() === "android" || window.location?.origin === "https://localhost");
+    if (nativeRequired) return createNativeTaskStore(storage, bridge, options.timeoutMs ?? 10000);
     let expected = null, ready = false;
     const snapshot = () => expected === null ? [] : JSON.parse(expected);
     function load() {
@@ -52,7 +153,7 @@
         return { ok: true };
       } catch { return { ok: false, reason: "unwritable" }; }
     }
-    return { load, save, snapshot };
+    return { load, save, snapshot, writable: () => ready };
   }
   window.HamrahStorage = { createTaskStore, validTasks };
 })();

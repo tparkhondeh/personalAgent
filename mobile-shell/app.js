@@ -34,7 +34,8 @@
   let panel = overview.initialDashboardView(window.location.search);
   let pendingDelete = "";
   const pendingActions = new Set();
-  let tasks = loadTasks();
+  let tasks = [], taskStoreReady = false, taskStoreLoading = true, taskWriteBusy = false;
+  const taskControls = new Map();
   let reminderOffsets;
   try { reminderOffsets = domain.normalizeOffsets(JSON.parse(localStorage.getItem(preferenceKey) || "null")); }
   catch { reminderOffsets = domain.normalizeOffsets(null); }
@@ -47,30 +48,71 @@
     storageWarning.hidden = false;
     storageWarning.textContent = reason === "changed"
       ? "اطلاعات در پنجره دیگری تغییر کرده؛ برای جلوگیری از بازنویسی، صفحه را دوباره باز کنید. چیزی ذخیره نشد."
-      : "خواندن یا ذخیره اطلاعات گوشی ممکن نیست. اطلاعات قبلی پاک نشده؛ حافظه برنامه را پاک نکنید. تغییر جدید ذخیره نشده است.";
+      : "خواندن یا تأیید ذخیره اطلاعات گوشی ممکن نیست. اطلاعات قبلی پاک نشده؛ حافظه برنامه را پاک نکنید. برای بررسی وضعیت ذخیره، صفحه را دوباره باز کنید.";
     if (modal.classList.contains("open")) $("#form-reminders").textContent = storageWarning.textContent;
   }
-  function loadTasks() {
-    const result = taskStore.load();
-    if (!result.ok) storageFailure(result.reason);
-    return result.tasks;
+  function updateTaskControls() {
+    const locked = !taskStoreReady || taskWriteBusy;
+    document.documentElement.dataset.taskStoreState = taskStoreReady ? "ready" : taskStoreLoading ? "loading" : "error";
+    for (const node of document.querySelectorAll('[data-open-form], [data-action], #task-form input, #task-form select, #task-form button, #close-form, #local-plan-confirm')) {
+      if (locked) {
+        if (!taskControls.has(node)) taskControls.set(node, node.disabled);
+        node.disabled = true;
+      }
+    }
+    if (!locked) {
+      for (const [node, disabled] of taskControls) node.disabled = disabled;
+      taskControls.clear();
+    }
+    form.setAttribute("aria-busy", String(taskWriteBusy));
   }
-  function saveTasks(next = tasks) {
-    const result = taskStore.save(next);
-    if (!result.ok) { tasks = taskStore.snapshot(); storageFailure(result.reason); return false; }
-    tasks = next;
+  async function loadTasks() {
+    updateTaskControls();
+    storageWarning.hidden = false;
+    storageWarning.textContent = "در حال خواندن اطلاعات ذخیره‌شده…";
+    const result = await taskStore.load();
+    taskStoreLoading = false;
+    if (!result.ok) { storageFailure(result.reason); updateTaskControls(); return; }
+    tasks = result.tasks;
+    taskStoreReady = true;
     storageWarning.hidden = true;
-    return true;
+    updateTaskControls(); render();
+    try { await retryLocalAlarms(); }
+    catch { alarmStatus.textContent = "لغو یا تنظیم زنگ‌های ذخیره‌شده کامل نشد؛ از تنظیمات دوباره تلاش کن."; }
+  }
+  async function saveTasks(next = tasks) {
+    if (!taskStoreReady || taskWriteBusy) return false;
+    taskWriteBusy = true;
+    updateTaskControls();
+    try {
+      const result = await taskStore.save(next);
+      if (!result.ok) {
+        taskStoreReady = taskStore.writable();
+        storageFailure(result.reason);
+        return false;
+      }
+      // Publish only the acknowledged snapshot, never the mutable caller's array.
+      tasks = taskStore.snapshot();
+      for (const task of tasks) if (task.approvedPlan) task.approvedPlan = immutablePlan(task.approvedPlan);
+      storageWarning.hidden = true;
+      return true;
+    } catch {
+      taskStoreReady = false;
+      storageFailure("unconfirmed");
+      return false;
+    } finally { taskWriteBusy = false; updateTaskControls(); }
   }
   function notificationId() { return (crypto.getRandomValues(new Uint32Array(1))[0] % 2000000000) + 1; }
   function toFa(value) { return Number(value).toLocaleString("fa-IR"); }
   function escapeText(value) { const span = document.createElement("span"); span.textContent = value; return span.innerHTML; }
 
   function openForm(task) {
+    if (!taskStoreReady || taskWriteBusy) return;
     cancelVoice();
     form.submitGeneration = (form.submitGeneration || 0) + 1;
     form.querySelector('[type="submit"]').disabled = false;
     form.reset();
+    form.reservedTaskId = null;
     $("#task-id").value = task?.id || "";
     $("#task-title").value = task?.title || "";
     $("#task-category").value = task?.category || "personal";
@@ -86,7 +128,7 @@
     modal.classList.add("open");
     setTimeout(() => $("#task-title").focus(), 80);
   }
-  function closeForm() { modal.classList.remove("open"); }
+  function closeForm() { if (!taskWriteBusy) modal.classList.remove("open"); }
   function updateManualRepeatDisclosure() {
     let note = $("#manual-repeat-disclosure");
     if (!note) { note = document.createElement("p"); note.id = "manual-repeat-disclosure"; note.className = "helper"; $("#form-reminders").after(note); }
@@ -145,6 +187,7 @@
     return { ...next, alarmCancellations: [...receipts.values()] };
   }
   async function drainAlarmCancellations() {
+    if (!taskStoreReady || taskWriteBusy) throw new Error("ذخیره اطلاعات هنوز تأیید نشده است.");
     for (const snapshot of tasks) {
       const receipts = cancellationReceipts(snapshot);
       if (!receipts.length) continue;
@@ -173,11 +216,11 @@
         throw new Error("لغو زنگ گوشی هنوز تأیید نشد.");
       }
       // A lost reply or a failed acknowledgement leaves the durable receipts intact.
-      // Re-read current tasks: another synchronous save may have occurred during await.
+      // Re-read current tasks: another acknowledged save may have occurred during await.
       const next = tasks.map(task => task.id === snapshot.id ? { ...task,
         alarmCancellations: cancellationReceipts(task).filter(receipt => !receipts.some(old => old.id === receipt.id && old.taskId === receipt.taskId)),
       } : task);
-      if (!saveTasks(next)) throw new Error("لغو انجام شد، اما رسید آن ذخیره نشد؛ دوباره تلاش کنید.");
+      if (!(await saveTasks(next))) throw new Error("لغو انجام شد، اما رسید آن ذخیره نشد؛ دوباره تلاش کنید.");
     }
   }
   const localAlarmScheduler = alarmSounds.createDeviceAlarmScheduler({
@@ -201,7 +244,7 @@
       if (!localNotifications || !current || current.done || current.archived || !current.deadline) return false;
       task = current;
       const version = alarmVersion(task);
-      const stillCurrent = () => kind === "test" || tasks.some(item => item.id === task.id && !item.done && !item.archived && alarmVersion(item) === version);
+      const stillCurrent = () => taskStoreReady && !taskWriteBusy && (kind === "test" || tasks.some(item => item.id === task.id && !item.done && !item.archived && alarmVersion(item) === version));
       if (kind !== "test" && task.approvedPlan && !task.approvedPlan.channels.some(c=>c==="ALARM"||c==="NATIVE")) return false;
       const alarm=kind==="test" || !task.approvedPlan || task.approvedPlan.channels.includes("ALARM");
       let mapping = task.notificationSchedule;
@@ -232,14 +275,14 @@
         }) };
         const snapshot = {...task, notificationIds:mapping.entries.map(entry=>entry.id), notificationSchedule:mapping};
         // Persist even if permission is denied; later activation must reuse these exact times.
-        if (kind !== "test" && !saveTasks(tasks.map(item => item.id === task.id ? snapshot : item))) {
+        if (kind !== "test" && !(await saveTasks(tasks.map(item => item.id === task.id ? snapshot : item)))) {
           throw new Error("شناسه یادآوری ذخیره نشد؛ اعلان جدید تنظیم نشد.");
         }
-        Object.assign(task, {notificationIds:snapshot.notificationIds, notificationSchedule:mapping});
+        task = snapshot;
       }
       // Mapping persistence changes notificationIds; capture the version after that write.
       const scheduledVersion = alarmVersion(task);
-      const maySchedule = () => kind === "test" || tasks.some(item => item.id === task.id && !item.done && !item.archived && alarmVersion(item) === scheduledVersion);
+      const maySchedule = () => taskStoreReady && !taskWriteBusy && (kind === "test" || tasks.some(item => item.id === task.id && !item.done && !item.archived && alarmVersion(item) === scheduledVersion));
       if (!maySchedule()) return false;
       if (!(await ensureNotificationAccess(false, requestPermission))) return false;
       if (!maySchedule()) return false;
@@ -258,6 +301,7 @@
     return enqueueAlarmWork(drainAlarmCancellations);
   }
   async function retryLocalAlarms() {
+    if (!taskStoreReady || taskWriteBusy) return 0;
     await cancelNotifications();
     if (!localNotifications) return 0;
     let accepted = 0;
@@ -281,6 +325,7 @@
     const dated = overview.selectDashboardItems(tasks, "tasks").filter((task) => task.deadline).sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
     datedList.innerHTML = dated.length ? dated.map(taskMarkup).join("") : '<div class="empty">برنامه زمان‌داری وجود ندارد.</div>';
     renderCalendar();
+    updateTaskControls();
     requestAnimationFrame(()=>window.HamrahCapture.fitProgramList(list,panel==="today"));
   }
   function renderCalendar() {
@@ -311,7 +356,7 @@
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const submitButton = form.querySelector('[type="submit"]');
-    if (submitButton.disabled || !modal.classList.contains("open")) return;
+    if (!taskStoreReady || taskWriteBusy || submitButton.disabled || !modal.classList.contains("open")) return;
     const submitGeneration = form.submitGeneration;
     const notify = text => { if (submitGeneration === form.submitGeneration) $("#page-status").textContent = text; };
     submitButton.disabled = true;
@@ -325,11 +370,13 @@
     const deadlineValue = String(data.get("deadline") || "");
     if(deadlineValue && (!window.HamrahInputs.persianParts(deadlineValue.split("T")[0])||!window.HamrahInputs.validTime24(deadlineValue.split("T")[1]||""))){$("#form-reminders").textContent="تاریخ شمسی و ساعت ۲۴ساعته معتبر وارد کن.";return;}
     if (submitGeneration !== form.submitGeneration) return;
-    const task = reserveAlarmCancellations(existing, { ...existing, id: existing?.id || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())), title, category: String(data.get("category") || "personal"), priority: String(data.get("priority") || "normal"), deadline: deadlineValue ? new Date(deadlineValue).toISOString() : null, reminderOffsets: existing?.approvedPlan ? existing.approvedPlan.reminderOffsets : domain.normalizeOffsets(existing ? existing.reminderOffsets : reminderOffsets), urgentRepeatPolicy: domain.manualRepeatPolicy(existing, repeatSettings), notificationIds: [], notificationId: undefined, notificationSchedule: undefined, done: existing?.done || false, updatedAt:new Date().toISOString() });
+    form.reservedTaskId ||= existing?.id || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()));
+    const task = reserveAlarmCancellations(existing, { ...existing, id: form.reservedTaskId, title, category: String(data.get("category") || "personal"), priority: String(data.get("priority") || "normal"), deadline: deadlineValue ? new Date(deadlineValue).toISOString() : null, reminderOffsets: existing?.approvedPlan ? existing.approvedPlan.reminderOffsets : domain.normalizeOffsets(existing ? existing.reminderOffsets : reminderOffsets), urgentRepeatPolicy: domain.manualRepeatPolicy(existing, repeatSettings), notificationIds: [], notificationId: undefined, notificationSchedule: undefined, done: existing?.done || false, updatedAt:new Date().toISOString() });
     if(task.approvedPlan){task.approvedPlan={...task.approvedPlan,quietStart:"00:00",quietEnd:"00:00"};}
     if(task.approvedPlan?.durationMinutes && task.deadline)task.endsAt=new Date(Date.parse(task.deadline)+task.approvedPlan.durationMinutes*60000).toISOString();
     const next = existing ? tasks.map((item) => item.id === task.id ? task : item) : [task, ...tasks];
-    if (!saveTasks(next)) { render(); return; }
+    if (!(await saveTasks(next))) { render(); return; }
+    if (submitGeneration === form.submitGeneration) {
     $("#task-id").value = task.id;
     closeForm(); filter = "all";
     $$(`[data-filter]`).forEach((button) => button.classList.toggle("active", button.dataset.filter === "all"));
@@ -339,6 +386,7 @@
     // The closed-modal guard rejects duplicate submits; the generation guards
     // prevent an older alarm result from changing a newer form's feedback.
     submitButton.disabled = false;
+    }
     try { if (existing) await cancelNotifications(); }
     catch { notify("done — تغییر ذخیره شد؛ لغو زنگ قبلی هنوز تأیید نشد. از تنظیمات دوباره تلاش کن."); return; }
     if (task.deadline && !task.done) {
@@ -348,9 +396,10 @@
     if (submitGeneration !== form.submitGeneration) return;
     const saveNotice = $("#page-status").textContent;
     form.saveNoticeTimer = setTimeout(() => { if (submitGeneration === form.submitGeneration && $("#page-status").textContent === saveNotice) $("#page-status").textContent = saveNotice.replace(/^done — /, ""); }, 5000);
-    } finally { if (submitGeneration === form.submitGeneration) submitButton.disabled = false; }
+    } finally { if (submitGeneration === form.submitGeneration) submitButton.disabled = !taskStoreReady; }
   });
   async function handleListAction(event) {
+    if (!taskStoreReady || taskWriteBusy) return;
     const button = event.target.closest("button[data-action]");
     if (!button) return;
     const id = button.closest("[data-id]")?.dataset.id;
@@ -362,12 +411,12 @@
     pendingActions.add(id);
     try {
       if (button.dataset.action === "toggle") {
-        if (!saveTasks(tasks.map(item => item.id === id ? reserveAlarmCancellations(item, { ...item, done: true, updatedAt: new Date().toISOString() }) : item))) { render(); return; }
+        if (!(await saveTasks(tasks.map(item => item.id === id ? reserveAlarmCancellations(item, { ...item, done: true, updatedAt: new Date().toISOString() }) : item)))) { render(); return; }
         render();
         await cancelNotifications();
       }
       if (button.dataset.action === "confirm-delete") {
-        if (!saveTasks(tasks.map(item => item.id === id ? reserveAlarmCancellations(item, { ...item, archived: true, updatedAt: new Date().toISOString() }) : item))) { render(); return; }
+        if (!(await saveTasks(tasks.map(item => item.id === id ? reserveAlarmCancellations(item, { ...item, archived: true, updatedAt: new Date().toISOString() }) : item)))) { render(); return; }
         pendingDelete = "";
         render();
         await cancelNotifications();
@@ -415,7 +464,7 @@
     if(intervalInput){intervalInput.min="10";intervalInput.max="1440";intervalInput.step="1";}
     const operation=document.createElement("p");operation.textContent=({CREATE:"ثبت مورد جدید",UPDATE:"ویرایش مورد انتخاب‌شده",COMPLETE:"تکمیل مورد انتخاب‌شده",DELETE:"حذف و بایگانی مورد انتخاب‌شده"})[p.operation];grid.before(operation);
     const changed=(rebuild=true)=>{
-      if(agentBusy || agentDraft?.status!=="PENDING")return;
+      if(!taskStoreReady || taskWriteBusy || agentBusy || agentDraft?.status!=="PENDING")return;
       planner.normalizePlanForReview(p,planningItems());
       agentDraft.revision++;agentDraft.questions=[];
       try { localStorage.setItem(draftKey,JSON.stringify(agentDraft)); }
@@ -463,12 +512,13 @@
     }));
     $("#local-plan-cancel").onclick=()=>{if(agentBusy || agentDraft?.status!=="PENDING")return;try{localStorage.setItem(draftKey,JSON.stringify({...agentDraft,status:"CANCELLED"}));agentDraft=null;showAgentDraft("لغو شد؛ چیزی ثبت یا زمان‌بندی نشد.");}catch{$("#local-plan-status").textContent="لغو پیشنهاد ذخیره نشد؛ دوباره تلاش کن.";}};
     $("#local-plan-confirm").onclick=async()=>{
-      if(agentBusy || agentDraft?.status!=="PENDING")return;
+      if(!taskStoreReady || taskWriteBusy || agentBusy || agentDraft?.status!=="PENDING")return;
       agentBusy=true;
       const controls=[...root.querySelectorAll("input,select,button")].map(node=>({node,disabled:node.disabled}));
       controls.forEach(({node})=>{node.disabled=true;});root.setAttribute("aria-busy","true");
       try{
-        const stored=JSON.parse(localStorage.getItem(draftKey)||"null");
+        const storedRaw=localStorage.getItem(draftKey);
+        const stored=JSON.parse(storedRaw||"null");
         if(!stored||stored.id!==agentDraft.id||stored.revision!==agentDraft.revision||stored.status!=="PENDING"||JSON.stringify(stored.plan)!==JSON.stringify(p))throw new Error("نسخه پیشنهاد تغییر کرده است.");
         const approved=immutablePlan(p), receipt={id:stored.id,revision:stored.revision};
         if(tasks.some(task=>task.approvalReceipt?.id===receipt.id && task.approvalReceipt.revision===receipt.revision)){
@@ -490,25 +540,27 @@
         const task=reserveAlarmCancellations(existing,{...existing,id:existing?.id||receipt.id,title:approved.title,category:approved.entity==="MEETING"?"meeting":approved.category==="WORK"?"company":"personal",priority:approved.priority.toLowerCase(),deadline:instant?.toISOString()??null,endsAt:instant&&approved.durationMinutes?new Date(instant.getTime()+approved.durationMinutes*60000).toISOString():null,reminderOffsets:approved.reminderOffsets,notificationIds:[],notificationId:undefined,notificationSchedule:undefined,done:approved.operation==="COMPLETE",archived:approved.operation==="DELETE",updatedAt:new Date().toISOString(),approvedPlan:approved,approvalReceipt:receipt});
         const series=approved.operation==="CREATE"&&approved.recurrence!=="NONE"?planner.planOccurrences(approved).map((o,i)=>({...task,id:i?task.id+"-"+i:task.id,deadline:o.instant,notificationIds:[],endsAt:o.instant&&approved.durationMinutes?new Date(Date.parse(o.instant)+approved.durationMinutes*60000).toISOString():null})):[task];
         const next=existing?tasks.map(t=>t.id===task.id?task:t):[...series,...tasks];
-        if(!saveTasks(next)) {
-          throw new Error("ثبت انجام نشد؛ اطلاعات قبلی حفظ شده است. پیام حافظه را بررسی کنید.");
+        if(!(await saveTasks(next))) {
+          throw new Error("ذخیره تأیید نشد؛ اطلاعات قبلی حفظ شده است. پیام حافظه را بررسی کنید.");
         }
-        // No await precedes this atomic task/receipt commit. A failed save leaves
-        // the draft PENDING; a failed draft acknowledgement cannot replay this receipt.
-        try{localStorage.setItem(draftKey,JSON.stringify({...stored,status:"EXECUTED"}));}catch{/* The task-store receipt is authoritative. */}
-        agentDraft=null;render();
+        // The atomic task/receipt commit is authoritative. Do not acknowledge or
+        // clear a newer proposal that arrived while waiting for durable storage.
+        const sameDraft=()=>agentDraft?.id===receipt.id && agentDraft.revision===receipt.revision;
+        try{if(localStorage.getItem(draftKey)===storedRaw)localStorage.setItem(draftKey,JSON.stringify({...stored,status:"EXECUTED"}));}catch{/* The task-store receipt is authoritative. */}
+        if(sameDraft())agentDraft=null;
+        render();
         let result="ثبت محلی انجام شد؛ هنوز با حساب سرور همگام نشده است.";
         if(approved.channels.includes("PUSH"))result+=" Push در حالت آفلاین ارسال نمی‌شود.";
         try{
           await cancelNotifications();
           if((approved.operation==="CREATE"||approved.operation==="UPDATE")&&approved.channels.some(c=>c==="ALARM"||c==="NATIVE")){let scheduled=0;for(const item of series){if(await scheduleNotification(item))scheduled++;}result+=scheduled===series.length?" Notification تنظیم شد.":" برخی اعلان‌ها تنظیم نشدند؛ زمان آینده و اجازه گوشی لازم است.";}
         }catch{result+=" تغییر ذخیره شد؛ لغو یا تنظیم زنگ کامل نشد. از تنظیمات دوباره تلاش کن.";}
-        showAgentDraft(result);render();
-      }catch(error){statusNode.textContent=error.message||"ثبت انجام نشد؛ دوباره بررسی کن.";}finally{agentBusy=false;controls.forEach(({node,disabled})=>{node.disabled=disabled;});root.setAttribute("aria-busy","false");}
+        if(!agentDraft)showAgentDraft(result);render();
+      }catch(error){statusNode.textContent=error.message||"ثبت انجام نشد؛ دوباره بررسی کن.";}finally{agentBusy=false;controls.forEach(({node,disabled})=>{node.disabled=disabled;});root.setAttribute("aria-busy","false");updateTaskControls();}
     };
   }
   function replyToMessage() {
-    const message=$("#assistant-input").value.trim();if(!message||agentBusy)return;
+    const message=$("#assistant-input").value.trim();if(!taskStoreReady||taskWriteBusy||!message||agentBusy)return;
     const previous=agentDraft?.status==="PENDING"?agentDraft.plan:null;
     const result=planner.planPersian(message,{timezone:"Asia/Tehran",previous,items:planningItems(),offsets:reminderOffsets,...(!previous && repeatSettings ? repeatSettings : {})});
     if(!result.plan){agentDraft=null;showAgentDraft(result.reply);return;}
@@ -637,5 +689,5 @@
   showPanel(panel);
   // Reconcile durable cancellations even for hidden completed/deleted records,
   // then retry only missing future alarms with their persisted IDs and times.
-  void retryLocalAlarms().catch(()=>{alarmStatus.textContent="لغو یا تنظیم زنگ‌های ذخیره‌شده کامل نشد؛ از تنظیمات دوباره تلاش کن.";});
+  void loadTasks();
 })();

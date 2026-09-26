@@ -222,7 +222,7 @@ describe("approved zero reaches the offline scheduling adapter", () => {
     const environment = {
       domain: { ...domain, notificationTimes: (value: Task, shared: typeof planner) => domain.notificationTimes(value, shared, now.getTime()) },
       planner, localNotifications, saveTasks, ensureNotificationAccess, channelId: "synthetic-urgent", notificationId: () => ++nextId,
-      alarmStatus:{textContent:""},
+      alarmStatus:{textContent:""},taskStoreReady:true,taskWriteBusy:false,
       pendingActions:new Set(),render:vi.fn(),$:()=>({textContent:""}),
       alarmSounds:{createDeviceAlarmScheduler:(port:DeviceAlarmSchedulerPort)=>createDeviceAlarmScheduler({...port,now:()=>now.getTime()}),prepareAlarm:async()=>({channelId:"synthetic-urgent",sound:"tia_alarm_dawn_v1.wav",legacySound:false})},
     };

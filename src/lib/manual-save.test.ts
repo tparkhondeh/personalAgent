@@ -267,6 +267,7 @@ function mobileFixture() {
   const manualRepeatPolicy = vi.spyOn(context.window.HamrahOffline, "manualRepeatPolicy");
   const saveTasks = vi.fn((next: unknown) => { if (!store.save(next).ok) { errors.textContent = "ذخیره نشد"; return false; } state.tasks = next; return true; });
   Object.assign(context, {
+    taskStoreReady: true, taskWriteBusy: false,
     form, modal: { classList: { contains: () => state.open } }, crypto, setTimeout, clearTimeout, scheduleNotification, cancelNotifications, saveTasks,
     FormData: class { get(key: string) { return formValues.get(key); } },
     $: (selector: string) => selector === "#page-status" ? status : selector === "#task-id" ? taskId : errors,
@@ -278,7 +279,7 @@ function mobileFixture() {
   Object.assign(context.window, { HamrahInputs: { persianParts, validTime24 } });
   Object.defineProperties(context, { tasks: { get: () => state.tasks }, filter: { get: () => state.filter, set: value => { state.filter = value; } } });
   vm.runInContext(mobileHandler, context);
-  return { state, stored, status, errors, button, formValues, filters, saveTasks, scheduleNotification, cancelNotifications, manualRepeatPolicy, repeatSettings, reopen: () => { state.open = true; form.submitGeneration++; button.disabled = false; }, restored: () => store.load().tasks, submit: () => submit({ preventDefault: vi.fn() }) };
+  return { state, stored, status, errors, button, formValues, filters, saveTasks, scheduleNotification, cancelNotifications, manualRepeatPolicy, repeatSettings, reopen: () => { state.open = true; form.submitGeneration++; button.disabled = false; Object.assign(form, { reservedTaskId: null }); }, restored: () => store.load().tasks, submit: () => submit({ preventDefault: vi.fn() }) };
 }
 
 describe("bundled manual form save", () => {
@@ -291,7 +292,7 @@ describe("bundled manual form save", () => {
   it("permits the next form while the prior reminder awaits native response, without stale feedback", async () => {
     vi.useFakeTimers(); const f=mobileFixture();let finish!:(value:boolean)=>void;
     f.scheduleNotification.mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));
-    const prior=f.submit();expect(f.state.open).toBe(false);expect(f.button.disabled).toBe(false);
+    const prior=f.submit();await Promise.resolve();expect(f.state.open).toBe(false);expect(f.button.disabled).toBe(false);
     f.reopen();f.formValues.set("id", "");f.formValues.set("title", "ثبت بعدی");
     f.scheduleNotification.mockResolvedValueOnce(false);await f.submit();
     expect(f.restored()).toHaveLength(2);const latestNotice=f.status.textContent;
