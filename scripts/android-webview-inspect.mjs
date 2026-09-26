@@ -83,7 +83,7 @@ async function inspect() {
     pending.delete(message.id);
     resolver(message);
   });
-  const evaluate = (expression = snapshotExpression, timeoutMs = 15_000) => new Promise((resolveResponse, rejectResponse) => {
+  const evaluate = (expression = snapshotExpression, timeoutMs = 15_000, awaitPromise = true) => new Promise((resolveResponse, rejectResponse) => {
     requestId += 1;
     const currentId = requestId;
     const timeout = setTimeout(() => {
@@ -94,7 +94,7 @@ async function inspect() {
       clearTimeout(timeout);
       resolveResponse(message);
     });
-    socket.send(JSON.stringify({ id: currentId, method: "Runtime.evaluate", params: { expression, returnByValue: true, awaitPromise: true } }));
+    socket.send(JSON.stringify({ id: currentId, method: "Runtime.evaluate", params: { expression, returnByValue: true, awaitPromise } }));
   });
 
   // UI persistence probe: receipt is saved outside Android BEFORE the process is stopped.

@@ -25,7 +25,9 @@ export async function stopUiPersistenceProcess({ mode, packageName, adb, evaluat
   if (mode === 'home') {
     adb('shell', 'input', 'keyevent', 'KEYCODE_HOME');
     await waitUntil(async () => {
-      const result = await evaluate("Boolean(window === window.top && location.origin === 'https://localhost' && document.visibilityState === 'hidden')", 2000);
+      // This is a synchronous boolean, not a page promise. Awaiting a promise
+      // unnecessarily depends on microtasks in the now-backgrounded renderer.
+      const result = await evaluate("Boolean(window === window.top && location.origin === 'https://localhost' && document.visibilityState === 'hidden')", 2000, false);
       if (result.error || result.result?.exceptionDetails) throw Error('UI persistence HOME visibility failed');
       return result.result?.result?.value === true;
     }, 'UI persistence HOME did not hide the page', { attempts: 40, delayMs: 50 });

@@ -119,7 +119,11 @@ describe('separate HOME and immediate stop timing', () => {
     const report = await stopUiPersistenceProcess({ mode, packageName, adb, evaluate, waitUntil, requestStarted: 100, responseReceived: 130, ackToReportMs: 2, now: () => time });
     expect(report.immediateWindowMet).toBe(true); expect(report.ackToStopLowerBoundMs).toBe(mode === 'home' ? 17 : 12);
     expect(adb.mock.calls.at(-1)).toEqual(['shell', 'am', 'force-stop', packageName]);
-    if (mode === 'home') { expect(adb.mock.calls[0]).toContain('KEYCODE_HOME'); expect(evaluate).toHaveBeenCalledOnce(); }
+    if (mode === 'home') {
+      expect(adb.mock.calls[0]).toContain('KEYCODE_HOME'); expect(evaluate).toHaveBeenCalledOnce();
+      expect(evaluate.mock.calls[0][0]).toContain("document.visibilityState === 'hidden'");
+      expect(evaluate.mock.calls[0].slice(1)).toEqual([2000, false]);
+    }
     else { expect(adb).toHaveBeenCalledOnce(); expect(evaluate).not.toHaveBeenCalled(); }
   });
   it('marks a delayed immediate stop inconclusive rather than silently claiming coverage', async () => {
@@ -139,12 +143,34 @@ describe('separate HOME and immediate stop timing', () => {
       waitUntil: (check, message) => waitUntil(check, message, { attempts: 1 }) })).rejects.toThrow('did not hide');
     expect(adb.mock.calls).toEqual([['shell', 'input', 'keyevent', 'KEYCODE_HOME']]);
   });
+  it('never force-stops when synchronous HOME inspection times out', async () => {
+    const adb = vi.fn();
+    await expect(stopUiPersistenceProcess({ mode: 'home', packageName, adb,
+      evaluate: async () => { throw Error('WebView evaluation timed out.'); }, waitUntil })).rejects.toThrow('timed out');
+    expect(adb.mock.calls).toEqual([['shell', 'input', 'keyevent', 'KEYCODE_HOME']]);
+  });
 });
 
 describe('inspector receipt/stop ordering and shell placement', () => {
   const inspector = readFileSync('scripts/android-webview-inspect.mjs', 'utf8').replace(/\r\n/g, '\n');
   const start = inspector.indexOf('  // UI persistence probe:');
   const branch = inspector.slice(start, inspector.indexOf('  if (upgradePhase) {', start));
+  it.each([true, false])('sends the requested promise mode to CDP: %s', async awaitPromise => {
+    const begin = inspector.indexOf('  const evaluate =');
+    const source = inspector.slice(begin, inspector.indexOf('\n\n', begin));
+    const pending = new Map(), sent = [];
+    const context = vm.createContext({ requestId: 0, snapshotExpression: 'true', pending, setTimeout, clearTimeout,
+      socket: { send: raw => {
+        const message = JSON.parse(raw); sent.push(message);
+        const reply = pending.get(message.id); pending.delete(message.id);
+        reply({ result: { result: { value: true } } });
+      } },
+    });
+    const evaluate = vm.runInContext(`${source}\nevaluate`, context);
+    await evaluate('Boolean(document.hidden)', 2000, awaitPromise);
+    expect(sent[0]).toMatchObject({ method: 'Runtime.evaluate', params: { expression: 'Boolean(document.hidden)', returnByValue: true, awaitPromise } });
+    expect(pending.size).toBe(0);
+  });
   it.each(['home', 'immediate', 'write-failure', 'assertion-failure', 'check'])('writes external evidence before any stop: %s', async mode => {
     const events = [], phase = mode === 'check' ? 'check' : 'create';
     const context = vm.createContext({ uiPersistence: ['', mode === 'home' ? 'home' : 'immediate', phase], uiReceipt: {}, packageName,
