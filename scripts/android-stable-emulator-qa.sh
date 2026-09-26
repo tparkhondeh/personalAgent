@@ -105,6 +105,14 @@ if [[ -n "${TIA_UPGRADE_BASELINE_APK:-}" ]]; then
   upgrade_appearance_verified=true
   launch_and_verify "upgrade-default-light" "اتصال برقرار نشد" "assert-default-light" "restore-upgrade"
   unset upgrade_appearance_verified
+  # Real UI saves on unchanged v44, after upgrade proof and before later smoke mutations.
+  # Creation writes an external receipt then stops immediately (HOME case: hidden only).
+  for persistence_mode in home immediate; do
+    node scripts/android-webview-inspect.mjs "$package_name" "$evidence_dir/ui-${persistence_mode}-create.json" "فهرست برنامه‌ها" "ui-persistence-${persistence_mode}-create"
+    adb logcat -d > "$evidence_dir/ui-${persistence_mode}-post-stop-logcat.txt"
+    launch_and_verify "ui-${persistence_mode}-cold" "اتصال برقرار نشد"
+    node scripts/android-webview-inspect.mjs "$package_name" "$evidence_dir/ui-${persistence_mode}-check.json" "فهرست برنامه‌ها" "ui-persistence-${persistence_mode}-check" "$evidence_dir/ui-${persistence_mode}-create.json"
+  done
   adb shell am force-stop "$package_name"
   adb shell settings put global http_proxy :0
 fi

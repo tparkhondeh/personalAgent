@@ -31,7 +31,9 @@ export async function androidDeliveredNotificationQa(task, isolation) {
   let unrelatedId = 2147000000;
   while (used.has(unrelatedId) && unrelatedId > 2146999900) unrelatedId--;
   assert(!used.has(unrelatedId), 'No isolated fixture notification ID available');
-  const futureAt = Date.now() + 4 * 86400000;
+  // getPending serializes java.util.Date at second precision. Align this NEW
+  // fixture before scheduling; retain exact equality when checking preservation.
+  const futureAt = Math.ceil(Date.now() / 1000) * 1000 + 4 * 86400000;
   const extra = { owner: 'tia-delivered-qa', taskId: task.id, fixture: task.title };
   const channelId = 'tia-qa-delivered-v1';
   await plugin.createChannel({ id: channelId, name: 'Synthetic delivered-notification QA', importance: 2 });

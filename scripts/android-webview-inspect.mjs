@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { waitUntil } from "./qa-wait-until.mjs";
 import { verifyBarAppearance } from "./android-bar-appearance.mjs";
@@ -10,6 +10,7 @@ import { poemLayoutQa } from "./poem-layout-qa.mjs";
 import { bundledStartupQa } from "./bundled-startup-qa.mjs";
 import { upgradeQaExpression, assertUpgradeQaHost, observeUpgradeBackground } from "./android-upgrade-qa.mjs";
 import { androidDeliveredNotificationQa, assertDeliveredQaHost } from "./android-delivered-notification-qa.mjs";
+import { assertUiPersistenceHost, assertUiPersistenceReceipt, uiPersistenceExpression, stopUiPersistenceProcess } from "./android-ui-persistence-qa.mjs";
 
 const packageName = process.argv[2];
 const outputPath = resolve(process.argv[3] || "artifacts/android/webview.json");
@@ -22,6 +23,18 @@ const adb = (...args) => execFileSync("adb", args, { encoding: "utf8" }).trim();
 const delay = (milliseconds) => new Promise((resolveDelay) => setTimeout(resolveDelay, milliseconds));
 
 async function inspect() {
+  const uiPersistence = action.match(/^ui-persistence-(home|immediate)-(create|check)$/);
+  let uiReceipt;
+  if (uiPersistence) {
+    assertUiPersistenceHost({ ci: process.env.CI, serial: adb('get-serialno'), emulator: adb('shell', 'getprop', 'ro.kernel.qemu'),
+      packageName, packageDump: adb('shell', 'dumpsys', 'package', packageName) });
+    if (existsSync(outputPath)) throw Error('UI persistence evidence already exists; do not repeat a probe');
+    if (uiPersistence[2] === 'check') {
+      if (!process.argv[6]) throw Error('Missing external UI persistence receipt path');
+      uiReceipt = JSON.parse(readFileSync(resolve(process.argv[6]), 'utf8'));
+      assertUiPersistenceReceipt(uiReceipt, uiPersistence[1]);
+    }
+  }
   const upgradePhase = action === 'upgrade-seed' ? 'seed' : action === 'upgrade-baseline-check' ? 'baseline-check' : action === 'upgrade-check' ? 'check' : null;
   if (upgradePhase) {
     assertUpgradeQaHost({ ci: process.env.CI, serial: adb('get-serialno'), emulator: adb('shell', 'getprop', 'ro.kernel.qemu'),
@@ -30,7 +43,7 @@ async function inspect() {
   const processIds = adb("shell", "pidof", packageName).replace(/\r/g, "").split(/\s+/);
   const pid = processIds[0];
   if (!pid) throw new Error(`No running process found for ${packageName}`);
-  if (upgradePhase && (processIds.length !== 1 || !/^\d+$/.test(pid))) throw Error('Upgrade requires one identifiable app process');
+  if ((upgradePhase || uiPersistence) && (processIds.length !== 1 || !/^\d+$/.test(pid))) throw Error('QA requires one identifiable app process');
 
   // A fresh CI emulator has no previous forward yet. Removing a missing
   // listener returns exit code 1, which is harmless and must not fail QA.
@@ -51,8 +64,8 @@ async function inspect() {
   const target = targets.find((entry) => entry.type === "page" && entry.webSocketDebuggerUrl) || targets.find((entry) => entry.webSocketDebuggerUrl);
   if (!target) throw new Error("No debuggable Android WebView target was found.");
   const pageTargets = targets.filter(entry => entry.type === 'page' && entry.webSocketDebuggerUrl).length;
-  if (upgradePhase && pageTargets !== 1) throw Error('Upgrade requires one identifiable WebView page');
-  if (!upgradePhase) process.stdout.write(`WebView target: ${target.title || "(untitled)"} ${target.url || "(no URL)"}\n`);
+  if ((upgradePhase || uiPersistence) && pageTargets !== 1) throw Error('QA requires one identifiable WebView page');
+  if (!upgradePhase && !uiPersistence) process.stdout.write(`WebView target: ${target.title || "(untitled)"} ${target.url || "(no URL)"}\n`);
 
   const socket = new WebSocket(target.webSocketDebuggerUrl);
   await new Promise((resolveOpen, rejectOpen) => {
@@ -83,6 +96,46 @@ async function inspect() {
     });
     socket.send(JSON.stringify({ id: currentId, method: "Runtime.evaluate", params: { expression, returnByValue: true, awaitPromise: true } }));
   });
+
+  // UI persistence probe: receipt is saved outside Android BEFORE the process is stopped.
+  if (uiPersistence) {
+    const [, mode, phase] = uiPersistence;
+    const stamp = { packageName, versionCode: 44, processId: Number(pid), pageTargets };
+    let diagnostics = { stage: 'bundled-ui', assertion: 'UI persistence bundled page unavailable' };
+    try {
+      await waitUntil(async () => (await evaluate("Boolean(document.querySelector('#task-form') || document.querySelector('#offline'))"))?.result?.result?.value === true,
+        'UI persistence page unavailable', { attempts: 35, delayMs: 1000 });
+      const opened = await evaluate("(()=>{if(!document.querySelector('#task-form'))document.querySelector('#offline').click();return true;})()");
+      if (opened.error || opened.result?.exceptionDetails) throw Error('UI persistence could not open bundled page');
+      await waitUntil(async () => (await evaluate("Boolean(document.querySelector('#task-form') && window.HamrahStorage?.validTasks)"))?.result?.result?.value === true,
+        'UI persistence form unavailable', { attempts: 35, delayMs: 1000 });
+      const requestStarted = performance.now();
+      const checked = await evaluate(uiPersistenceExpression(phase, mode, uiReceipt), 10000);
+      const responseReceived = performance.now();
+      const value = checked.result?.result?.value;
+      if (checked.error || checked.result?.exceptionDetails || value?.passed !== true) {
+        diagnostics = value?.diagnostics || { stage: phase, assertion: 'UI persistence evaluation failed' };
+        throw Error('UI persistence assertion failed');
+      }
+      const report = { ...value, ...stamp };
+      if (phase === 'create') assertUiPersistenceReceipt(report, mode);
+      mkdirSync(dirname(outputPath), { recursive: true });
+      writeFileSync(outputPath, JSON.stringify(report, null, 2) + '\n', { flag: 'wx' });
+      if (phase === 'create') {
+        diagnostics = { stage: 'stop', assertion: 'UI persistence lifecycle stop failed' };
+        const stopped = await stopUiPersistenceProcess({ mode, packageName, adb, evaluate, waitUntil, requestStarted, responseReceived, ackToReportMs: report.ackToReportMs });
+        writeFileSync(outputPath.replace(/\.json$/, '') + '-stop.json', JSON.stringify(stopped, null, 2) + '\n', { flag: 'wx' });
+        diagnostics = { stage: 'immediate-timing', assertion: 'Immediate UI persistence experiment exceeded its timing window' };
+        if (!stopped.immediateWindowMet) throw Error('UI persistence timing window not met');
+      }
+      process.stdout.write(JSON.stringify({ passed: true, phase, mode }) + '\n');
+      return;
+    } catch {
+      mkdirSync(dirname(outputPath), { recursive: true });
+      writeFileSync(outputPath.replace(/\.json$/, '') + '-failure.json', JSON.stringify({ passed: false, phase, mode, ...stamp, diagnostics }, null, 2) + '\n', { flag: 'wx' });
+      throw Error('UI persistence QA failed; no records were removed or recreated');
+    } finally { socket.close(); }
+  }
 
   if (upgradePhase) {
     try {
