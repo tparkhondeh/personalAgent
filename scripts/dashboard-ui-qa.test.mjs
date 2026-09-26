@@ -14,7 +14,7 @@ const part = (start, end) => {
 
 // Minimal DOM port; actual storage, task handlers, mapping queue and dashboard
 // scope/count functions execute unchanged. This is not native-device evidence.
-async function fixture({ mappingDelay = 180, blockedOpen = false, wrongCounts = false, denyCommit = false, titleCollision = false, empty = false } = {}) {
+async function fixture({ mappingDelay = 180, commitDelay = 10, blockedOpen = false, wrongCounts = false, denyCommit = false, titleCollision = false, empty = false, invalidForm = false } = {}) {
   const retained = { id: 'unrelated-fixture', title: 'retain me', category: 'personal', priority: 'normal', done: false, deadline: null };
   if (titleCollision) Object.assign(retained, { title: 'آزمون باکس personal', deadline: new Date().toISOString() });
   const values = new Map(empty ? [] : [['hamrah-local-v2', JSON.stringify([retained])]]);
@@ -36,7 +36,8 @@ async function fixture({ mappingDelay = 180, blockedOpen = false, wrongCounts = 
   form.querySelector = () => submitButton;
   form.reset = () => { for (const id of ['#task-id', '#task-title', '#task-deadline']) node(id).value = ''; };
   form.addEventListener = (_event, handler) => { submit = handler; };
-  form.requestSubmit = () => { void submit({ preventDefault() {} }); };
+  form.requestSubmit = () => { if (!invalidForm) void submit({ preventDefault() {} }); };
+  form.matches = selector => selector === ':invalid' && invalidForm;
   const fields = { id: '#task-id', title: '#task-title', category: '#task-category', priority: '#task-priority', deadline: '#task-deadline' };
   const overview = () => context.window.HamrahOverview;
   const visible = () => overview().selectDashboardItems(context.tasks, context.panel, context.filter);
@@ -87,7 +88,7 @@ async function fixture({ mappingDelay = 180, blockedOpen = false, wrongCounts = 
       expect(request.expectedRevision).toBe(state.revision);
       state.raw = request.nextRaw; state.revision++; state.commits.push(mapping ? 'mapping' : 'task');
       this.onmessage({ data: JSON.stringify({ id: request.id, ok: true, revision: state.revision, raw: state.raw }) });
-    }, mapping ? mappingDelay : 10);
+    }, mapping ? mappingDelay : commitDelay);
   } };
   context = vm.createContext({ window: { TiaTaskStoreNative: bridge, HamrahInputs: inputs }, document, localStorage, Date, Intl,
     crypto: webcrypto, Event, setTimeout, clearTimeout, URLSearchParams,
@@ -141,16 +142,39 @@ describe('dashboard QA against actual async bundled handlers', () => {
   });
   it.each([
     [{ blockedOpen: true }, 'Create form did not open'],
-    [{ denyCommit: true }, 'New dashboard record was not acknowledged'],
-    [{ mappingDelay: 4000 }, 'Dashboard control did not become enabled'],
+    [{ denyCommit: true }, 'Dashboard task store is not writable'],
+    [{ mappingDelay: 12000 }, 'Dashboard control did not become enabled'],
+    [{ invalidForm: true }, 'Dashboard form is invalid'],
     [{ wrongCounts: true }, 'Created records are not reflected in scoped counts'],
   ])('keeps bounded failure and original count gates for %j', async (options, message) => {
     vi.useFakeTimers(); vi.setSystemTime(new Date('2026-09-26T10:00:00Z'));
     const f = await fixture(options); const outcome = f.run().then(value => ({ value }), error => ({ error }));
-    await vi.advanceTimersByTimeAsync(3000);
+    await vi.advanceTimersByTimeAsync(8500);
     const result = await outcome; expect(result.error?.message).toBe(message); expect(result.value).toBeUndefined();
     expect(f.records().find(task => task.id === f.retained.id)).toEqual(f.retained);
     expect(f.state.actions).toEqual([]); // Never proceed to destructive fixture actions after a failed gate.
     if (options.blockedOpen || options.denyCommit) expect(f.records()).toEqual([f.retained]);
+    const diagnostics=JSON.stringify(result.error.qaDiagnostics);
+    expect(diagnostics).not.toMatch(/retain me|آزمون باکس|unrelated-fixture|nextRaw/);
+    if(options.denyCommit||options.invalidForm)expect(result.error.qaDiagnostics.elapsedMs).toBeLessThan(500);
+  });
+  it('observes a valid delayed commit without retrying or treating elapsed time as commit latency', async () => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date('2026-09-26T10:00:00Z'));
+    const f=await fixture({commitDelay:2500,mappingDelay:2800});
+    const outcome=f.run().then(value=>({value}),error=>({error}));
+    await vi.advanceTimersByTimeAsync(35000);
+    const result=await outcome;
+    expect(result.error).toBeUndefined();expect(result.value.submitToObservedAckMs).toHaveLength(3);
+    expect(result.value.submitToObservedAckMs.every(ms=>ms>=2500&&ms<8000)).toBe(true);
+    expect(f.state.formOpens).toBe(3);expect(f.state.commits.filter(kind=>kind==='mapping')).toHaveLength(3);
+    expect(f.records().find(task=>task.id===f.retained.id)).toEqual(f.retained);
+  });
+  it('fails corrupt storage immediately without exposing its content or submitting', async () => {
+    vi.useFakeTimers();const f=await fixture();
+    f.context.localStorage.setItem('hamrah-local-v2','private-invalid-payload');
+    const error=await f.run().catch(error=>error);
+    expect(error.qaDiagnostics).toMatchObject({code:'INVALID_JSON',phase:'setup'});
+    expect(JSON.stringify(error.qaDiagnostics)).not.toContain('private-invalid-payload');
+    expect(f.state.formOpens).toBe(0);expect(f.state.commits).toEqual([]);
   });
 });

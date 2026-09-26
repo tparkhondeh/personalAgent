@@ -19,7 +19,7 @@ const action = process.argv[5] || "";
 
 if (!packageName) throw new Error("Android package name is required.");
 
-const adb = (...args) => execFileSync("adb", args, { encoding: "utf8" }).trim();
+const adb = (...args) => execFileSync("adb", args, { encoding: "utf8", timeout:15000 }).trim();
 const delay = (milliseconds) => new Promise((resolveDelay) => setTimeout(resolveDelay, milliseconds));
 
 async function inspect() {
@@ -123,14 +123,20 @@ async function inspect() {
       writeFileSync(outputPath, JSON.stringify(report, null, 2) + '\n', { flag: 'wx' });
       if (phase === 'create') {
         diagnostics = { stage: 'stop', assertion: 'UI persistence lifecycle stop failed' };
-        const stopped = await stopUiPersistenceProcess({ mode, packageName, adb, evaluate, waitUntil, requestStarted, responseReceived, ackToReportMs: report.ackToReportMs });
+        const stopped = await stopUiPersistenceProcess({ mode, packageName, adb, processId:Number(pid),
+          readHomeSnapshot:({timeoutMs})=>execFileSync('adb',['shell','dumpsys','activity','activities'],{encoding:'utf8',timeout:Math.max(1,Math.floor(timeoutMs)),stdio:['ignore','pipe','pipe']}),
+          recordHomeEvidence:({snapshot,...evidence})=>{
+            writeFileSync(outputPath.replace(/\.json$/,'-home-state.txt'),snapshot??'',{flag:'wx'});
+            writeFileSync(outputPath.replace(/\.json$/,'-home-state.json'),JSON.stringify(evidence,null,2)+'\n',{flag:'wx'});
+          },requestStarted,responseReceived,ackToReportMs:report.ackToReportMs });
         writeFileSync(outputPath.replace(/\.json$/, '') + '-stop.json', JSON.stringify(stopped, null, 2) + '\n', { flag: 'wx' });
         diagnostics = { stage: 'immediate-timing', assertion: 'Immediate UI persistence experiment exceeded its timing window' };
         if (!stopped.immediateWindowMet) throw Error('UI persistence timing window not met');
       }
       process.stdout.write(JSON.stringify({ passed: true, phase, mode }) + '\n');
       return;
-    } catch {
+    } catch (error) {
+      if(/^HOME_[A-Z_]+$/.test(error?.message||''))diagnostics={...diagnostics,code:error.message};
       mkdirSync(dirname(outputPath), { recursive: true });
       writeFileSync(outputPath.replace(/\.json$/, '') + '-failure.json', JSON.stringify({ passed: false, phase, mode, ...stamp, diagnostics }, null, 2) + '\n', { flag: 'wx' });
       throw Error('UI persistence QA failed; no records were removed or recreated');
@@ -269,10 +275,20 @@ async function inspect() {
     if(startup.result.exceptionDetails)throw Error('Bundled startup failed: '+JSON.stringify(startup.result.exceptionDetails));
     mkdirSync(dirname(outputPath), { recursive: true });
     writeFileSync(outputPath.replace(/\.json$/, '-startup.json'), JSON.stringify(startup.result.result.value, null, 2));
-    const dashboard = await evaluate(`(${dashboardUiQa.toString()})()`);
-    if(dashboard.result.exceptionDetails)throw Error('Dashboard/poem QA failed: '+JSON.stringify(dashboard.result.exceptionDetails));
+    let dashboard;
+    try {
+      dashboard = await evaluate(`(async()=>{try{return {passed:true,value:await (${dashboardUiQa.toString()})()};}catch(error){return {passed:false,diagnostics:error.qaDiagnostics||{code:'UNEXPECTED'}};}})()`,60000);
+    } catch {
+      writeFileSync(outputPath.replace(/\.json$/, '-dashboard-failure.json'),JSON.stringify({passed:false,diagnostics:{code:'INSPECTION_TIMEOUT_OR_TRANSPORT'}},null,2),{flag:'wx'});
+      throw Error('Dashboard inspection unavailable; sanitized diagnostics recorded');
+    }
+    const dashboardResult=dashboard.result?.result?.value;
+    if(dashboard.error||dashboard.result?.exceptionDetails||dashboardResult?.passed!==true){
+      writeFileSync(outputPath.replace(/\.json$/, '-dashboard-failure.json'),JSON.stringify({passed:false,diagnostics:dashboardResult?.diagnostics||{code:'INSPECTION_FAILED'}},null,2),{flag:'wx'});
+      throw Error('Dashboard/poem QA failed; sanitized diagnostics recorded');
+    }
     mkdirSync(dirname(outputPath), { recursive: true });
-    writeFileSync(outputPath.replace(/\.json$/, '-dashboard.json'), JSON.stringify(dashboard.result.result.value, null, 2));
+    writeFileSync(outputPath.replace(/\.json$/, '-dashboard.json'), JSON.stringify(dashboardResult.value, null, 2));
     // Isolated emulator permission fixture; never applied to a user's phone.
     adb('shell','pm','grant',packageName,'android.permission.RECORD_AUDIO');
     const parity = await evaluate(`(async () => {

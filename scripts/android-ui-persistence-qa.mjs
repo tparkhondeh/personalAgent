@@ -1,3 +1,5 @@
+import { waitHomeActivity } from './android-home-state-qa.mjs';
+
 // QA only. Records are created through the real form, never through storage writes.
 export function assertUiPersistenceHost({ ci, serial, emulator, packageName, packageDump }) {
   const flags = packageDump.match(/^\s*(?:pkgFlags|flags)=\[([^\]]*)\]/m)?.[1];
@@ -18,24 +20,24 @@ export function assertUiPersistenceReceipt(receipt, mode) {
   }
 }
 
-// No minimum delay. HOME waits only for actual hidden state; immediate never waits.
+// No minimum delay. HOME requires an OS-confirmed stopped/hidden Activity;
+// immediate never invokes HOME, activity inspection, or an extra wait.
 // Timing is host-side: request-to-stop is an upper bound on acknowledgement-to-stop.
-export async function stopUiPersistenceProcess({ mode, packageName, adb, evaluate, waitUntil, requestStarted, responseReceived, ackToReportMs, now = () => performance.now() }) {
+export async function stopUiPersistenceProcess({ mode, packageName, adb, processId, readHomeSnapshot, recordHomeEvidence,
+  observeHome = waitHomeActivity, requestStarted, responseReceived, ackToReportMs, now = () => performance.now() }) {
   if (!['home', 'immediate'].includes(mode) || packageName !== 'ir.wealthos.personalagent.stable40') throw Error('Invalid UI persistence stop scope');
+  let homeEvidence;
   if (mode === 'home') {
+    if (!Number.isSafeInteger(processId)||processId<=0||typeof readHomeSnapshot!=='function'||typeof recordHomeEvidence!=='function')throw Error('HOME_INVALID_SCOPE');
     adb('shell', 'input', 'keyevent', 'KEYCODE_HOME');
-    await waitUntil(async () => {
-      // This is a synchronous boolean, not a page promise. Awaiting a promise
-      // unnecessarily depends on microtasks in the now-backgrounded renderer.
-      const result = await evaluate("Boolean(window === window.top && location.origin === 'https://localhost' && document.visibilityState === 'hidden')", 2000, false);
-      if (result.error || result.result?.exceptionDetails) throw Error('UI persistence HOME visibility failed');
-      return result.result?.result?.value === true;
-    }, 'UI persistence HOME did not hide the page', { attempts: 40, delayMs: 50 });
+    const observed=await observeHome({readSnapshot:readHomeSnapshot,writeEvidence:recordHomeEvidence,packageName,processId});
+    if(observed.result?.passed!==true)throw Error(observed.result?.reason||'HOME_STATE_UNPROVEN');
+    homeEvidence={...observed.result,attempts:observed.attempts,elapsedMs:observed.elapsedMs};
   }
   const stopStarted = now();
   adb('shell', 'am', 'force-stop', packageName);
   const stopCompleted = now();
-  return { mode, homeHidden: mode === 'home', requestToStopUpperBoundMs: Math.ceil(stopCompleted - requestStarted),
+  return { mode, homeHidden: mode === 'home', ...(homeEvidence?{homeEvidence}:{}), requestToStopUpperBoundMs: Math.ceil(stopCompleted - requestStarted),
     requestToStopStartedMs: Math.round(stopStarted - requestStarted),
     // The process may stop during adb: invocation bounds it below, completion above.
     ackToStopLowerBoundMs: Math.floor(ackToReportMs + stopStarted - responseReceived),

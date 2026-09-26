@@ -14,7 +14,7 @@ on:
       android_api:
         type: choice
         default: all
-        options: [all, '33', '34', '36']
+        options: [all, '33', '34', '36', '34-36']
       synthetic_gpt:
         description: Explicitly authorized bounded synthetic GPT check on API36 only
         type: boolean
@@ -34,7 +34,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        api: ${{ fromJSON(inputs.android_api == '33' && '[33]' || inputs.android_api == '34' && '[34]' || inputs.android_api == '36' && '[36]' || '[33,34,36]') }}
+        api: ${{ fromJSON(inputs.android_api == '33' && '[33]' || inputs.android_api == '34' && '[34]' || inputs.android_api == '36' && '[36]' || inputs.android_api == '34-36' && '[34,36]' || '[33,34,36]') }}
     env:
       TIA_RELEASE_INSPECTION: 'true'
       TIA_GPT_QA_ENABLED: ${{ inputs.synthetic_gpt && matrix.api == 36 && 'true' || 'false' }}

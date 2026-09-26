@@ -114,17 +114,24 @@ describe('real bundled form handler and external cold receipt', () => {
 describe('separate HOME and immediate stop timing', () => {
   it.each(['home', 'immediate'])('performs only its requested lifecycle: %s', async mode => {
     let time = 140;
-    const adb = vi.fn(() => { time += 5; });
+    const events=[];
+    const adb = vi.fn((...args) => { events.push(args.at(-1));time += 5; });
     const evaluate = vi.fn(async () => ({ result: { result: { value: true } } }));
-    const report = await stopUiPersistenceProcess({ mode, packageName, adb, evaluate, waitUntil, requestStarted: 100, responseReceived: 130, ackToReportMs: 2, now: () => time });
+    const readHomeSnapshot=vi.fn(()=>{events.push('read');return 'activity-dump';});
+    const recordHomeEvidence=vi.fn(()=>{events.push('evidence');});
+    const observeHome=vi.fn(async ({readSnapshot,writeEvidence,processId})=>{
+      expect(processId).toBe(123);
+      const evidence={snapshot:await readSnapshot(),result:{passed:true,source:'android-activity'},attempts:1,elapsedMs:0};
+      await writeEvidence(evidence);return evidence;
+    });
+    const report = await stopUiPersistenceProcess({ mode, packageName, adb, evaluate, processId:123, readHomeSnapshot,recordHomeEvidence,observeHome, requestStarted: 100, responseReceived: 130, ackToReportMs: 2, now: () => time });
     expect(report.immediateWindowMet).toBe(true); expect(report.ackToStopLowerBoundMs).toBe(mode === 'home' ? 17 : 12);
     expect(adb.mock.calls.at(-1)).toEqual(['shell', 'am', 'force-stop', packageName]);
     if (mode === 'home') {
-      expect(adb.mock.calls[0]).toContain('KEYCODE_HOME'); expect(evaluate).toHaveBeenCalledOnce();
-      expect(evaluate.mock.calls[0][0]).toContain("document.visibilityState === 'hidden'");
-      expect(evaluate.mock.calls[0].slice(1)).toEqual([2000, false]);
+      expect(events).toEqual(['KEYCODE_HOME','read','evidence',packageName]);
+      expect(report.homeEvidence.source).toBe('android-activity');expect(evaluate).not.toHaveBeenCalled();
     }
-    else { expect(adb).toHaveBeenCalledOnce(); expect(evaluate).not.toHaveBeenCalled(); }
+    else { expect(adb).toHaveBeenCalledOnce();expect(evaluate).not.toHaveBeenCalled();expect(observeHome).not.toHaveBeenCalled();expect(readHomeSnapshot).not.toHaveBeenCalled();expect(recordHomeEvidence).not.toHaveBeenCalled(); }
   });
   it('marks a delayed immediate stop inconclusive rather than silently claiming coverage', async () => {
     const report = await stopUiPersistenceProcess({ mode: 'immediate', packageName, adb: vi.fn(), requestStarted: 0, responseReceived: 5000, ackToReportMs: 2, now: () => 5001 });
@@ -137,17 +144,21 @@ describe('separate HOME and immediate stop timing', () => {
     expect(report).toMatchObject({ requestToStopStartedMs: 30, requestToStopUpperBoundMs: 6030,
       ackToStopLowerBoundMs: 12, ackResponseToStopMs: 6010, forceStopCommandMs: 6000, immediateWindowMet: false });
   });
-  it('never force-stops when HOME visibility is not established', async () => {
+  it.each(['HOME_TARGET_NOT_STOPPED','HOME_STATE_TIMEOUT','HOME_EVIDENCE_WRITE_FAILED','HOME_SNAPSHOT_INVALID'])('never force-stops with unproven HOME evidence: %s', async reason => {
     const adb = vi.fn();
-    await expect(stopUiPersistenceProcess({ mode: 'home', packageName, adb, evaluate: async () => ({ result: { result: { value: false } } }),
-      waitUntil: (check, message) => waitUntil(check, message, { attempts: 1 }) })).rejects.toThrow('did not hide');
+    await expect(stopUiPersistenceProcess({ mode:'home',packageName,adb,processId:123,readHomeSnapshot:vi.fn(),recordHomeEvidence:vi.fn(),
+      observeHome:async()=>({result:{passed:false,reason}}) })).rejects.toThrow(reason);
     expect(adb.mock.calls).toEqual([['shell', 'input', 'keyevent', 'KEYCODE_HOME']]);
   });
-  it('never force-stops when synchronous HOME inspection times out', async () => {
+  it('never force-stops when actual HOME dump cannot be read', async () => {
     const adb = vi.fn();
-    await expect(stopUiPersistenceProcess({ mode: 'home', packageName, adb,
-      evaluate: async () => { throw Error('WebView evaluation timed out.'); }, waitUntil })).rejects.toThrow('timed out');
+    await expect(stopUiPersistenceProcess({ mode:'home',packageName,adb,processId:123,recordHomeEvidence:vi.fn(),
+      readHomeSnapshot:()=>{throw Error('private-dump-error');} })).rejects.toThrow('HOME_DUMP_FAILED');
     expect(adb.mock.calls).toEqual([['shell', 'input', 'keyevent', 'KEYCODE_HOME']]);
+  });
+  it('refuses HOME without a writer for evidence before any command', async () => {
+    const adb=vi.fn();await expect(stopUiPersistenceProcess({mode:'home',packageName,adb,processId:123,readHomeSnapshot:vi.fn()})).rejects.toThrow('HOME_INVALID_SCOPE');
+    expect(adb).not.toHaveBeenCalled();
   });
 });
 
