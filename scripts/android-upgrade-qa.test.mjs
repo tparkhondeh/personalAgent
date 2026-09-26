@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { webcrypto } from 'node:crypto';
 import vm from 'node:vm';
-import { androidUpgradeQa, upgradeQaExpression, assertUpgradeQaHost, assertUpgradeBaselineEvidence, assertUpgradeAppearanceEvidence } from './android-upgrade-qa.mjs';
+import { androidUpgradeQa, upgradeQaExpression, observeUpgradeBackground, assertUpgradeQaHost, assertUpgradeBaselineEvidence, assertUpgradeAppearanceEvidence } from './android-upgrade-qa.mjs';
 import { waitUntil } from './qa-wait-until.mjs';
 
 const host = { ci: 'true', serial: 'emulator-5554', emulator: '1', packageName: 'ir.wealthos.personalagent.stable40', versionCode: 43, phase: 'seed' };
@@ -40,10 +40,11 @@ function fixture() {
     return element;
   } };
   function freshPage() {
-    const context = vm.createContext({ window: {}, document, location: { origin: 'https://localhost' }, localStorage: storage,
+    const context = vm.createContext({ window: {}, document, location: { origin: 'https://localhost', pathname: '/index.html' }, localStorage: storage,
       sessionStorage: { getItem: () => null }, crypto: webcrypto, TextEncoder, Date, Intl, setTimeout });
     vm.runInContext(readFileSync('mobile-shell/storage.js', 'utf8'), context);
     vm.runInContext(readFileSync('mobile-shell/planner.js', 'utf8'), context);
+    context.window.top = context.window;
     context.window.Capacitor = { getPlatform: () => 'android', Plugins: { LocalNotifications: plugin, TiaAlarmSounds: sounds } };
     context.window.HamrahAppearance = { set: value => { storage.setItem('hamrah-appearance-v1', value); return true; } };
     return { context, run: (phase, report) => vm.runInContext(`(${androidUpgradeQa.toString()})(${JSON.stringify(phase)},'ci-emulator-43-to-44',${JSON.stringify(report)})`, context) };
@@ -57,6 +58,7 @@ describe('serialized upgrade seed/check', () => {
     const checked = await f.freshPage().run('check');
     expect(checked).toMatchObject({ passed: true, records: 3, completed: 1, nativeMappings: 3, storeHash: seeded.storeHash, nativeHash: seeded.nativeHash });
     expect(checked.storeHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(seeded.context).toEqual({ origin: 'https://localhost', topFrame: true, bundledIndex: true });
     expect(JSON.stringify(checked)).not.toContain('title');
     expect(f.schedule).toHaveBeenCalledOnce();
     await expect(f.freshPage().run('seed')).rejects.toThrow('already attempted');
@@ -73,6 +75,57 @@ describe('serialized upgrade seed/check', () => {
     f.storage['hamrah-local-v2'] = '[]';
     await expect(f.freshPage().run('check')).rejects.toThrow('changed local records');
     expect(f.storage['hamrah-local-v2']).toBe('[]'); expect(f.schedule).toHaveBeenCalledOnce();
+  });
+});
+
+describe('normal-background causal observation, not a durability claim', () => {
+  const seed = { passed: true, phase: 'seed', versionCode: 43, packageName: host.packageName, storeHash: 'a'.repeat(64), nativeHash: 'b'.repeat(64) };
+  const response = value => ({ result: { result: { value } } });
+  function observation({ visible = false, changedPid = false, failedRead = false, wrongHash = false } = {}) {
+    let elapsed = 0;
+    const adb = vi.fn((...args) => args[1] === 'pidof' ? changedPid ? '124' : '123' : '');
+    const evaluate = vi.fn(async expression => expression.includes('visibilityState')
+      ? response(!visible) : response({ passed: !failedRead, storeHash: wrongHash ? 'stale' : seed.storeHash, nativeHash: seed.nativeHash }));
+    const boundedWait = (check, message, options) => waitUntil(check, message, { ...options, delayMs: 0 });
+    const run = () => observeUpgradeBackground({ adb, evaluate, seed, pid: '123', now: () => elapsed,
+      waitUntil: (check, message, options) => boundedWait(async () => { const result = await check(); elapsed += options.delayMs; return result; }, message, options) });
+    return { adb, evaluate, run };
+  }
+  it('checks fixture repeatedly across the commit-batch window, but only claims observation', async () => {
+    const f = observation(), report = await f.run();
+    expect(report).toMatchObject({ passed: true, phase: 'background-observation', persistenceProven: false,
+      minimumObservationMs: 6000, hidden: true, processId: 123, storeHash: seed.storeHash, nativeHash: seed.nativeHash });
+    expect(report.observedMs).toBeGreaterThanOrEqual(6000); expect(report.samples).toBeGreaterThanOrEqual(25);
+    expect(f.adb.mock.calls[0]).toEqual(['shell', 'input', 'keyevent', 'KEYCODE_HOME']);
+    expect(f.adb.mock.calls.slice(1).every(args => args.join(' ') === `shell pidof ${host.packageName}`)).toBe(true);
+    expect(f.evaluate.mock.calls.filter(([expression]) => expression.includes('seed-consistency')).length).toBe(report.samples);
+  });
+  it.each([{ visible: true }, { changedPid: true }, { failedRead: true }, { wrongHash: true }])('fails closed without retrying loss: %j', async options => {
+    const f = observation(options);
+    await expect(f.run()).rejects.toThrow();
+    expect(f.evaluate.mock.calls.length).toBeLessThanOrEqual(40);
+    expect(f.adb.mock.calls.filter(args => args.includes('KEYCODE_HOME'))).toHaveLength(1);
+  });
+  it('performs no UI click, storage write or native mutation during consistency reads', async () => {
+    const f = fixture(), seeded = { ...await f.freshPage().run('seed'), packageName: host.packageName, versionCode: 43 };
+    const before = JSON.stringify(f.storage), page = f.freshPage();
+    page.context.document.querySelector = selector => {
+      if (selector === '#task-form' || selector === '#assistant-input') return {};
+      throw Error('Unexpected UI read/click');
+    };
+    expect((await page.run('seed-consistency', seeded)).passed).toBe(true);
+    expect(JSON.stringify(f.storage)).toBe(before); expect(f.schedule).toHaveBeenCalledOnce();
+    expect(f.sounds.setSelection).toHaveBeenCalledOnce(); expect(f.removeItem).not.toHaveBeenCalled();
+    await expect(page.run('seed-consistency', { ...seeded, storeHash: 'stale' })).rejects.toThrow('saved seed evidence');
+  });
+  it.each(['frame', 'origin', 'path'])('refuses a wrong seed %s before storage/bridge writes', async wrong => {
+    const f = fixture(), page = f.freshPage();
+    if (wrong === 'frame') page.context.window.top = {};
+    if (wrong === 'origin') page.context.location.origin = 'https://private.example';
+    if (wrong === 'path') page.context.location.pathname = '/private-path';
+    const result = await vm.runInContext(upgradeQaExpression('seed'), page.context);
+    expect(result.passed).toBe(false); expect(f.schedule).not.toHaveBeenCalled();
+    expect(Object.keys(f.storage)).toEqual([]); expect(JSON.stringify(result)).not.toContain('private-');
   });
 });
 
@@ -175,6 +228,8 @@ describe('v43 durability gate before installing v44', () => {
     const evidence = shell.indexOf('assertUpgradeBaselineEvidence(...', check);
     const install = shell.indexOf('adb install -r "$stable_apk"');
     expect(seed).toBeGreaterThan(0); expect(relaunch).toBeGreaterThan(seed);
+    const log = shell.indexOf('adb logcat -d > "$evidence_dir/upgrade-seed-post-background-logcat.txt"');
+    expect(log).toBeGreaterThan(seed); expect(log).toBeLessThan(relaunch);
     expect(check).toBeGreaterThan(relaunch); expect(evidence).toBeGreaterThan(check); expect(install).toBeGreaterThan(evidence);
     expect(shell.slice(seed, install)).not.toMatch(/\bsleep\s+\d/);
     expect(shell).toContain('set -Eeuo pipefail');
@@ -236,7 +291,8 @@ describe('upgrade inspector evidence ordering', () => {
   it.each(['check', 'seed', 'baseline-check', 'write-failure', 'check-failure', 'restore-failure'])('preserves report-before-restoration ordering: %s', async mode => {
     const events = [], phase = ['seed', 'baseline-check'].includes(mode) ? mode : 'check';
     const report = { passed: mode !== 'check-failure', phase };
-    const context = vm.createContext({ upgradePhase: phase, upgradeQaExpression, waitUntil,
+    const context = vm.createContext({ upgradePhase: phase, upgradeQaExpression, waitUntil, pid: '123', pageTargets: 1, adb() {},
+      observeUpgradeBackground: async () => { events.push(['background']); return { passed: true, persistenceProven: false }; },
       packageName: 'ir.wealthos.personalagent.stable40', outputPath: 'upgrade-check.json',
       dirname: () => '.', mkdirSync() {}, process: { stdout: { write() {} } }, socket: { close() {} },
       writeFileSync: (path, data) => { if (mode === 'write-failure') throw Error('Disk full'); events.push(['saved', path, JSON.parse(data)]); },
@@ -250,12 +306,16 @@ describe('upgrade inspector evidence ordering', () => {
     const run = vm.runInContext(`(async()=>{${branch}})()`, context);
     if (mode.endsWith('failure')) await expect(run).rejects.toThrow(); else await run;
     if (mode === 'check' || mode === 'restore-failure') {
-      expect(events[0]).toEqual(['saved', 'upgrade-check.json', { ...report, packageName: 'ir.wealthos.personalagent.stable40', versionCode: 44 }]);
+      expect(events[0]).toEqual(['saved', 'upgrade-check.json', { ...report, packageName: 'ir.wealthos.personalagent.stable40', versionCode: 44, processId: 123, pageTargets: 1 }]);
       expect(events[1]).toEqual(['restore']);
       expect(events.filter(event => event[0] === 'saved' && event[1] === 'upgrade-check.json')).toHaveLength(1);
       if (mode === 'restore-failure') expect(events[2]).toMatchObject(['saved', 'upgrade-check-failure.json', { passed: false, phase: 'restore-appearance' }]);
     } else expect(events.some(event => event[0] === 'restore')).toBe(false);
     if (mode === 'baseline-check') expect(events[0][2]).toMatchObject({ passed: true, phase: 'baseline-check', versionCode: 43 });
+    if (mode === 'seed') {
+      expect(events[0][0]).toBe('saved'); expect(events[1]).toEqual(['background']);
+      expect(events[2]).toMatchObject(['saved', 'upgrade-check-background.json', { passed: true, persistenceProven: false }]);
+    } else expect(events.some(event => event[0] === 'background')).toBe(false);
     if (mode === 'check-failure') {
       expect(events).toHaveLength(1);
       expect(events[0]).toMatchObject(['saved', 'upgrade-check-failure.json', { passed: false, phase: 'check' }]);
@@ -263,7 +323,7 @@ describe('upgrade inspector evidence ordering', () => {
   });
   it('redacts CDP exceptionDetails instead of serializing native or DOM payloads', async () => {
     const events = [];
-    const context = vm.createContext({ upgradePhase: 'check', upgradeQaExpression, waitUntil,
+    const context = vm.createContext({ upgradePhase: 'check', upgradeQaExpression, waitUntil, pid: '123', pageTargets: 1,
       packageName: 'ir.wealthos.personalagent.stable40', outputPath: 'upgrade-check.json',
       dirname: () => '.', mkdirSync() {}, socket: { close() {} },
       writeFileSync: (path, data) => events.push([path, JSON.parse(data)]),
@@ -273,7 +333,7 @@ describe('upgrade inspector evidence ordering', () => {
     });
     await expect(vm.runInContext(`(async()=>{${branch}})()`, context)).rejects.toThrow('assertions failed');
     expect(events).toEqual([['upgrade-check-failure.json', { passed: false, phase: 'check',
-      packageName: 'ir.wealthos.personalagent.stable40', versionCode: 44, diagnostics: { assertion: 'WebView evaluation failed' } }]]);
+      packageName: 'ir.wealthos.personalagent.stable40', versionCode: 44, processId: 123, pageTargets: 1, diagnostics: { assertion: 'WebView evaluation failed' } }]]);
     expect(JSON.stringify(events)).not.toContain('private-cdp-payload');
   });
 });

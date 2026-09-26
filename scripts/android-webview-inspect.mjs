@@ -8,7 +8,7 @@ import { persianSpeechFixtureQa } from "./android-persian-speech-qa.mjs";
 import { dashboardUiQa } from "./dashboard-ui-qa.mjs";
 import { poemLayoutQa } from "./poem-layout-qa.mjs";
 import { bundledStartupQa } from "./bundled-startup-qa.mjs";
-import { upgradeQaExpression, assertUpgradeQaHost } from "./android-upgrade-qa.mjs";
+import { upgradeQaExpression, assertUpgradeQaHost, observeUpgradeBackground } from "./android-upgrade-qa.mjs";
 import { androidDeliveredNotificationQa, assertDeliveredQaHost } from "./android-delivered-notification-qa.mjs";
 
 const packageName = process.argv[2];
@@ -27,8 +27,10 @@ async function inspect() {
     assertUpgradeQaHost({ ci: process.env.CI, serial: adb('get-serialno'), emulator: adb('shell', 'getprop', 'ro.kernel.qemu'),
       packageName, versionCode: adb('shell', 'dumpsys', 'package', packageName).match(/\bversionCode=(\d+)/)?.[1], phase: upgradePhase });
   }
-  const pid = adb("shell", "pidof", packageName).replace(/\r/g, "").split(/\s+/)[0];
+  const processIds = adb("shell", "pidof", packageName).replace(/\r/g, "").split(/\s+/);
+  const pid = processIds[0];
   if (!pid) throw new Error(`No running process found for ${packageName}`);
+  if (upgradePhase && (processIds.length !== 1 || !/^\d+$/.test(pid))) throw Error('Upgrade requires one identifiable app process');
 
   // A fresh CI emulator has no previous forward yet. Removing a missing
   // listener returns exit code 1, which is harmless and must not fail QA.
@@ -48,6 +50,8 @@ async function inspect() {
 
   const target = targets.find((entry) => entry.type === "page" && entry.webSocketDebuggerUrl) || targets.find((entry) => entry.webSocketDebuggerUrl);
   if (!target) throw new Error("No debuggable Android WebView target was found.");
+  const pageTargets = targets.filter(entry => entry.type === 'page' && entry.webSocketDebuggerUrl).length;
+  if (upgradePhase && pageTargets !== 1) throw Error('Upgrade requires one identifiable WebView page');
   if (!upgradePhase) process.stdout.write(`WebView target: ${target.title || "(untitled)"} ${target.url || "(no URL)"}\n`);
 
   const socket = new WebSocket(target.webSocketDebuggerUrl);
@@ -91,6 +95,7 @@ async function inspect() {
         'Upgrade bundled UI unavailable', { attempts: 35, delayMs: 1000 });
       const saveFailure = (result, phase) => {
         const failure = { passed: false, phase, packageName, versionCode: upgradePhase === 'check' ? 44 : 43,
+          processId: Number(pid), pageTargets,
           diagnostics: result.error || result.result?.exceptionDetails
             ? { assertion: 'WebView evaluation failed' }
             : result.result?.result?.value?.diagnostics || { assertion: 'Upgrade QA returned no passing report' } };
@@ -102,10 +107,21 @@ async function inspect() {
         saveFailure(checked, upgradePhase);
         throw Error('Upgrade QA assertions failed; no data was cleared or automatically reseeded');
       }
-      const report = { ...checked.result.result.value, packageName, versionCode: upgradePhase === 'check' ? 44 : 43 };
+      const report = { ...checked.result.result.value, packageName, versionCode: upgradePhase === 'check' ? 44 : 43,
+        processId: Number(pid), pageTargets };
       mkdirSync(dirname(outputPath), { recursive: true });
       writeFileSync(outputPath, JSON.stringify(report, null, 2) + '\n');
       process.stdout.write(JSON.stringify(report) + '\n');
+      if (upgradePhase === 'seed') {
+        try {
+          const observed = await observeUpgradeBackground({ adb, evaluate, seed: report, pid, waitUntil });
+          writeFileSync(outputPath.replace(/\.json$/, '') + '-background.json', JSON.stringify(observed, null, 2) + '\n');
+        } catch (error) {
+          saveFailure(error.qaResult || { result: { result: { value: { diagnostics: { stage: 'background-observation',
+            assertion: 'Normal background fixture observation failed; persistence not established' } } } } }, 'background-observation');
+          throw Error('Upgrade background observation failed; no data was cleared or automatically reseeded');
+        }
+      }
       if (upgradePhase === 'check') {
         const restored = await evaluate(upgradeQaExpression('restore-appearance', report), 45000);
         if (restored.error || restored.result?.exceptionDetails || restored.result?.result?.value?.passed !== true) {

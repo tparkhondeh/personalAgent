@@ -20,6 +20,39 @@ export function assertUpgradeBaselineEvidence(seed, baseline) {
   }
 }
 
+// A bounded lifecycle/consistency observation, NOT a disk-flush acknowledgement.
+// Chromium batches localStorage commits (5s in LocalStorageImpl); observe for 6s.
+// Only the subsequent cold-v43 check proves persistence. Never retry/reseed a loss.
+export async function observeUpgradeBackground({ adb, evaluate, seed, pid, waitUntil, now = () => performance.now() }) {
+  if (seed?.passed !== true || seed.phase !== 'seed' || seed.versionCode !== 43
+    || seed.packageName !== 'ir.wealthos.personalagent.stable40' || !/^\d+$/.test(String(pid))) {
+    throw Error('Background observation requires successful v43 seed evidence');
+  }
+  adb('shell', 'input', 'keyevent', 'KEYCODE_HOME');
+  let hiddenSince, samples = 0;
+  await waitUntil(async () => {
+    if (adb('shell', 'pidof', seed.packageName) !== String(pid)) throw Error('Upgrade background process changed');
+    const hidden = await evaluate("Boolean(window === window.top && location.origin === 'https://localhost' && document.visibilityState === 'hidden')", 2000);
+    if (hidden.error || hidden.result?.exceptionDetails) throw Error('Upgrade background visibility unavailable');
+    if (hidden.result?.result?.value !== true) {
+      if (hiddenSince !== undefined) throw Error('Upgrade background became visible again');
+      return false;
+    }
+    hiddenSince ??= now();
+    const result = await evaluate(upgradeQaExpression('seed-consistency', seed), 2000);
+    const value = result.result?.result?.value;
+    if (result.error || result.result?.exceptionDetails || value?.passed !== true
+      || value.storeHash !== seed.storeHash || value.nativeHash !== seed.nativeHash) {
+      throw Object.assign(Error('Upgrade background fixture consistency failed'), { qaResult: result });
+    }
+    samples++;
+    return now() - hiddenSince >= 6000 && samples >= 2;
+  }, 'Upgrade background observation timed out', { attempts: 40, delayMs: 250 });
+  return { passed: true, phase: 'background-observation', persistenceProven: false,
+    processId: Number(pid), hidden: true, minimumObservationMs: 6000, observedMs: Math.round(now() - hiddenSince), samples,
+    storeHash: seed.storeHash, nativeHash: seed.nativeHash };
+}
+
 // Host-side gate before the test-only runner may restore its native appearance fixture.
 export function assertUpgradeAppearanceEvidence(seed, checked, restored) {
   const packageName = 'ir.wealthos.personalagent.stable40';
@@ -45,7 +78,10 @@ export async function androidUpgradeQa(phase, isolation, savedReport, diagnostic
   const markerKey = prefix + 'manifest-v1';
   const taskKey = 'hamrah-local-v2', draftKey = 'hamrah-confirmed-local-draft-v1';
   const preferenceKeys = ['hamrah-local-reminders-v1', 'hamrah-local-urgent-repeats-v1', 'hamrah-appearance-v1'];
-  assert(isolation === 'ci-emulator-43-to-44' && ['seed', 'baseline-check', 'check', 'restore-appearance'].includes(phase), 'Missing upgrade QA isolation');
+  diagnostics.context = { origin: location.origin === 'https://localhost' ? 'https://localhost' : 'unexpected',
+    topFrame: window === window.top, bundledIndex: location.pathname === '/index.html' };
+  assert(isolation === 'ci-emulator-43-to-44' && ['seed', 'seed-consistency', 'baseline-check', 'check', 'restore-appearance'].includes(phase), 'Missing upgrade QA isolation');
+  assert(diagnostics.context.topFrame && diagnostics.context.bundledIndex, 'Not the top-frame bundled index');
   assert(location.origin === 'https://localhost' && window.Capacitor?.getPlatform?.() === 'android', 'Not the private Android origin');
   assert(document.querySelector('#task-form') && document.querySelector('#assistant-input')
     && window.HamrahStorage?.validTasks && window.HamrahPlanner, 'Known bundled UI not ready');
@@ -152,6 +188,13 @@ export async function androidUpgradeQa(phase, isolation, savedReport, diagnostic
     assert((await sounds.getSelection()).soundId === marker.sound, 'Upgrade lost native sound preference');
     diagnostics.stage = 'appearance';
     assert(document.documentElement.dataset.theme === 'light', 'Upgrade lost explicit appearance');
+    if (phase === 'seed-consistency') {
+      assert(savedReport?.passed === true && savedReport.phase === 'seed' && savedReport.versionCode === 43
+        && savedReport.packageName === 'ir.wealthos.personalagent.stable40'
+        && savedReport.storeHash === marker.storeHash && savedReport.nativeHash === marker.nativeHash,
+        'Background fixture differs from saved seed evidence');
+      return { passed: true, phase, storeHash: marker.storeHash, nativeHash: marker.nativeHash };
+    }
     diagnostics.stage = 'tasks-ui';
     document.querySelector('button[data-panel="tasks"]').click();
     document.querySelector('[data-filter="all"]').click();
@@ -181,7 +224,7 @@ export async function androidUpgradeQa(phase, isolation, savedReport, diagnostic
     }
   }
   return { passed: true, phase, syntheticOnly: true, records: 3, active: 2, completed: 1, drafts: 1,
-    nativeMappings: 3, initialAppearance: marker.initialAppearance, storeHash: marker.storeHash, nativeHash: marker.nativeHash };
+    nativeMappings: 3, initialAppearance: marker.initialAppearance, storeHash: marker.storeHash, nativeHash: marker.nativeHash, context: diagnostics.context };
 }
 
 // Catch inside the WebView so CDP exceptionDetails cannot discard the controlled assertion.
