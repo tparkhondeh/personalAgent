@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { webcrypto } from 'node:crypto';
 import vm from 'node:vm';
-import { androidUpgradeQa, assertUpgradeQaHost, assertUpgradeAppearanceEvidence } from './android-upgrade-qa.mjs';
+import { androidUpgradeQa, upgradeQaExpression, assertUpgradeQaHost, assertUpgradeAppearanceEvidence } from './android-upgrade-qa.mjs';
 import { waitUntil } from './qa-wait-until.mjs';
 
 const host = { ci: 'true', serial: 'emulator-5554', emulator: '1', packageName: 'ir.wealthos.personalagent.stable40', versionCode: 43, phase: 'seed' };
@@ -74,6 +74,55 @@ describe('serialized upgrade seed/check', () => {
   });
 });
 
+describe('controlled upgrade failure diagnostics', () => {
+  const check = f => vm.runInContext(upgradeQaExpression('check'), f.freshPage().context);
+  it.each([
+    ['hamrah-local-v2', 'tasks'], ['hamrah-confirmed-local-draft-v1', 'draft'],
+    ['hamrah-local-reminders-v1', 'reminders'], ['hamrah-local-urgent-repeats-v1', 'repeats'], ['hamrah-appearance-v1', 'appearance'],
+  ])('reports only hashes for a changed %s and never repairs it', async (key, part) => {
+    const f = fixture(); await f.freshPage().run('seed');
+    f.storage[key] = 'private-sentinel';
+    const before = JSON.stringify(f.storage), result = await check(f);
+    expect(result.passed).toBe(false);
+    expect(result.diagnostics.assertion).toBe('Upgrade changed local records, preferences or pending draft');
+    expect(result.diagnostics.store.actual).not.toBe(result.diagnostics.store.expected);
+    for (const [name, pair] of Object.entries(result.diagnostics.parts)) {
+      expect(pair.expected).toMatch(/^[a-f0-9]{64}$/); expect(pair.actual).toMatch(/^[a-f0-9]{64}$/);
+      expect(pair.actual === pair.expected).toBe(name !== part);
+    }
+    expect(result.diagnostics.native.actual).toBe(result.diagnostics.native.expected);
+    expect(JSON.stringify(result)).not.toContain('private-sentinel');
+    expect(JSON.stringify(f.storage)).toBe(before); expect(f.removeItem).not.toHaveBeenCalled();
+    expect(f.schedule).toHaveBeenCalledOnce();
+  });
+  it('detects missing native mappings without rescheduling or weakening the check', async () => {
+    const f = fixture(); await f.freshPage().run('seed');
+    f.plugin.getPending = async () => ({ notifications: [] });
+    const result = await check(f);
+    expect(result.passed).toBe(false);
+    expect(result.diagnostics.assertion).toBe('Upgrade changed scheduled native IDs, ownership or times');
+    expect(result.diagnostics.native.actual).not.toBe(result.diagnostics.native.expected);
+    expect(f.schedule).toHaveBeenCalledOnce(); expect(f.removeItem).not.toHaveBeenCalled();
+  });
+  it('does not expose native exception text', async () => {
+    const f = fixture(); await f.freshPage().run('seed');
+    f.plugin.getPending = async () => { throw Error('private-native-payload'); };
+    const result = await check(f);
+    expect(result).toMatchObject({ passed: false, diagnostics: { stage: 'native-mappings', assertion: 'Unexpected native or DOM exception' } });
+    expect(JSON.stringify(result)).not.toContain('private-native-payload');
+    expect(f.removeItem).not.toHaveBeenCalled();
+  });
+  it('keeps older seed evidence valid without inventing missing per-part expected hashes', async () => {
+    const f = fixture(); await f.freshPage().run('seed');
+    const key = 'tia-qa-upgrade-43-44-manifest-v1', marker = JSON.parse(f.storage[key]);
+    delete marker.partHashes; f.storage[key] = JSON.stringify(marker);
+    expect((await check(f)).passed).toBe(true);
+    f.storage['hamrah-local-v2'] = '[]';
+    const result = await check(f);
+    expect(result.passed).toBe(false); expect(result.diagnostics.parts.tasks.expected).toBeNull();
+  });
+});
+
 describe('appearance-only restoration after upgrade evidence', () => {
   const appearance = 'hamrah-appearance-v1', markerKey = 'tia-qa-upgrade-43-44-manifest-v1';
   it('restores initial absence without changing records, drafts, alarms, marker or the report', async () => {
@@ -129,12 +178,12 @@ describe('upgrade inspector evidence ordering', () => {
   it.each(['check', 'seed', 'write-failure', 'check-failure', 'restore-failure'])('preserves report-before-restoration ordering: %s', async mode => {
     const events = [], phase = mode === 'seed' ? 'seed' : 'check';
     const report = { passed: mode !== 'check-failure', phase };
-    const context = vm.createContext({ upgradePhase: phase, androidUpgradeQa, waitUntil,
+    const context = vm.createContext({ upgradePhase: phase, upgradeQaExpression, waitUntil,
       packageName: 'ir.wealthos.personalagent.stable40', outputPath: 'upgrade-check.json',
       dirname: () => '.', mkdirSync() {}, process: { stdout: { write() {} } }, socket: { close() {} },
       writeFileSync: (path, data) => { if (mode === 'write-failure') throw Error('Disk full'); events.push(['saved', path, JSON.parse(data)]); },
       evaluate: async expression => {
-        const restoring = expression.includes(")('restore-appearance',");
+        const restoring = expression.includes(')("restore-appearance",');
         if (restoring) events.push(['restore']);
         const value = restoring ? { passed: mode !== 'restore-failure', appearanceRestored: 'absent' } : expression.includes(androidUpgradeQa.toString()) ? report : true;
         return { result: { result: { value } } };
@@ -146,8 +195,27 @@ describe('upgrade inspector evidence ordering', () => {
       expect(events[0]).toEqual(['saved', 'upgrade-check.json', { ...report, packageName: 'ir.wealthos.personalagent.stable40', versionCode: 44 }]);
       expect(events[1]).toEqual(['restore']);
       expect(events.filter(event => event[0] === 'saved' && event[1] === 'upgrade-check.json')).toHaveLength(1);
-      if (mode === 'restore-failure') expect(events).toHaveLength(2);
+      if (mode === 'restore-failure') expect(events[2]).toMatchObject(['saved', 'upgrade-check-failure.json', { passed: false, phase: 'restore-appearance' }]);
     } else expect(events.some(event => event[0] === 'restore')).toBe(false);
+    if (mode === 'check-failure') {
+      expect(events).toHaveLength(1);
+      expect(events[0]).toMatchObject(['saved', 'upgrade-check-failure.json', { passed: false, phase: 'check' }]);
+    }
+  });
+  it('redacts CDP exceptionDetails instead of serializing native or DOM payloads', async () => {
+    const events = [];
+    const context = vm.createContext({ upgradePhase: 'check', upgradeQaExpression, waitUntil,
+      packageName: 'ir.wealthos.personalagent.stable40', outputPath: 'upgrade-check.json',
+      dirname: () => '.', mkdirSync() {}, socket: { close() {} },
+      writeFileSync: (path, data) => events.push([path, JSON.parse(data)]),
+      evaluate: async expression => expression.includes(androidUpgradeQa.toString())
+        ? { result: { exceptionDetails: { text: 'private-cdp-payload' } } }
+        : { result: { result: { value: true } } },
+    });
+    await expect(vm.runInContext(`(async()=>{${branch}})()`, context)).rejects.toThrow('assertions failed');
+    expect(events).toEqual([['upgrade-check-failure.json', { passed: false, phase: 'check',
+      packageName: 'ir.wealthos.personalagent.stable40', versionCode: 44, diagnostics: { assertion: 'WebView evaluation failed' } }]]);
+    expect(JSON.stringify(events)).not.toContain('private-cdp-payload');
   });
 });
 
@@ -200,5 +268,16 @@ describe('native appearance reset evidence gate', () => {
     expect(shell).toContain('"assert-default-light" "assert-absent"');
     expect(shell).toContain('grep -Fq TIA_QA_NATIVE_APPEARANCE_ABSENT');
     expect(inspector).toContain("localStorage.getItem('hamrah-appearance-v1')!==null");
+  });
+  it('uses the target UID with an empty unique QA preference file, not production preferences', () => {
+    const test = readFileSync('android/app/src/androidTest/java/ir/wealthos/personalagent/ReleaseQaAppearanceTest.java', 'utf8');
+    expect(test).toContain('getInstrumentation().getTargetContext()');
+    expect(test).toContain('assertEquals(android.os.Process.myUid(), context.getApplicationInfo().uid)');
+    expect(test).toContain('getSharedPreferences("tia_qa_appearance_" + UUID.randomUUID()');
+    expect(test).toContain('assertTrue(preferences.getAll().isEmpty())');
+    expect(test.indexOf('fixtureCreated = true')).toBeGreaterThan(test.indexOf('putString("unrelated", "preserve").commit()'));
+    expect(test).toContain('if (!fixtureCreated) return;');
+    expect(test).not.toContain('getInstrumentation().getContext()');
+    expect(test).not.toContain('hamrah_appearance'); expect(test).not.toContain('.clear()');
   });
 });

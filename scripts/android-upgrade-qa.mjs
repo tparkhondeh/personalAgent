@@ -25,8 +25,10 @@ export function assertUpgradeAppearanceEvidence(seed, checked, restored) {
 
 // Self-contained for Function.toString() into the known v43 bundled DOM.
 // Check never repairs data. Appearance restoration requires its saved report.
-export async function androidUpgradeQa(phase, isolation, savedReport) {
-  const assert = (condition, message) => { if (!condition) throw Error(message); };
+export async function androidUpgradeQa(phase, isolation, savedReport, diagnostics = {}) {
+  diagnostics.stage = 'isolation';
+  // Only the literal assertion messages below may enter diagnostics, never caught errors/data.
+  const assert = (condition, message) => { if (!condition) { diagnostics.assertion = message; throw Error(message); } };
   const prefix = 'tia-qa-upgrade-43-44-';
   const markerKey = prefix + 'manifest-v1';
   const taskKey = 'hamrah-local-v2', draftKey = 'hamrah-confirmed-local-draft-v1';
@@ -42,12 +44,16 @@ export async function androidUpgradeQa(phase, isolation, savedReport) {
     .map(byte => byte.toString(16).padStart(2, '0')).join('');
   const snapshot = () => ({ tasks: localStorage.getItem(taskKey), draft: localStorage.getItem(draftKey),
     preferences: preferenceKeys.map(key => localStorage.getItem(key)) });
+  const partHashes = async stored => ({ tasks: await hash(stored.tasks), draft: await hash(stored.draft),
+    reminders: await hash(stored.preferences[0]), repeats: await hash(stored.preferences[1]), appearance: await hash(stored.preferences[2]) });
+  const hashPair = (expected, actual) => ({ expected: /^[a-f0-9]{64}$/.test(expected) ? expected : null, actual });
   const pending = async () => (await plugin.getPending()).notifications.map(item => ({
     id: item.id, at: new Date(item.schedule?.at).getTime(), owner: item.extra?.owner,
     taskId: item.extra?.taskId, fixture: item.extra?.fixture,
   })).sort((a, b) => a.id - b.id);
   let marker;
   if (phase === 'seed') {
+    diagnostics.stage = 'seed';
     // Refuse any existing fixture or user state. A failed/partial seed is not retried.
     assert(localStorage.getItem(markerKey) === null, 'Upgrade seed already attempted');
     const raw = localStorage.getItem(taskKey);
@@ -100,31 +106,46 @@ export async function androidUpgradeQa(phase, isolation, savedReport) {
     assert(JSON.stringify(native) === JSON.stringify(expected), 'Synthetic native mappings were not scheduled exactly');
     const stored = snapshot();
     assert(stored.tasks === JSON.stringify(tasks) && JSON.parse(stored.draft).revision === 3, 'Synthetic store readback failed');
-    marker = { ...marker, status: 'SEEDED', storeHash: await hash(stored), nativeHash: await hash(native), sound: 'chime' };
+    marker = { ...marker, status: 'SEEDED', storeHash: await hash(stored), nativeHash: await hash(native), partHashes: await partHashes(stored), sound: 'chime' };
     localStorage.setItem(markerKey, JSON.stringify(marker));
   } else {
+    diagnostics.stage = 'marker';
     const rawMarker = localStorage.getItem(markerKey);
     marker = JSON.parse(rawMarker || 'null');
     assert(marker?.version === 1 && marker.prefix === prefix && marker.origin === location.origin && marker.status === 'SEEDED',
       'Upgrade marker missing or incomplete; data loss must not be reseeded');
     const stored = snapshot();
-    assert(await hash(stored) === marker.storeHash, 'Upgrade changed local records, preferences or pending draft');
+    diagnostics.stage = 'storage';
+    diagnostics.store = hashPair(marker.storeHash, await hash(stored));
+    const parts = await partHashes(stored);
+    diagnostics.parts = Object.fromEntries(Object.entries(parts).map(([key, value]) => [key, hashPair(marker.partHashes?.[key], value)]));
+    diagnostics.stage = 'native-mappings';
+    diagnostics.native = hashPair(marker.nativeHash, await hash(await pending()));
+    diagnostics.stage = 'storage';
+    assert(diagnostics.store.actual === marker.storeHash, 'Upgrade changed local records, preferences or pending draft');
     const tasks = JSON.parse(stored.tasks);
     assert(window.HamrahStorage.validTasks(tasks) && tasks.length === 3 && tasks.every(task => task.id.startsWith(prefix)), 'Fixture identity changed');
-    assert(await hash(await pending()) === marker.nativeHash, 'Upgrade changed scheduled native IDs, ownership or times');
+    diagnostics.stage = 'native-mappings';
+    assert(diagnostics.native.actual === marker.nativeHash, 'Upgrade changed scheduled native IDs, ownership or times');
+    diagnostics.stage = 'sound';
     assert((await sounds.getSelection()).soundId === marker.sound, 'Upgrade lost native sound preference');
+    diagnostics.stage = 'appearance';
     assert(document.documentElement.dataset.theme === 'light', 'Upgrade lost explicit appearance');
+    diagnostics.stage = 'tasks-ui';
     document.querySelector('button[data-panel="tasks"]').click();
     document.querySelector('[data-filter="all"]').click();
     const number = text => Number(text.replace(/[۰-۹]/g, digit => '۰۱۲۳۴۵۶۷۸۹'.indexOf(digit)).match(/\d+/)?.[0]);
     assert(document.querySelectorAll('#task-list .item').length === 2, 'Upgrade active list count differs');
     assert(!document.querySelector(`#task-list [data-id="${prefix}completed"],#dated-list [data-id="${prefix}completed"]`), 'Completed item became active');
+    diagnostics.stage = 'statistics-ui';
     assert(number(document.querySelector('.overview-all strong').textContent) === 2
       && number(document.querySelector('.overview-all small').textContent) === 1
       && number(document.querySelector('.overview-work small').textContent) === 1, 'Upgrade lost completed statistics');
+    diagnostics.stage = 'repeat-preferences';
     assert(document.querySelector('#urgent-max-repeats').value === '2'
       && document.querySelector('#urgent-repeat-minutes').value === '25', 'Saved repeat preferences not loaded');
     if (phase === 'restore-appearance') {
+      diagnostics.stage = 'appearance-restoration';
       assert(savedReport?.passed === true && savedReport.phase === 'check' && savedReport.syntheticOnly === true
         && savedReport.storeHash === marker.storeHash && savedReport.nativeHash === marker.nativeHash,
         'Appearance restoration requires matching successful upgrade evidence');
@@ -140,4 +161,11 @@ export async function androidUpgradeQa(phase, isolation, savedReport) {
   }
   return { passed: true, phase, syntheticOnly: true, records: 3, active: 2, completed: 1, drafts: 1,
     nativeMappings: 3, initialAppearance: marker.initialAppearance, storeHash: marker.storeHash, nativeHash: marker.nativeHash };
+}
+
+// Catch inside the WebView so CDP exceptionDetails cannot discard the controlled assertion.
+// Unknown DOM/native errors deliberately remain generic; no raw exception text is returned.
+export function upgradeQaExpression(phase, savedReport) {
+  return `(async()=>{const diagnostics={};try{return await (${androidUpgradeQa.toString()})(${JSON.stringify(phase)},'ci-emulator-43-to-44',${JSON.stringify(savedReport)},diagnostics);}
+    catch{return {passed:false,diagnostics:{...diagnostics,assertion:diagnostics.assertion||'Unexpected native or DOM exception'}};}})()`;
 }

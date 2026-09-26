@@ -11,18 +11,24 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-/** Uses a unique TEST APK preference file, never the delivered app's data. */
+/** Uses an isolated QA file under the instrumentation process UID, never real preferences. */
 @RunWith(AndroidJUnit4.class)
 public class ReleaseQaAppearanceTest {
     private SharedPreferences preferences;
+    private boolean fixtureCreated;
 
     @Before public void createFixture() {
-        preferences = InstrumentationRegistry.getInstrumentation().getContext()
-            .getSharedPreferences("tia_qa_appearance_" + UUID.randomUUID(), Context.MODE_PRIVATE);
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        assertEquals(android.os.Process.myUid(), context.getApplicationInfo().uid);
+        preferences = context.getSharedPreferences("tia_qa_appearance_" + UUID.randomUUID(), Context.MODE_PRIVATE);
+        assertTrue(preferences.getAll().isEmpty());
         assertTrue(preferences.edit().putString("unrelated", "preserve").commit());
+        fixtureCreated = true;
     }
 
     @After public void removeFixture() {
+        // Preserve an earlier setup failure instead of masking it with a second failed write.
+        if (!fixtureCreated) return;
         assertTrue(preferences.edit().remove("theme").remove("unrelated").commit());
     }
 

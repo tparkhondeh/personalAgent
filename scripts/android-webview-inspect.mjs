@@ -8,7 +8,7 @@ import { persianSpeechFixtureQa } from "./android-persian-speech-qa.mjs";
 import { dashboardUiQa } from "./dashboard-ui-qa.mjs";
 import { poemLayoutQa } from "./poem-layout-qa.mjs";
 import { bundledStartupQa } from "./bundled-startup-qa.mjs";
-import { androidUpgradeQa, assertUpgradeQaHost } from "./android-upgrade-qa.mjs";
+import { upgradeQaExpression, assertUpgradeQaHost } from "./android-upgrade-qa.mjs";
 import { androidDeliveredNotificationQa, assertDeliveredQaHost } from "./android-delivered-notification-qa.mjs";
 
 const packageName = process.argv[2];
@@ -89,8 +89,17 @@ async function inspect() {
       if (opened.error || opened.result?.exceptionDetails) throw Error('Upgrade could not enter bundled UI');
       await waitUntil(async () => (await evaluate(`Boolean(document.querySelector('#task-form') && window.HamrahPlanner && window.Capacitor?.Plugins?.LocalNotifications)`))?.result?.result?.value === true,
         'Upgrade bundled UI unavailable', { attempts: 35, delayMs: 1000 });
-      const checked = await evaluate(`(${androidUpgradeQa.toString()})(${JSON.stringify(upgradePhase)},'ci-emulator-43-to-44')`, 45000);
+      const saveFailure = (result, phase) => {
+        const failure = { passed: false, phase, packageName, versionCode: upgradePhase === 'seed' ? 43 : 44,
+          diagnostics: result.error || result.result?.exceptionDetails
+            ? { assertion: 'WebView evaluation failed' }
+            : result.result?.result?.value?.diagnostics || { assertion: 'Upgrade QA returned no passing report' } };
+        mkdirSync(dirname(outputPath), { recursive: true });
+        writeFileSync(outputPath.replace(/\.json$/, '') + '-failure.json', JSON.stringify(failure, null, 2) + '\n');
+      };
+      const checked = await evaluate(upgradeQaExpression(upgradePhase), 45000);
       if (checked.error || checked.result?.exceptionDetails || checked.result?.result?.value?.passed !== true) {
+        saveFailure(checked, upgradePhase);
         throw Error('Upgrade QA assertions failed; no data was cleared or automatically reseeded');
       }
       const report = { ...checked.result.result.value, packageName, versionCode: upgradePhase === 'seed' ? 43 : 44 };
@@ -98,8 +107,9 @@ async function inspect() {
       writeFileSync(outputPath, JSON.stringify(report, null, 2) + '\n');
       process.stdout.write(JSON.stringify(report) + '\n');
       if (upgradePhase === 'check') {
-        const restored = await evaluate(`(${androidUpgradeQa.toString()})('restore-appearance','ci-emulator-43-to-44',${JSON.stringify(report)})`, 45000);
+        const restored = await evaluate(upgradeQaExpression('restore-appearance', report), 45000);
         if (restored.error || restored.result?.exceptionDetails || restored.result?.result?.value?.passed !== true) {
+          saveFailure(restored, 'restore-appearance');
           throw Error('Upgrade evidence saved, but fixture appearance restoration failed');
         }
         writeFileSync(outputPath.replace(/\.json$/, '') + '-appearance-reset.json', JSON.stringify(restored.result.result.value, null, 2) + '\n');
