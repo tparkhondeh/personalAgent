@@ -101,6 +101,18 @@ public class ApplicationContextTest {
     @Test
     public void serviceWorkerRecoveryCanEnterThePrivateBundledPage() throws Exception {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            // Settle a real, local initial document before replacing it. Do not
+            // race the Activity's initial remote navigation or fabricate callbacks.
+            scenario.onActivity(activity -> activity.getBridge().getWebView().loadUrl(activity.getBridge().getErrorUrl()));
+            long initialDeadline = android.os.SystemClock.elapsedRealtime() + 15_000;
+            boolean initialReady = false;
+            do {
+                initialReady = "true".equals(evaluateAlarmJs(scenario,
+                    "document.readyState === 'complete' && location.pathname === '/connection-error.html'"));
+                if (initialReady) break;
+                Thread.sleep(100);
+            } while (android.os.SystemClock.elapsedRealtime() < initialDeadline);
+            assertTrue("Initial private recovery document did not settle", initialReady);
             for (boolean marker : new boolean[] { false, true }) {
                 CountDownLatch recovered = new CountDownLatch(1);
                 CountDownLatch fixtureLoaded = new CountDownLatch(1);
@@ -108,12 +120,21 @@ public class ApplicationContextTest {
                 AtomicReference<String> observed = new AtomicReference<>("no page callback");
                 scenario.onActivity(activity -> {
                     com.getcapacitor.WebViewListener listener = new com.getcapacitor.WebViewListener() {
-                        @Override public void onPageLoaded(android.webkit.WebView view) {
-                            observed.set("loaded=" + view.getUrl());
+                        private void inspectDocument(android.webkit.WebView view, String event) {
+                            observed.set(event + "=" + view.getUrl());
                             view.evaluateJavascript("document.title", title -> {
                                 if ("\"tia | اتصال برقرار نیست\"".equals(title)) fixtureLoaded.countDown();
                             });
                             if (activity.getBridge().getErrorUrl().equals(view.getUrl())) recovered.countDown();
+                        }
+                        @Override public void onPageStarted(android.webkit.WebView view) {
+                            observed.set("started=" + view.getUrl());
+                        }
+                        @Override public void onPageCommitVisible(android.webkit.WebView view, String url) {
+                            inspectDocument(view, "visible");
+                        }
+                        @Override public void onPageLoaded(android.webkit.WebView view) {
+                            inspectDocument(view, "loaded");
                         }
                     };
                     registered.set(listener);
