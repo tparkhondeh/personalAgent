@@ -3,15 +3,15 @@
 export function assertUpgradeQaHost({ ci, serial, emulator, packageName, versionCode, phase }) {
   if (!['seed', 'baseline-check', 'check'].includes(phase) || ci !== 'true' || !/^emulator-\d+$/.test(serial)
       || emulator !== '1' || packageName !== 'ir.wealthos.personalagent.stable40'
-      || Number(versionCode) !== (phase === 'check' ? 44 : 43)) {
-    throw Error('Upgrade QA requires CI, an emulator, stable40 and the exact 43/44 version');
+      || Number(versionCode) !== (phase === 'check' ? 45 : 44)) {
+    throw Error('Upgrade QA requires CI, an emulator, stable40 and the exact 44/45 version');
   }
 }
 
 export function assertUpgradeBaselineEvidence(seed, baseline) {
   const packageName = 'ir.wealthos.personalagent.stable40';
-  if (seed?.passed !== true || seed.phase !== 'seed' || seed.versionCode !== 43 || seed.packageName !== packageName
-    || baseline?.passed !== true || baseline.phase !== 'baseline-check' || baseline.versionCode !== 43 || baseline.packageName !== packageName
+  if (seed?.passed !== true || seed.phase !== 'seed' || seed.versionCode !== 44 || seed.packageName !== packageName
+    || baseline?.passed !== true || baseline.phase !== 'baseline-check' || baseline.versionCode !== 44 || baseline.packageName !== packageName
     || seed.syntheticOnly !== true || baseline.syntheticOnly !== true
     || seed.initialAppearance !== null || baseline.initialAppearance !== null
     || !/^[a-f0-9]{64}$/.test(seed.storeHash) || !/^[a-f0-9]{64}$/.test(seed.nativeHash)
@@ -22,11 +22,11 @@ export function assertUpgradeBaselineEvidence(seed, baseline) {
 
 // A bounded lifecycle/consistency observation, NOT a disk-flush acknowledgement.
 // Chromium batches localStorage commits (5s in LocalStorageImpl); observe for 6s.
-// Only the subsequent cold-v43 check proves persistence. Never retry/reseed a loss.
+// Only the subsequent cold-v44 check proves persistence. Never retry/reseed a loss.
 export async function observeUpgradeBackground({ adb, evaluate, seed, pid, waitUntil, now = () => performance.now() }) {
-  if (seed?.passed !== true || seed.phase !== 'seed' || seed.versionCode !== 43
+  if (seed?.passed !== true || seed.phase !== 'seed' || seed.versionCode !== 44
     || seed.packageName !== 'ir.wealthos.personalagent.stable40' || !/^\d+$/.test(String(pid))) {
-    throw Error('Background observation requires successful v43 seed evidence');
+    throw Error('Background observation requires successful v44 seed evidence');
   }
   adb('shell', 'input', 'keyevent', 'KEYCODE_HOME');
   let hiddenSince, samples = 0;
@@ -56,8 +56,8 @@ export async function observeUpgradeBackground({ adb, evaluate, seed, pid, waitU
 // Host-side gate before the test-only runner may restore its native appearance fixture.
 export function assertUpgradeAppearanceEvidence(seed, checked, restored) {
   const packageName = 'ir.wealthos.personalagent.stable40';
-  if (seed?.passed !== true || seed.phase !== 'seed' || seed.versionCode !== 43 || seed.packageName !== packageName
-    || checked?.passed !== true || checked.phase !== 'check' || checked.versionCode !== 44 || checked.packageName !== packageName
+  if (seed?.passed !== true || seed.phase !== 'seed' || seed.versionCode !== 44 || seed.packageName !== packageName
+    || checked?.passed !== true || checked.phase !== 'check' || checked.versionCode !== 45 || checked.packageName !== packageName
     || seed.initialAppearance !== null || checked.initialAppearance !== null
     || seed.syntheticOnly !== true || checked.syntheticOnly !== true
     || !/^[a-f0-9]{64}$/.test(seed.storeHash) || !/^[a-f0-9]{64}$/.test(seed.nativeHash)
@@ -68,19 +68,19 @@ export function assertUpgradeAppearanceEvidence(seed, checked, restored) {
   }
 }
 
-// Self-contained for Function.toString() into the known v43 bundled DOM.
+// Self-contained for Function.toString() into the known v44 bundled DOM.
 // Check never repairs data. Appearance restoration requires its saved report.
 export async function androidUpgradeQa(phase, isolation, savedReport, diagnostics = {}) {
   diagnostics.stage = 'isolation';
   // Only the literal assertion messages below may enter diagnostics, never caught errors/data.
   const assert = (condition, message) => { if (!condition) { diagnostics.assertion = message; throw Error(message); } };
-  const prefix = 'tia-qa-upgrade-43-44-';
+  const prefix = 'tia-qa-upgrade-44-45-';
   const markerKey = prefix + 'manifest-v1';
   const taskKey = 'hamrah-local-v2', draftKey = 'hamrah-confirmed-local-draft-v1';
   const preferenceKeys = ['hamrah-local-reminders-v1', 'hamrah-local-urgent-repeats-v1', 'hamrah-appearance-v1'];
   diagnostics.context = { origin: location.origin === 'https://localhost' ? 'https://localhost' : 'unexpected',
     topFrame: window === window.top, bundledIndex: location.pathname === '/index.html' };
-  assert(isolation === 'ci-emulator-43-to-44' && ['seed', 'seed-consistency', 'baseline-check', 'check', 'restore-appearance'].includes(phase), 'Missing upgrade QA isolation');
+  assert(isolation === 'ci-emulator-44-to-45' && ['seed', 'seed-consistency', 'baseline-check', 'check', 'restore-appearance'].includes(phase), 'Missing upgrade QA isolation');
   assert(diagnostics.context.topFrame && diagnostics.context.bundledIndex, 'Not the top-frame bundled index');
   assert(location.origin === 'https://localhost' && window.Capacitor?.getPlatform?.() === 'android', 'Not the private Android origin');
   assert(document.querySelector('#task-form') && document.querySelector('#assistant-input')
@@ -137,7 +137,13 @@ export async function androidUpgradeQa(phase, isolation, savedReport, diagnostic
     assert(localStorage.getItem(preferenceKeys[2]) === initialAppearance, 'Appearance changed before upgrade seed');
     marker = { version: 1, prefix, origin: location.origin, status: 'PREPARING', seededAt: createdAt, initialAppearance };
     localStorage.setItem(markerKey, JSON.stringify(marker));
-    localStorage.setItem(taskKey, JSON.stringify(tasks));
+    // v44 already uses native CAS storage. Never seed its non-authoritative mirror.
+    assert(window.TiaTaskStoreNative?.postMessage && window.HamrahStorage.createTaskStore, 'Durable task bridge unavailable');
+    const taskStore = window.HamrahStorage.createTaskStore(localStorage);
+    const loaded = await taskStore.load();
+    assert(loaded.ok && loaded.tasks.length === 0, 'Upgrade seed requires an empty readable native task store');
+    const saved = await taskStore.save(tasks);
+    assert(saved.ok && JSON.stringify(taskStore.snapshot()) === JSON.stringify(tasks), 'Upgrade seed lacks durable task acknowledgement');
     localStorage.setItem(draftKey, JSON.stringify({ id: prefix + 'draft', revision: 3, status: 'PENDING', plan, questions: [] }));
     localStorage.setItem(preferenceKeys[0], JSON.stringify([1440, 180, 60]));
     localStorage.setItem(preferenceKeys[1], JSON.stringify({ repeatCount: 2, repeatMinutes: 25 }));
@@ -189,7 +195,7 @@ export async function androidUpgradeQa(phase, isolation, savedReport, diagnostic
     diagnostics.stage = 'appearance';
     assert(document.documentElement.dataset.theme === 'light', 'Upgrade lost explicit appearance');
     if (phase === 'seed-consistency') {
-      assert(savedReport?.passed === true && savedReport.phase === 'seed' && savedReport.versionCode === 43
+      assert(savedReport?.passed === true && savedReport.phase === 'seed' && savedReport.versionCode === 44
         && savedReport.packageName === 'ir.wealthos.personalagent.stable40'
         && savedReport.storeHash === marker.storeHash && savedReport.nativeHash === marker.nativeHash,
         'Background fixture differs from saved seed evidence');
@@ -230,6 +236,6 @@ export async function androidUpgradeQa(phase, isolation, savedReport, diagnostic
 // Catch inside the WebView so CDP exceptionDetails cannot discard the controlled assertion.
 // Unknown DOM/native errors deliberately remain generic; no raw exception text is returned.
 export function upgradeQaExpression(phase, savedReport) {
-  return `(async()=>{const diagnostics={};try{return await (${androidUpgradeQa.toString()})(${JSON.stringify(phase)},'ci-emulator-43-to-44',${JSON.stringify(savedReport)},diagnostics);}
+  return `(async()=>{const diagnostics={};try{return await (${androidUpgradeQa.toString()})(${JSON.stringify(phase)},'ci-emulator-44-to-45',${JSON.stringify(savedReport)},diagnostics);}
     catch{return {passed:false,diagnostics:{...diagnostics,assertion:diagnostics.assertion||'Unexpected native or DOM exception'}};}})()`;
 }

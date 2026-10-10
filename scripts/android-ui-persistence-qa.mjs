@@ -5,15 +5,15 @@ export function assertUiPersistenceHost({ ci, serial, emulator, packageName, pac
   const flags = packageDump.match(/^\s*(?:pkgFlags|flags)=\[([^\]]*)\]/m)?.[1];
   if (ci !== 'true' || !/^emulator-\d+$/.test(serial) || emulator !== '1'
     || packageName !== 'ir.wealthos.personalagent.stable40'
-    || packageDump.match(/\bversionCode=(\d+)/)?.[1] !== '44'
+    || packageDump.match(/\bversionCode=(\d+)/)?.[1] !== '45'
     || flags === undefined || !/\bHAS_CODE\b/.test(flags) || /\bDEBUGGABLE\b/.test(flags)) {
-    throw Error('UI persistence QA requires the non-debuggable v44 release on an isolated CI emulator');
+    throw Error('UI persistence QA requires the non-debuggable v45 release on an isolated CI emulator');
   }
 }
 
 export function assertUiPersistenceReceipt(receipt, mode) {
   if (!['home', 'immediate'].includes(mode) || receipt?.passed !== true || receipt.phase !== 'create'
-    || receipt.mode !== mode || receipt.versionCode !== 44 || receipt.packageName !== 'ir.wealthos.personalagent.stable40'
+    || receipt.mode !== mode || receipt.versionCode !== 45 || receipt.packageName !== 'ir.wealthos.personalagent.stable40'
     || !/^[a-f0-9-]{36}$/i.test(receipt.id) || !receipt.title?.startsWith(`tia-qa-ui-persistence-${mode}-`)
     || !['recordHash', 'otherRecordsHash', 'sideStateHash'].every(key => /^[a-f0-9]{64}$/.test(receipt[key]))) {
     throw Error('UI persistence check requires an external successful creation receipt');
@@ -50,7 +50,7 @@ export async function stopUiPersistenceProcess({ mode, packageName, adb, process
 export async function androidUiPersistenceQa(phase, mode, isolation, receipt, diagnostics = {}) {
   const assert = (condition, message) => { if (!condition) { diagnostics.assertion = message; throw Error(message); } };
   diagnostics.stage = 'isolation';
-  assert(isolation === 'ci-emulator-ui-persistence-44' && ['create', 'check'].includes(phase)
+  assert(isolation === 'ci-emulator-ui-persistence-45' && ['create', 'check'].includes(phase)
     && ['home', 'immediate'].includes(mode), 'Missing UI persistence isolation');
   assert(window === window.top && location.origin === 'https://localhost' && location.pathname === '/index.html'
     && window.Capacitor?.getPlatform?.() === 'android', 'UI persistence requires the top-frame bundled Android page');
@@ -66,12 +66,12 @@ export async function androidUiPersistenceQa(phase, mode, isolation, receipt, di
   };
   const recordsHash = records => hash([...records].sort((a, b) => a.id.localeCompare(b.id)));
   const sideState = () => ['hamrah-confirmed-local-draft-v1', 'hamrah-local-reminders-v1', 'hamrah-local-urgent-repeats-v1',
-    'hamrah-appearance-v1', 'tia-qa-upgrade-43-44-manifest-v1'].map(key => localStorage.getItem(key));
+    'hamrah-appearance-v1', 'tia-qa-upgrade-44-45-manifest-v1'].map(key => localStorage.getItem(key));
   diagnostics.stage = 'precondition';
   let records = read();
   if (phase === 'create') {
-    const marker = JSON.parse(localStorage.getItem('tia-qa-upgrade-43-44-manifest-v1') || 'null');
-    assert(marker?.status === 'SEEDED' && marker.prefix === 'tia-qa-upgrade-43-44-', 'UI probe requires the prior upgrade fixture');
+    const marker = JSON.parse(localStorage.getItem('tia-qa-upgrade-44-45-manifest-v1') || 'null');
+    assert(marker?.status === 'SEEDED' && marker.prefix === 'tia-qa-upgrade-44-45-', 'UI probe requires the prior upgrade fixture');
     assert(!records.some(task => task.title.startsWith(prefix)), 'UI persistence fixture already attempted; do not recreate');
     const otherRecordsHash = await recordsHash(records), sideStateHash = await hash(sideState());
     const oldIds = new Set(records.map(task => task.id)), title = prefix + crypto.randomUUID();
@@ -127,6 +127,6 @@ export async function androidUiPersistenceQa(phase, mode, isolation, receipt, di
 }
 
 export function uiPersistenceExpression(phase, mode, receipt) {
-  return `(async()=>{const diagnostics={};try{return await (${androidUiPersistenceQa.toString()})(${JSON.stringify(phase)},${JSON.stringify(mode)},'ci-emulator-ui-persistence-44',${JSON.stringify(receipt)},diagnostics);}
+  return `(async()=>{const diagnostics={};try{return await (${androidUiPersistenceQa.toString()})(${JSON.stringify(phase)},${JSON.stringify(mode)},'ci-emulator-ui-persistence-45',${JSON.stringify(receipt)},diagnostics);}
     catch{return {passed:false,diagnostics:{...diagnostics,assertion:diagnostics.assertion||'Unexpected UI persistence exception'}};}})()`;
 }

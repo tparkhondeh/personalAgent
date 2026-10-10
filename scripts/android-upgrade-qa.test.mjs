@@ -5,21 +5,23 @@ import vm from 'node:vm';
 import { androidUpgradeQa, upgradeQaExpression, observeUpgradeBackground, assertUpgradeQaHost, assertUpgradeBaselineEvidence, assertUpgradeAppearanceEvidence } from './android-upgrade-qa.mjs';
 import { waitUntil } from './qa-wait-until.mjs';
 
-const host = { ci: 'true', serial: 'emulator-5554', emulator: '1', packageName: 'ir.wealthos.personalagent.stable40', versionCode: 43, phase: 'seed' };
+const host = { ci: 'true', serial: 'emulator-5554', emulator: '1', packageName: 'ir.wealthos.personalagent.stable40', versionCode: 44, phase: 'seed' };
 describe('upgrade fixture isolation, no device or network', () => {
-  it('accepts only explicit 43 seed and 44 check on a CI emulator', () => {
+  it('accepts only explicit 44 seed and 45 check on a CI emulator', () => {
     expect(() => assertUpgradeQaHost(host)).not.toThrow();
-    expect(() => assertUpgradeQaHost({ ...host, phase: 'check', versionCode: 44 })).not.toThrow();
+    expect(() => assertUpgradeQaHost({ ...host, phase: 'check', versionCode: 45 })).not.toThrow();
     expect(() => assertUpgradeQaHost({ ...host, phase: 'baseline-check' })).not.toThrow();
-    expect(() => assertUpgradeQaHost({ ...host, phase: 'baseline-check', versionCode: 44 })).toThrow();
+    expect(() => assertUpgradeQaHost({ ...host, phase: 'baseline-check', versionCode: 45 })).toThrow();
   });
-  it.each([{ ci: undefined }, { serial: 'owner-phone' }, { emulator: '0' }, { packageName: 'other.app' }, { versionCode: 44 }, { phase: 'other' }])('rejects unsafe host %j', change => {
+  it.each([{ ci: undefined }, { serial: 'owner-phone' }, { emulator: '0' }, { packageName: 'other.app' }, { versionCode: 45 }, { phase: 'other' }])('rejects unsafe host %j', change => {
     expect(() => assertUpgradeQaHost({ ...host, ...change })).toThrow('Upgrade QA requires');
   });
 });
 
 function fixture() {
   const storage = {};
+  const native = { raw: null, revision: 0, denySave: false };
+  const nativeWrites = vi.fn();
   const removeItem = vi.fn(key => { delete storage[key]; });
   Object.defineProperties(storage, {
     getItem: { value: key => storage[key] ?? null },
@@ -41,18 +43,49 @@ function fixture() {
   } };
   function freshPage() {
     const context = vm.createContext({ window: {}, document, location: { origin: 'https://localhost', pathname: '/index.html' }, localStorage: storage,
-      sessionStorage: { getItem: () => null }, crypto: webcrypto, TextEncoder, Date, Intl, setTimeout });
+      sessionStorage: { getItem: () => null }, crypto: webcrypto, TextEncoder, Date, Intl, setTimeout, clearTimeout });
     vm.runInContext(readFileSync('mobile-shell/storage.js', 'utf8'), context);
     vm.runInContext(readFileSync('mobile-shell/planner.js', 'utf8'), context);
     context.window.top = context.window;
+    context.window.TiaTaskStoreNative = { postMessage(message) {
+      const request = JSON.parse(message);
+      let reply;
+      if (request.op === 'cas') {
+        nativeWrites(request);
+        if (native.denySave || request.expectedRevision !== native.revision) reply = { ok: false, error: 'CONFLICT' };
+        else { native.raw = request.nextRaw; native.revision++; }
+      }
+      this.onmessage({ data: JSON.stringify({ id: request.id, ...(reply || { ok: true, raw: native.raw, revision: native.revision }) }) });
+    } };
     context.window.Capacitor = { getPlatform: () => 'android', Plugins: { LocalNotifications: plugin, TiaAlarmSounds: sounds } };
     context.window.HamrahAppearance = { set: value => { storage.setItem('hamrah-appearance-v1', value); return true; } };
-    return { context, run: (phase, report) => vm.runInContext(`(${androidUpgradeQa.toString()})(${JSON.stringify(phase)},'ci-emulator-43-to-44',${JSON.stringify(report)})`, context) };
+    return { context, run: (phase, report) => vm.runInContext(`(${androidUpgradeQa.toString()})(${JSON.stringify(phase)},'ci-emulator-44-to-45',${JSON.stringify(report)})`, context) };
   }
-  return { storage, removeItem, plugin, schedule, sounds, freshPage };
+  return { storage, removeItem, plugin, schedule, sounds, freshPage, native, nativeWrites };
 }
 
 describe('serialized upgrade seed/check', () => {
+  it('seeds through a confirmed durable native commit, not a legacy-only write', async () => {
+    const f = fixture(); await f.freshPage().run('seed');
+    expect(f.nativeWrites).toHaveBeenCalledOnce();
+    expect(f.native.revision).toBe(1);
+    expect(f.native.raw).toBe(f.storage['hamrah-local-v2']);
+    expect(JSON.parse(f.native.raw)).toHaveLength(3);
+  });
+  it('refuses an unacknowledged native save before scheduling any alerts', async () => {
+    const f = fixture(); f.native.denySave = true;
+    await expect(f.freshPage().run('seed')).rejects.toThrow('durable task acknowledgement');
+    expect(f.native.raw).toBeNull(); expect(f.storage['hamrah-local-v2']).toBeUndefined();
+    expect(f.schedule).not.toHaveBeenCalled(); expect(f.sounds.setSelection).not.toHaveBeenCalled();
+  });
+  it('refuses existing native records even when the legacy mirror is empty', async () => {
+    const f = fixture();
+    f.native.raw = JSON.stringify([{ id: 'existing', title: 'retained', category: 'personal', priority: 'normal', done: false }]);
+    f.native.revision = 1;
+    const before = f.native.raw;
+    await expect(f.freshPage().run('seed')).rejects.toThrow('empty readable native task store');
+    expect(f.native.raw).toBe(before); expect(f.nativeWrites).not.toHaveBeenCalled(); expect(f.schedule).not.toHaveBeenCalled();
+  });
   it('preserves synthetic state across fresh page scopes and emits counts/hashes only', async () => {
     const f = fixture(), seeded = await f.freshPage().run('seed');
     const checked = await f.freshPage().run('check');
@@ -79,7 +112,7 @@ describe('serialized upgrade seed/check', () => {
 });
 
 describe('normal-background causal observation, not a durability claim', () => {
-  const seed = { passed: true, phase: 'seed', versionCode: 43, packageName: host.packageName, storeHash: 'a'.repeat(64), nativeHash: 'b'.repeat(64) };
+  const seed = { passed: true, phase: 'seed', versionCode: 44, packageName: host.packageName, storeHash: 'a'.repeat(64), nativeHash: 'b'.repeat(64) };
   const response = value => ({ result: { result: { value } } });
   function observation({ visible = false, changedPid = false, failedRead = false, wrongHash = false } = {}) {
     let elapsed = 0;
@@ -107,7 +140,7 @@ describe('normal-background causal observation, not a durability claim', () => {
     expect(f.adb.mock.calls.filter(args => args.includes('KEYCODE_HOME'))).toHaveLength(1);
   });
   it('performs no UI click, storage write or native mutation during consistency reads', async () => {
-    const f = fixture(), seeded = { ...await f.freshPage().run('seed'), packageName: host.packageName, versionCode: 43 };
+    const f = fixture(), seeded = { ...await f.freshPage().run('seed'), packageName: host.packageName, versionCode: 44 };
     const before = JSON.stringify(f.storage), page = f.freshPage();
     page.context.document.querySelector = selector => {
       if (selector === '#task-form' || selector === '#assistant-input') return {};
@@ -169,7 +202,7 @@ describe('controlled upgrade failure diagnostics', () => {
   });
   it('keeps older seed evidence valid without inventing missing per-part expected hashes', async () => {
     const f = fixture(); await f.freshPage().run('seed');
-    const key = 'tia-qa-upgrade-43-44-manifest-v1', marker = JSON.parse(f.storage[key]);
+    const key = 'tia-qa-upgrade-44-45-manifest-v1', marker = JSON.parse(f.storage[key]);
     delete marker.partHashes; f.storage[key] = JSON.stringify(marker);
     expect((await check(f)).passed).toBe(true);
     f.storage['hamrah-local-v2'] = '[]';
@@ -181,7 +214,7 @@ describe('controlled upgrade failure diagnostics', () => {
     ['{"status":"private-marker-status"}', 'unrecognized', true], ['private-invalid-json', 'unrecognized', false],
   ])('reports missing/incomplete markers safely before any native read: %s', async (raw, status, parseable) => {
     const f = fixture(); await f.freshPage().run('seed');
-    const key = 'tia-qa-upgrade-43-44-manifest-v1';
+    const key = 'tia-qa-upgrade-44-45-manifest-v1';
     if (raw === null) delete f.storage[key]; else f.storage[key] = raw;
     f.plugin.getPending = vi.fn(() => { throw Error('Must not reach native checks'); });
     const before = JSON.stringify(f.storage), result = await check(f);
@@ -202,19 +235,19 @@ describe('controlled upgrade failure diagnostics', () => {
   });
 });
 
-describe('v43 durability gate before installing v44', () => {
+describe('v44 durability gate before installing v45', () => {
   it('requires the original seed hashes and does not restore appearance or mutate the fixture', async () => {
     const f = fixture(), seeded = await f.freshPage().run('seed'), before = JSON.stringify(f.storage);
     const baseline = await f.freshPage().run('baseline-check');
-    const stamp = report => ({ ...report, packageName: host.packageName, versionCode: 43 });
+    const stamp = report => ({ ...report, packageName: host.packageName, versionCode: 44 });
     expect(() => assertUpgradeBaselineEvidence(stamp(seeded), stamp(baseline))).not.toThrow();
-    for (const change of [{ phase: 'check' }, { versionCode: 44 }, { passed: false }, { storeHash: '0'.repeat(64) }, { nativeHash: '1'.repeat(64) }]) {
+    for (const change of [{ phase: 'check' }, { versionCode: 45 }, { passed: false }, { storeHash: '0'.repeat(64) }, { nativeHash: '1'.repeat(64) }]) {
       expect(() => assertUpgradeBaselineEvidence(stamp(seeded), { ...stamp(baseline), ...change })).toThrow();
     }
     expect(JSON.stringify(f.storage)).toBe(before); expect(f.schedule).toHaveBeenCalledOnce();
     expect(f.removeItem).not.toHaveBeenCalled(); expect(f.sounds.setSelection).toHaveBeenCalledOnce();
   });
-  it('fails the v43 gate on missing durable seed and never reseeds', async () => {
+  it('fails the v44 gate on missing durable seed and never reseeds', async () => {
     const f = fixture();
     const result = await vm.runInContext(upgradeQaExpression('baseline-check'), f.freshPage().context);
     expect(result).toMatchObject({ passed: false, diagnostics: { stage: 'marker', marker: { present: false } } });
@@ -237,7 +270,7 @@ describe('v43 durability gate before installing v44', () => {
 });
 
 describe('appearance-only restoration after upgrade evidence', () => {
-  const appearance = 'hamrah-appearance-v1', markerKey = 'tia-qa-upgrade-43-44-manifest-v1';
+  const appearance = 'hamrah-appearance-v1', markerKey = 'tia-qa-upgrade-44-45-manifest-v1';
   it('restores initial absence without changing records, drafts, alarms, marker or the report', async () => {
     const f = fixture(); await f.freshPage().run('seed');
     const report = await f.freshPage().run('check'), reportBefore = JSON.stringify(report);
@@ -306,12 +339,12 @@ describe('upgrade inspector evidence ordering', () => {
     const run = vm.runInContext(`(async()=>{${branch}})()`, context);
     if (mode.endsWith('failure')) await expect(run).rejects.toThrow(); else await run;
     if (mode === 'check' || mode === 'restore-failure') {
-      expect(events[0]).toEqual(['saved', 'upgrade-check.json', { ...report, packageName: 'ir.wealthos.personalagent.stable40', versionCode: 44, processId: 123, pageTargets: 1 }]);
+      expect(events[0]).toEqual(['saved', 'upgrade-check.json', { ...report, packageName: 'ir.wealthos.personalagent.stable40', versionCode: 45, processId: 123, pageTargets: 1 }]);
       expect(events[1]).toEqual(['restore']);
       expect(events.filter(event => event[0] === 'saved' && event[1] === 'upgrade-check.json')).toHaveLength(1);
       if (mode === 'restore-failure') expect(events[2]).toMatchObject(['saved', 'upgrade-check-failure.json', { passed: false, phase: 'restore-appearance' }]);
     } else expect(events.some(event => event[0] === 'restore')).toBe(false);
-    if (mode === 'baseline-check') expect(events[0][2]).toMatchObject({ passed: true, phase: 'baseline-check', versionCode: 43 });
+    if (mode === 'baseline-check') expect(events[0][2]).toMatchObject({ passed: true, phase: 'baseline-check', versionCode: 44 });
     if (mode === 'seed') {
       expect(events[0][0]).toBe('saved'); expect(events[1]).toEqual(['background']);
       expect(events[2]).toMatchObject(['saved', 'upgrade-check-background.json', { passed: true, persistenceProven: false }]);
@@ -333,7 +366,7 @@ describe('upgrade inspector evidence ordering', () => {
     });
     await expect(vm.runInContext(`(async()=>{${branch}})()`, context)).rejects.toThrow('assertions failed');
     expect(events).toEqual([['upgrade-check-failure.json', { passed: false, phase: 'check',
-      packageName: 'ir.wealthos.personalagent.stable40', versionCode: 44, processId: 123, pageTargets: 1, diagnostics: { assertion: 'WebView evaluation failed' } }]]);
+      packageName: 'ir.wealthos.personalagent.stable40', versionCode: 45, processId: 123, pageTargets: 1, diagnostics: { assertion: 'WebView evaluation failed' } }]]);
     expect(JSON.stringify(events)).not.toContain('private-cdp-payload');
   });
 });
@@ -360,13 +393,13 @@ describe('archived deletion postcondition', () => {
 describe('native appearance reset evidence gate', () => {
   const common = { passed: true, packageName: 'ir.wealthos.personalagent.stable40', syntheticOnly: true,
     initialAppearance: null, storeHash: 'a'.repeat(64), nativeHash: 'b'.repeat(64) };
-  const seed = { ...common, phase: 'seed', versionCode: 43 }, checked = { ...common, phase: 'check', versionCode: 44 };
+  const seed = { ...common, phase: 'seed', versionCode: 44 }, checked = { ...common, phase: 'check', versionCode: 45 };
   const restored = { passed: true, phase: 'restore-appearance', appearanceRestored: 'absent', storeHash: common.storeHash, nativeHash: common.nativeHash };
   it('requires matching saved seed, check and web-restoration results', () => {
     expect(() => assertUpgradeAppearanceEvidence(seed, checked, restored)).not.toThrow();
   });
   it.each([
-    [0, { passed: false }], [0, { initialAppearance: 'light' }], [0, { versionCode: 44 }],
+    [0, { passed: false }], [0, { initialAppearance: 'light' }], [0, { versionCode: 45 }],
     [1, { storeHash: 'stale' }], [1, { phase: 'seed' }], [1, { packageName: 'other.app' }],
     [2, { passed: false }], [2, { nativeHash: 'stale' }], [2, { appearanceRestored: 'light' }],
   ])('refuses mismatched evidence packet %i %j', (index, change) => {

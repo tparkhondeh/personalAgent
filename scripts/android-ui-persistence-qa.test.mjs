@@ -6,20 +6,20 @@ import { androidUiPersistenceQa, assertUiPersistenceHost, assertUiPersistenceRec
 import { waitUntil } from './qa-wait-until.mjs';
 
 const packageName = 'ir.wealthos.personalagent.stable40';
-const host = { ci: 'true', serial: 'emulator-5554', emulator: '1', packageName, packageDump: 'versionCode=44 minSdk=24\n flags=[ HAS_CODE ALLOW_CLEAR_USER_DATA ]' };
+const host = { ci: 'true', serial: 'emulator-5554', emulator: '1', packageName, packageDump: 'versionCode=45 minSdk=24\n flags=[ HAS_CODE ALLOW_CLEAR_USER_DATA ]' };
 describe('exact release/emulator guard', () => {
   it('accepts the known non-debuggable release', () => expect(() => assertUiPersistenceHost(host)).not.toThrow());
   it.each([{ ci: undefined }, { serial: 'owner-device' }, { emulator: '0' }, { packageName: 'other.app' },
-    { packageDump: host.packageDump.replace('44', '43') }, { packageDump: host.packageDump.replace('HAS_CODE', 'HAS_CODE DEBUGGABLE') },
-    { packageDump: 'versionCode=44' }])('refuses unsafe or unknown hosts %j', change => expect(() => assertUiPersistenceHost({ ...host, ...change })).toThrow());
+    { packageDump: host.packageDump.replace('45', '44') }, { packageDump: host.packageDump.replace('HAS_CODE', 'HAS_CODE DEBUGGABLE') },
+    { packageDump: 'versionCode=45' }])('refuses unsafe or unknown hosts %j', change => expect(() => assertUiPersistenceHost({ ...host, ...change })).toThrow());
 });
 
 const app = readFileSync('mobile-shell/app.js', 'utf8');
 const part = (start, end) => app.slice(app.indexOf(start), app.indexOf(end, app.indexOf(start)));
 function fixture() {
-  const existing = [{ id: 'tia-qa-upgrade-43-44-active', title: 'retained fixture', category: 'personal', priority: 'normal', done: false, deadline: null, notificationIds: [] }];
+  const existing = [{ id: 'tia-qa-upgrade-44-45-active', title: 'retained fixture', category: 'personal', priority: 'normal', done: false, deadline: null, notificationIds: [] }];
   const values = new Map([['hamrah-local-v2', JSON.stringify(existing)], ['hamrah-confirmed-local-draft-v1', 'retained draft'],
-    ['tia-qa-upgrade-43-44-manifest-v1', JSON.stringify({ prefix: 'tia-qa-upgrade-43-44-', status: 'SEEDED' })]]);
+    ['tia-qa-upgrade-44-45-manifest-v1', JSON.stringify({ prefix: 'tia-qa-upgrade-44-45-', status: 'SEEDED' })]]);
   let denySave = false, submit;
   const writes = vi.fn((key, value) => { if (denySave) throw Error('private-storage-error'); values.set(key, value); });
   const localStorage = { getItem: key => values.get(key) ?? null, setItem: writes };
@@ -61,7 +61,7 @@ function fixture() {
   }
   return { values, writes, page, deny: () => { denySave = true; } };
 }
-const stamped = receipt => ({ ...receipt, packageName, versionCode: 44 });
+const stamped = receipt => ({ ...receipt, packageName, versionCode: 45 });
 describe('real bundled form handler and external cold receipt', () => {
   it.each(['home', 'immediate'])('checks the exact UI-created ID across fresh scopes: %s', async mode => {
     const f = fixture(), before = new Map(f.values), saved = stamped(await f.page().run('create', mode));
@@ -100,7 +100,7 @@ describe('real bundled form handler and external cold receipt', () => {
     const records = JSON.parse(f.values.get('hamrah-local-v2')).map(record => Object.fromEntries(Object.entries(record).reverse()));
     f.values.set('hamrah-local-v2', JSON.stringify(records.reverse()));
     expect((await f.page().run('check', 'home', saved)).passed).toBe(true);
-    for (const change of [{ passed: false }, { phase: 'check' }, { mode: 'immediate' }, { versionCode: 43 }, { id: '' }, { recordHash: 'stale' }]) {
+    for (const change of [{ passed: false }, { phase: 'check' }, { mode: 'immediate' }, { versionCode: 44 }, { id: '' }, { recordHash: 'stale' }]) {
       expect(() => assertUiPersistenceReceipt({ ...saved, ...change }, 'home')).toThrow();
     }
   });

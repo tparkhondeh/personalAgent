@@ -44,7 +44,7 @@ launch_and_verify() {
       inspection_args+=(-e tiaAppearanceQa "$appearance_qa")
       if [[ "$appearance_qa" == restore-upgrade ]]; then
         [[ "${upgrade_appearance_verified:-}" == true ]]
-        inspection_args+=(-e tiaUpgradeAppearanceVerified 43-to-44)
+        inspection_args+=(-e tiaUpgradeAppearanceVerified 44-to-45)
       fi
     fi
     adb shell am instrument -w "${inspection_args[@]}" "${package_name}.test/$runner" > "$evidence_dir/${label}-inspection.txt" 2>&1 &
@@ -88,7 +88,7 @@ if [[ -n "${TIA_UPGRADE_BASELINE_APK:-}" ]]; then
   launch_and_verify "upgrade-baseline" "اتصال برقرار نشد" "" "assert-absent"
   node scripts/android-webview-inspect.mjs "$package_name" "$evidence_dir/upgrade-seed.json" "فهرست برنامه‌ها" "upgrade-seed"
   # Seed QA first observes normal HOME/hidden consistency for a bounded 6s window.
-  # This cold restart, not that timing window, must prove v43 durability before v44.
+  # This cold restart, not that timing window, must prove v44 durability before v45.
   # The earlier immediate-force-stop failures remain independent evidence.
   adb logcat -d > "$evidence_dir/upgrade-seed-post-background-logcat.txt"
   launch_and_verify "upgrade-baseline-relaunch" "اتصال برقرار نشد"
@@ -105,7 +105,7 @@ if [[ -n "${TIA_UPGRADE_BASELINE_APK:-}" ]]; then
   upgrade_appearance_verified=true
   launch_and_verify "upgrade-default-light" "اتصال برقرار نشد" "assert-default-light" "restore-upgrade"
   unset upgrade_appearance_verified
-  # Real UI saves on unchanged v44, after upgrade proof and before later smoke mutations.
+  # Real UI saves on unchanged v45, after upgrade proof and before later smoke mutations.
   # Creation writes an external receipt then stops immediately (HOME case: hidden only).
   for persistence_mode in home immediate; do
     node scripts/android-webview-inspect.mjs "$package_name" "$evidence_dir/ui-${persistence_mode}-create.json" "فهرست برنامه‌ها" "ui-persistence-${persistence_mode}-create"

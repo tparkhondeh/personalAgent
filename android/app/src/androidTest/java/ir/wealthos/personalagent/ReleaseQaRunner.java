@@ -28,7 +28,7 @@ public final class ReleaseQaRunner extends AndroidJUnitRunner {
     @Override public void onCreate(Bundle arguments) {
         inspection = arguments != null && "true".equals(arguments.getString("tiaInspection"));
         appearanceQa = arguments == null ? null : arguments.getString("tiaAppearanceQa");
-        upgradeAppearanceVerified = arguments != null && "43-to-44".equals(arguments.getString("tiaUpgradeAppearanceVerified"));
+        upgradeAppearanceVerified = arguments != null && "44-to-45".equals(arguments.getString("tiaUpgradeAppearanceVerified"));
         super.onCreate(arguments);
     }
 
@@ -49,7 +49,7 @@ public final class ReleaseQaRunner extends AndroidJUnitRunner {
                 }
                 if ("restore-upgrade".equals(appearanceQa)) {
                     if (!upgradeAppearanceVerified || getTargetContext().getPackageManager()
-                            .getPackageInfo(getTargetContext().getPackageName(), 0).getLongVersionCode() != 44) {
+                            .getPackageInfo(getTargetContext().getPackageName(), 0).getLongVersionCode() != 45) {
                         throw new IllegalStateException("Missing verified upgrade evidence");
                     }
                     restoreFixtureAppearance(appearance);

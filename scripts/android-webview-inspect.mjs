@@ -100,7 +100,7 @@ async function inspect() {
   // UI persistence probe: receipt is saved outside Android BEFORE the process is stopped.
   if (uiPersistence) {
     const [, mode, phase] = uiPersistence;
-    const stamp = { packageName, versionCode: 44, processId: Number(pid), pageTargets };
+    const stamp = { packageName, versionCode: 45, processId: Number(pid), pageTargets };
     let diagnostics = { stage: 'bundled-ui', assertion: 'UI persistence bundled page unavailable' };
     try {
       await waitUntil(async () => (await evaluate("Boolean(document.querySelector('#task-form') || document.querySelector('#offline'))"))?.result?.result?.value === true,
@@ -150,10 +150,10 @@ async function inspect() {
         'Upgrade recovery page unavailable', { attempts: 35, delayMs: 1000 });
       const opened = await evaluate(`(()=>{document.querySelector('#offline').click();return true;})()`);
       if (opened.error || opened.result?.exceptionDetails) throw Error('Upgrade could not enter bundled UI');
-      await waitUntil(async () => (await evaluate(`Boolean(document.querySelector('#task-form') && window.HamrahPlanner && window.Capacitor?.Plugins?.LocalNotifications${upgradePhase === 'check' ? " && document.documentElement.dataset.taskStoreState === 'ready'" : ''})`))?.result?.result?.value === true,
+      await waitUntil(async () => (await evaluate(`Boolean(document.querySelector('#task-form') && window.HamrahPlanner && window.Capacitor?.Plugins?.LocalNotifications && document.documentElement.dataset.taskStoreState === 'ready')`))?.result?.result?.value === true,
         'Upgrade bundled UI unavailable', { attempts: 35, delayMs: 1000 });
       const saveFailure = (result, phase) => {
-        const failure = { passed: false, phase, packageName, versionCode: upgradePhase === 'check' ? 44 : 43,
+        const failure = { passed: false, phase, packageName, versionCode: upgradePhase === 'check' ? 45 : 44,
           processId: Number(pid), pageTargets,
           diagnostics: result.error || result.result?.exceptionDetails
             ? { assertion: 'WebView evaluation failed' }
@@ -166,7 +166,7 @@ async function inspect() {
         saveFailure(checked, upgradePhase);
         throw Error('Upgrade QA assertions failed; no data was cleared or automatically reseeded');
       }
-      const report = { ...checked.result.result.value, packageName, versionCode: upgradePhase === 'check' ? 44 : 43,
+      const report = { ...checked.result.result.value, packageName, versionCode: upgradePhase === 'check' ? 45 : 44,
         processId: Number(pid), pageTargets };
       mkdirSync(dirname(outputPath), { recursive: true });
       writeFileSync(outputPath, JSON.stringify(report, null, 2) + '\n');
