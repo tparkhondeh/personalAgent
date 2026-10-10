@@ -19,6 +19,11 @@ on:
         description: Explicitly authorized bounded synthetic GPT check on API36 only
         type: boolean
         default: false
+      android_16_image:
+        description: Diagnostic comparison only; 36.1 does not erase failures on image36
+        type: choice
+        default: '36'
+        options: ['36', '36.1']
 
 permissions:
   contents: read
@@ -99,6 +104,9 @@ jobs:
           TIA_GPT_QA_FIXTURE: ${{ inputs.synthetic_gpt && matrix.api == 36 && secrets.TIA_GPT_QA_FIXTURE || '' }}
         with:
           api-level: ${{ matrix.api }}
+          # Keep the existing baseline by default. A QPR2 comparison changes only
+          # the official emulator image, never the signed APK or acceptance checks.
+          system-image-api-level: ${{ matrix.api == 36 && inputs.android_16_image == '36.1' && '36.1' || format('{0}', matrix.api) }}
           arch: x86_64
           # AOSP userdebug images force WebView inspection on even when the
           # non-debuggable APK disables it. Use Google's production/user image.
