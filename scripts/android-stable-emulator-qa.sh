@@ -140,9 +140,11 @@ fi
 
 adb shell am force-stop "$package_name"
 adb install -r -t "$test_apk"
-adb shell am instrument -w "${package_name}.test/$runner" \
-  | tee "$evidence_dir/instrumented-tests.txt"
-grep -Fq "OK (" "$evidence_dir/instrumented-tests.txt"
+if ! adb shell am instrument -w "${package_name}.test/$runner" \
+  | tee "$evidence_dir/instrumented-tests.txt" || ! grep -Fq "OK (" "$evidence_dir/instrumented-tests.txt"; then
+  bash scripts/android-native-failure-diagnostic.sh "$package_name" "$runner" "$evidence_dir" || true
+  exit 1
+fi
 
 adb shell settings put global http_proxy 127.0.0.1:9
 launch_and_verify "stable-offline" "اتصال برقرار نشد"
