@@ -43,9 +43,9 @@ export function RecoveryForm({ reset = false }: { reset?: boolean }) {
     finally { busy.current = false; setPending(false); }
   }
   return <main className="auth-page"><section className="auth-card"><h1>{reset ? "رمز تازه" : "بازیابی حساب"}</h1>
-    {!reset && <p>{available === null ? "در حال بررسی…" : available ? "لینک امن به ایمیل همین حساب ارسال می‌شود." : "ارسال ایمیل بازیابی هنوز فعال نشده است. فعلاً از حساب فعلی خارج نشو؛ تنظیم سرویس ایمیل لازم است."}</p>}
+    {!reset && <p>{available === null ? "در حال بررسی…" : available ? "لینک امن به ایمیل همین حساب ارسال می‌شود." : "بازیابی ایمیلی رمز فعلاً در دسترس نیست. رمز حسابت را در جای امن نگه دار؛ «مرا به خاطر بسپار» جای بازیابی رمز نیست."}</p>}
     <form onSubmit={submit}>{reset ? <><label>رمز تازه<input name="password" type="password" autoComplete="new-password" minLength={10} maxLength={128} required disabled={complete || pending}/></label><label>تکرار رمز<input name="confirm" type="password" autoComplete="new-password" minLength={10} maxLength={128} required disabled={complete || pending}/></label></> : <label>ایمیل<input name="email" type="email" autoComplete="email" maxLength={254} required disabled={available !== true || pending}/></label>}
     {message && <p role="status" className="form-error">{message}</p>}
-    <button className="submit-button" disabled={!available || pending || complete}>{pending ? "در حال بررسی…" : reset ? "ثبت رمز تازه" : "دریافت لینک بازیابی"}</button></form>
+    <button className="submit-button" disabled={!available || pending || complete}>{pending ? "در حال بررسی…" : reset ? "ثبت رمز تازه" : available === false ? "بازیابی ایمیلی در دسترس نیست" : "دریافت لینک بازیابی"}</button></form>
     <Link href="/login">بازگشت به ورود</Link>{reset && <Link href="/forgot-password">درخواست لینک تازه</Link>}</section></main>;
 }

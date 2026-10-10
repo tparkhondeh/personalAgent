@@ -16,6 +16,19 @@ const alarmPatch = readFileSync(resolve(process.cwd(), "patches/@capacitor__loca
 const installedNotifications = resolve(process.cwd(), "node_modules/@capacitor/local-notifications");
 
 describe("offline Android mobile shell", () => {
+  it("keeps the patched Capacitor proxy closed to documents and disabled HTTP plugins", () => {
+    // Source/package regression guard; emulator acceptance tests the actual APK separately.
+    const root = resolve(process.cwd(), "node_modules/@capacitor/android");
+    expect(JSON.parse(readFileSync(resolve(root, "package.json"), "utf8")).version).toBe("8.5.1");
+    const server = readFileSync(resolve(root, "capacitor/src/main/java/com/getcapacitor/WebViewLocalServer.java"), "utf8");
+    expect(server).toContain('getPluginConfiguration("CapacitorHttp").getBoolean("enabled", false)');
+    expect(server).toContain("if (!httpEnabled || isDocumentRequest(request))");
+    expect(server).toContain("if (request.isForMainFrame())");
+    expect(server).toContain('"Upgrade-Insecure-Requests".equalsIgnoreCase(header)');
+    const bridge = readFileSync(resolve(root, "capacitor/src/main/java/com/getcapacitor/Bridge.java"), "utf8");
+    expect(bridge).toContain("if (path != null && path.startsWith(CAPACITOR_HTTP_INTERCEPTOR_START))");
+    expect(bridge).toContain("typeof window.Capacitor.triggerEvent === 'function'");
+  });
   it("is RTL, local-first and independent from a remote server", () => {
     expect(html).toContain('<html lang="fa" dir="rtl">');
     expect(mobileScript).toContain("localStorage");
@@ -92,7 +105,7 @@ describe("versioned Android 7 alarm compatibility", () => {
     expect(manifest.dependencies["@capacitor/local-notifications"]).toBe("8.3.1");
     expect(installed.version).toBe("8.3.1");
     expect(workspace).toContain("'@capacitor/local-notifications@8.3.1': patches/@capacitor__local-notifications@8.3.1.patch");
-    expect(workspace).toContain("'@capacitor/android@8.5.0': patches/@capacitor__android@8.5.0.patch");
+    expect(workspace).toContain("'@capacitor/android@8.5.1': patches/@capacitor__android@8.5.1.patch");
     expect([...alarmPatch.matchAll(/^diff --git a\/(\S+) b\//gm)].map(match => match[1])).toEqual([
       "android/src/main/java/com/capacitorjs/plugins/localnotifications/TiaAlarmChannels.java",
       "android/src/main/kotlin/com/capacitorjs/plugins/localnotifications/LocalNotificationManager.kt",
