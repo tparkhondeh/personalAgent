@@ -11,7 +11,7 @@ export async function recoverySource() {
   if (!bootstrap) throw new Error('Shared appearance bootstrap missing');
   const font = await readFile('mobile-shell/Vazirmatn.woff2');
   const theme = (await sharedMobileTheme()).replaceAll('\r\n', '\n');
-  const html = `<!doctype html><html lang="fa" dir="rtl" data-theme="light"><head>
+  const html = `<!doctype html><html lang="fa" dir="rtl" data-theme="light" data-tia-recovery="network-v1"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f7f7ff"><title>tia | اتصال برقرار نیست</title>
 <script>${bootstrap}</script><style>

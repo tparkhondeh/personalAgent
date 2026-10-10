@@ -99,6 +99,34 @@ public class ApplicationContextTest {
     }
 
     @Test
+    public void serviceWorkerRecoveryCanEnterThePrivateBundledPage() throws Exception {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            for (boolean marker : new boolean[] { false, true }) {
+                CountDownLatch recovered = new CountDownLatch(1);
+                AtomicReference<com.getcapacitor.WebViewListener> registered = new AtomicReference<>();
+                scenario.onActivity(activity -> {
+                    com.getcapacitor.WebViewListener listener = new com.getcapacitor.WebViewListener() {
+                        @Override public void onPageLoaded(android.webkit.WebView view) {
+                            if (activity.getBridge().getErrorUrl().equals(view.getUrl())) recovered.countDown();
+                        }
+                    };
+                    registered.set(listener);
+                    activity.getBridge().addWebViewListener(listener);
+                    String html = "<!doctype html><html" + (marker ? " data-tia-recovery=\"network-v1\"" : "")
+                        + "><head><title>tia | اتصال برقرار نیست</title></head><body><main><h1>اتصال برقرار نیست</h1>"
+                        + "<p>برای نمایش نسخه به‌روز برنامه، اتصال به سرور لازم است.</p><a href=\"/\">تلاش دوباره</a></main></body></html>";
+                    activity.getBridge().getWebView().loadDataWithBaseURL(activity.getBridge().getAppUrl(), html, "text/html", "UTF-8", null);
+                });
+                assertTrue("Service-worker recovery did not reach bundled recovery", recovered.await(15, TimeUnit.SECONDS));
+                scenario.onActivity(activity -> {
+                    assertEquals(activity.getBridge().getErrorUrl(), activity.getBridge().getWebView().getUrl());
+                    activity.getBridge().removeWebViewListener(registered.get());
+                });
+            }
+        }
+    }
+
+    @Test
     public void bundledRecoveryPageContainsRealPersianActions() throws Exception {
         Context appContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
         String recovery;

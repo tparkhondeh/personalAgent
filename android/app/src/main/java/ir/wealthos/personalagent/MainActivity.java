@@ -39,6 +39,12 @@ public class MainActivity extends BridgeActivity {
     private static final long LOAD_TIMEOUT_MS = 20_000L;
     private static final long CONTENT_CHECK_DELAY_MS = 3_000L;
     private static final String RECOVERY_INTERFACE = "HamrahRecovery";
+    // Service-worker navigation failures can render a nonempty document without
+    // notifying WebViewClient.onReceivedError. Support the existing deployed page
+    // as well as the explicit new marker, without clearing caches or account data.
+    static final String CONTENT_READY_SCRIPT = "Boolean(document.body && document.body.innerText && document.body.innerText.trim().length > 1"
+        + " && document.documentElement.getAttribute('data-tia-recovery') !== 'network-v1'"
+        + " && !(document.title === 'tia | اتصال برقرار نیست' && document.querySelector('main > h1')?.textContent.trim() === 'اتصال برقرار نیست' && document.querySelector('main > a[href=\"/\"]')?.textContent.trim() === 'تلاش دوباره'))";
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private Runnable loadTimeout;
@@ -46,6 +52,8 @@ public class MainActivity extends BridgeActivity {
     private View loadingOverlay;
     private WebViewListener recoveryListener;
     private boolean showingRecovery;
+    private boolean closing;
+    private long documentGeneration;
     private AppearanceController appearance;
     private TaskStoreController taskStorage;
     private TextView loadingLabel;
@@ -138,6 +146,9 @@ public class MainActivity extends BridgeActivity {
         recoveryListener = new WebViewListener() {
             @Override
             public void onPageStarted(WebView view) {
+                if (closing || isFinishing() || isDestroyed()) return;
+                documentGeneration++;
+                if (contentCheck != null) mainHandler.removeCallbacks(contentCheck);
                 if (!isRecoveryPage(view.getUrl())) {
                     showingRecovery = false;
                     showLoadingOverlay();
@@ -147,6 +158,7 @@ public class MainActivity extends BridgeActivity {
 
             @Override
             public void onPageCommitVisible(WebView view, String url) {
+                if (closing || isFinishing() || isDestroyed()) return;
                 cancelLoadTimeout();
                 hideLoadingOverlay();
                 scheduleContentCheck(view, url);
@@ -154,6 +166,7 @@ public class MainActivity extends BridgeActivity {
 
             @Override
             public void onPageLoaded(WebView view) {
+                if (closing || isFinishing() || isDestroyed()) return;
                 cancelLoadTimeout();
                 hideLoadingOverlay();
                 scheduleContentCheck(view, view.getUrl());
@@ -252,14 +265,17 @@ public class MainActivity extends BridgeActivity {
     }
 
     private void scheduleContentCheck(WebView webView, String url) {
-        if (isRecoveryPage(url)) return;
+        if (closing || isFinishing() || isDestroyed() || isRecoveryPage(url)) return;
         if (contentCheck != null) mainHandler.removeCallbacks(contentCheck);
-        contentCheck = () -> webView.evaluateJavascript(
-            "Boolean(document.body && document.body.innerText && document.body.innerText.trim().length > 1)",
-            result -> {
+        final long generation = documentGeneration;
+        contentCheck = () -> {
+            if (closing || isFinishing() || isDestroyed() || generation != documentGeneration) return;
+            webView.evaluateJavascript(CONTENT_READY_SCRIPT, result -> {
+                if (closing || isFinishing() || isDestroyed() || generation != documentGeneration
+                        || !java.util.Objects.equals(url, webView.getUrl())) return;
                 if (!"true".equals(result) && !isRecoveryPage(webView.getUrl())) showRecoveryPage();
-            }
-        );
+            });
+        };
         mainHandler.postDelayed(contentCheck, CONTENT_CHECK_DELAY_MS);
     }
 
@@ -275,7 +291,7 @@ public class MainActivity extends BridgeActivity {
     }
 
     private void showRecoveryPage() {
-        if (showingRecovery || getBridge() == null) return;
+        if (closing || isFinishing() || isDestroyed() || showingRecovery || getBridge() == null) return;
         String errorUrl = getBridge().getErrorUrl();
         if (errorUrl == null || errorUrl.isBlank()) {
             hideLoadingOverlay();
@@ -291,7 +307,7 @@ public class MainActivity extends BridgeActivity {
         @JavascriptInterface
         public void retry() {
             mainHandler.post(() -> {
-                if (getBridge() == null) return;
+                if (closing || isFinishing() || isDestroyed() || getBridge() == null) return;
                 showingRecovery = false;
                 showLoadingOverlay();
                 getBridge().getWebView().loadUrl(getBridge().getAppUrl());
@@ -302,7 +318,7 @@ public class MainActivity extends BridgeActivity {
         @JavascriptInterface
         public void openOffline() {
             mainHandler.post(() -> {
-                if (getBridge() == null) return;
+                if (closing || isFinishing() || isDestroyed() || getBridge() == null) return;
                 getBridge().getWebView().evaluateJavascript(
                     "window.HamrahOpenBundledInterface && window.HamrahOpenBundledInterface()",
                     null
@@ -313,6 +329,7 @@ public class MainActivity extends BridgeActivity {
         @JavascriptInterface
         public void offlineReady() {
             mainHandler.post(() -> {
+                if (closing || isFinishing() || isDestroyed()) return;
                 showingRecovery = false;
                 cancelLoadTimeout();
                 hideLoadingOverlay();
@@ -386,13 +403,15 @@ public class MainActivity extends BridgeActivity {
         @Override
         public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
             Logger.error("HamrahRecovery", "Android WebView renderer stopped; restarting the activity.", null);
-            mainHandler.post(MainActivity.this::recreate);
+            mainHandler.post(() -> { if (!closing && !isFinishing() && !isDestroyed()) recreate(); });
             return true;
         }
     }
 
     @Override
     public void onDestroy() {
+        closing = true;
+        documentGeneration++;
         mainHandler.removeCallbacks(refreshAppearance);
         if (appearance != null) appearance.destroy();
         if (taskStorage != null) taskStorage.destroy();

@@ -40,6 +40,15 @@ const stopped = target.replace('state=STOPPING', 'state=STOPPED');
 const valid = () => snapshot(stopped);
 
 describe('strict scoped Android HOME activity evidence', () => {
+  const api33 = value => value.replace(/(ActivityRecord\{[\da-f]+ u\d+ [\w.$/]+) t(\d+)\}/g, '$1} t$2}');
+  it('accepts the exact Android 13 identity/task brace format with unchanged scope checks', () => {
+    expect(inspectHomeActivity(api33(valid()), scope)).toEqual(inspectHomeActivity(valid(), scope));
+    expect(inspectHomeActivity(api33(snapshot()), scope).reason).toBe('HOME_TARGET_NOT_STOPPED');
+    expect(inspectHomeActivity(api33(valid()), { ...scope, processId: 9999 }).reason).toBe('HOME_TARGET_SCOPE_MISMATCH');
+  });
+  it.each(['} t6', '}} t6}', '} t6} junk', '} t-6}', '} t6} t9}'])('rejects malformed Android 13 task suffix %s', suffix => {
+    expect(inspectHomeActivity(api33(valid()).replaceAll('} t6}', suffix), scope).passed).toBe(false);
+  });
   it('does not turn either observed STOPPING/invisible shape into success', () => {
     for (const pid of [1234, 5678]) {
       expect(inspectHomeActivity(snapshot().replace('1234:', `${pid}:`), { ...scope, processId: pid }))

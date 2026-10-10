@@ -59,6 +59,7 @@ describe('real PWA worker behavior without deleting stored data', () => {
     const w = worker({ failed: true, cacheFailed }); const response = await w.request('/login?private=not-displayed');
     expect(response?.status).toBe(503); const text = await response!.text();
     expect(text).toContain('اتصال برقرار نیست'); expect(text).toContain('تلاش دوباره');
+    expect(text).toContain('data-tia-recovery="network-v1"');
     expect(text).not.toMatch(/OLD INTERACTIVE APP|private=|\/api\/|<form|_next\/static/);
     expect(w.caches.open).not.toHaveBeenCalled(); expect(w.caches.delete).not.toHaveBeenCalled();
     expect(response!.headers.get('cache-control')).toBe('no-store');

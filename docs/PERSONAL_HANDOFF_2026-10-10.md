@@ -35,6 +35,12 @@ The exact signed APK acceptance must be recorded before calling a new build deli
 
 Exact-candidate QA run `38045302070` failed on all three APIs **before upgrading the baseline**, because test-only host/runner guards still required 43→44. No candidate pass or app data-loss claim follows from that failure. The harness now requires exact 44→45, retains CI/emulator/non-debuggable safeguards and seeds v44 through its real native CAS store with a durable acknowledgement, not the legacy read mirror. Tests cover rejected acknowledgements and pre-existing native records. Only the isolated test APK needs rebuilding; the signed main APK bytes are preserved for the rerun.
 
+The next exact-file run `38047110015` is also **failed**, not accepted: 44→45 upgrade hashes passed on all APIs, but API33's HOME parser rejected its actual `ActivityRecord{identity} tN}` format; API34 later rendered the service-worker's nonempty remote recovery instead of the private APK recovery; API36 crashed inside WebView/Trichrome native code during instrumentation after its HOME/immediate preservation checks passed. No data was cleared/reseeded. The private download capability was removed after the run.
+
+API33 parsing now accepts only the two observed brace formats; wrong PID/task/state/visibility and malformed input remain failures. The saved actual API33 dump parses as the same stopped, invisible app and resumed visible HOME. The Android product is being fixed to recognize both the deployed legacy PWA recovery document and a new explicit recovery marker, and to fence delayed callbacks against activity closure/document replacement. This **does** require rebuilding the main APK: the initial 45 hash is withheld, not a delivery. Native integration tests cover old/marked recovery with the actual WebView.
+
+The separate internal debug run `38046532741` attempt1 also crashed in Trichrome during a different instrumentation test; its unchanged-code attempt2 passed. That repeat does not establish the native crash's root cause or fix it. Full exact-file acceptance is still required; neither crash is erased or classified as a successful run.
+
 ## Independent remaining gates
 
 | Gate | Evidence / responsible party |
@@ -45,5 +51,7 @@ Exact-candidate QA run `38045302070` failed on all three APIs **before upgrading
 | Phone acceptance | Owner: update without deleting the app, then check one save/restart, one notification/Alarm with the screen locked and one voice-to-editable-draft. Connected GPT requires working HTTPS and explicit text consent; no audio may be sent to OpenAI. |
 
 No new paid GPT test is necessary for email-copy/dependency changes while the budget authority is unreachable. Never enable a second local budget or restore a stale ledger to make testing possible. Same-server backup and encrypted portable backup are distinct from verified off-server custody.
+
+Repeated client-network diagnostics on October 10 also resolved both published A records and attempted each CDN address and the already documented origin on 8443, retaining the public hostname and normal TLS validation. All timed out while connecting (8-second bounded connect timeout; no HTTP status), as did the ordinary 443/8443 requests. This does not establish a TLS-certificate or cache defect, nor prove the service is down from every network. No DNS, routing, firewall, CDN or certificate setting was modified. The administrator should first verify reachability of this service and the existing SSH endpoint from the development host; only then can deployment, actual public version and GPT be rechecked.
 
 Do not use an unaccepted app as the only copy of important information or the sole alarm for a critical deadline. Email deferral does not waive the gates above.

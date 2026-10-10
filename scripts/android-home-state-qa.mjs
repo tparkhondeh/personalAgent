@@ -14,9 +14,11 @@ const scopeValid = scope => scope !== null && typeof scope === 'object' && scope
   && /^(?:[1-9]\d*)$/.test(String(scope.processId)) && Number.isSafeInteger(Number(scope.processId));
 
 function reference(value) {
-  const match = value.match(/^ActivityRecord\{([\da-f]+) u(\d+) ([\w.$/]+) t(\d+)\}$/i);
+  // Android 13 closes the identity brace before the task suffix; newer releases
+  // include the task inside it. Accept exactly those two observed formats.
+  const match = value.match(/^ActivityRecord\{([\da-f]+) u(\d+) ([\w.$/]+)(?: t(\d+)\}|\} t(\d+)\})$/i);
   if (!match) throw Error('FORMAT');
-  return { token: match[1], userId: Number(match[2]), component: canonical(match[3]), taskId: Number(match[4]) };
+  return { token: match[1], userId: Number(match[2]), component: canonical(match[3]), taskId: Number(match[4] ?? match[5]) };
 }
 
 function field(lines, prefix, key) {
