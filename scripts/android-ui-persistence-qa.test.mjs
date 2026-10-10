@@ -93,6 +93,8 @@ describe('real bundled form handler and external cold receipt', () => {
     const f = fixture(); f.deny(); const before = new Map(f.values);
     const result = await f.page().run('create', 'home');
     expect(result).toMatchObject({ passed: false, diagnostics: { assertion: 'UI save did not acknowledge a new record' } });
+    expect(result.diagnostics.saveState).toMatchObject({ recordPresent: false, modalOpen: true, idMatches: false, successNotice: false });
+    expect(Object.values(result.diagnostics.saveState).every(value => typeof value === 'boolean')).toBe(true);
     expect(f.values).toEqual(before); expect(JSON.stringify(result)).not.toContain('private-storage-error');
   });
   it('accepts canonical key reordering, but refuses forged/mismatched external receipts', async () => {

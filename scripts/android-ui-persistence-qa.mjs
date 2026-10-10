@@ -97,6 +97,16 @@ export async function androidUiPersistenceQa(phase, mode, isolation, receipt, di
       }
       await new Promise(resolve => setTimeout(resolve, 25));
     }
+    if (acknowledgedAt === undefined) {
+      const status = document.querySelector('#page-status').textContent;
+      diagnostics.saveState = {
+        recordPresent: !!task,
+        modalOpen: document.querySelector('#task-modal').classList.contains('open'),
+        idMatches: !!task && document.querySelector('#task-id').value === task.id,
+        successNotice: status.startsWith('done — فقط روی این دستگاه ذخیره شد'),
+        submitDisabled: document.querySelector('#task-form').querySelector('[type="submit"]').disabled,
+      };
+    }
     assert(acknowledgedAt !== undefined && task && !oldIds.has(task.id), 'UI save did not acknowledge a new record');
     assert(task.category === 'company' && task.priority === 'important' && task.deadline === null && task.done === false
       && !task.archived && task.notificationIds?.length === 0, 'UI save changed reviewed fields or created an alarm');

@@ -272,14 +272,19 @@ public class ApplicationContextTest {
         String originalChoice = prefs.getString("soundId", null);
         String notificationQaChannel = "tia-notification-sound-qa-v1";
         boolean notificationQaExisted = manager.getNotificationChannel(notificationQaChannel) != null;
+        android.util.Log.i("TiaQa", "alarm-sound: launching activity");
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> assertNotNull(activity.getBridge().getPlugin("TiaAlarmSounds")));
+            android.util.Log.i("TiaQa", "alarm-sound: awaiting bridge");
             waitForAlarmBridge(scenario);
+            android.util.Log.i("TiaQa", "alarm-sound: bridge ready, reading pending");
             JSONObject pendingBefore = callAlarmBridge(scenario, "return await window.Capacitor.Plugins.LocalNotifications.getPending();");
+            android.util.Log.i("TiaQa", "alarm-sound: creating notification channel");
             callAlarmBridge(scenario,
                 "await window.Capacitor.Plugins.LocalNotifications.createChannel({id:'tia-notification-sound-qa-v1',name:'آزمون اعلان معمولی',importance:3,sound:'urgent_alarm.wav'});return {};"
             );
             assertEquals(AudioAttributes.USAGE_NOTIFICATION, manager.getNotificationChannel(notificationQaChannel).getAudioAttributes().getUsage());
+            android.util.Log.i("TiaQa", "alarm-sound: selecting dawn");
             JSONObject dawn = callAlarmBridge(scenario,
                 "const p=window.Capacitor.Plugins.TiaAlarmSounds;await p.setSelection({soundId:'dawn'});return await p.ensureChannel();");
             assertEquals("dawn", dawn.getString("soundId"));
@@ -293,6 +298,7 @@ public class ApplicationContextTest {
             assertEquals(Uri.parse("android.resource://" + context.getPackageName() + "/raw/tia_alarm_dawn_v1"), oldSound);
             assertFalse(original.canBypassDnd());
 
+            android.util.Log.i("TiaQa", "alarm-sound: selecting chime");
             JSONObject chime = callAlarmBridge(scenario,
                 "const p=window.Capacitor.Plugins.TiaAlarmSounds;await p.setSelection({soundId:'chime'});return await p.ensureChannel();");
             assertEquals("tia-alarm-v1-chime", chime.getString("channelId"));
@@ -307,8 +313,11 @@ public class ApplicationContextTest {
                 "return await window.Capacitor.Plugins.LocalNotifications.getPending();").toString());
 
             // Recreate the bridge/activity: native private preferences outlive WebView state.
+            android.util.Log.i("TiaQa", "alarm-sound: recreating activity");
             scenario.recreate();
+            android.util.Log.i("TiaQa", "alarm-sound: awaiting recreated bridge");
             waitForAlarmBridge(scenario);
+            android.util.Log.i("TiaQa", "alarm-sound: recreated bridge ready");
             assertEquals("chime", callAlarmBridge(scenario,
                 "return await window.Capacitor.Plugins.TiaAlarmSounds.getSelection();").getString("soundId"));
             assertEquals("chime", prefs.getString("soundId", null));
@@ -328,6 +337,7 @@ public class ApplicationContextTest {
             assertEquals(interruptionFilter, manager.getCurrentInterruptionFilter());
             assertEquals(alarmVolume, audio.getStreamVolume(android.media.AudioManager.STREAM_ALARM));
             assertEquals(notificationVolume, audio.getStreamVolume(android.media.AudioManager.STREAM_NOTIFICATION));
+            android.util.Log.i("TiaQa", "alarm-sound: assertions complete, closing activity");
         } finally {
             // Restore only this test's preference; preserve all preexisting channels/data.
             android.content.SharedPreferences.Editor editor = prefs.edit();

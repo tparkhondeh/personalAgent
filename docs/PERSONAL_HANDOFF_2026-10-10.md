@@ -43,7 +43,13 @@ The separate internal debug run `38046532741` attempt1 also crashed in Trichrome
 
 ## Independent remaining gates
 
+Run `38050047626` passed the complete exact-file API33 branch, but API34 failed to observe the UI save acknowledgement within its existing bound and API36 crashed in Trichrome during the Alarm-sound test. The new recovery-document regression itself passed on API36. The candidate remains withheld; API33 success does not erase the other failures. Test-only diagnostics now record boolean save state and fixed Alarm-test phase labels, without exposing task content or weakening any acceptance condition. A repeat SSH probe at 12:03 UTC connected to the documented SSH service/banner but timed out before authenticated command execution, exit255; no remote mutation occurred.
+
 The new internal Android run `38048447047` completed 24 tests with one failure in the new service-worker-recovery regression: no private recovery transition was observed. It is **not** a passing run. Its fixture used a null history URL and competed with the initial navigation. The test now stops only the test navigation, uses an explicit same-origin history URL, proves the synthetic document actually loaded and collects URL/readiness diagnostics on failure. Product code and signed candidate bytes are unchanged by this test correction; the next observed result, not this hypothesis, determines acceptance.
+
+Exact run `38049023709` reproduced the fixture failure on all three APIs; API36 additionally reproduced the same native Trichrome crash during the Alarm-sound test. All failure evidence is retained and its temporary asset capability was removed. Corrected-fixture internal run `38049440317` then passed all 24 native tests and its smoke checks; the main deliverable remains byte-identical (`31f5a0…43ba0`). Exact-file acceptance with the rebuilt, separately signed test APK is run `38050047626`, not the failed run.
+
+The public Staging endpoint was reachable from the October 10 GitHub emulators: a normal TLS-validated navigation rendered the real Tasks page at `https://personalagent.wealthos.ir:8443/` on API33/34 before instrumentation. Thus the development VM's connection timeouts are **not** evidence of a universal server outage. Its current patched backend version, actual GPT budget and new deployment remain unverified from this VM. The administrator's connectivity task is specifically the existing development-host HTTPS/SSH path, not an instruction to change global CDN/DNS.
 
 | Gate | Evidence / responsible party |
 | --- | --- |
