@@ -1,28 +1,34 @@
-# tia 1.0.45 — candidate acceptance in progress, 10 October 2026
+# tia 1.0.45 — withheld after failed acceptance, 10 October 2026
 
 The personal-use scope excludes store publication and deliberately defers email password recovery. Existing recovery code and authentication protections remain; no email service, credential or charge was created. Keep the account password in a trusted password manager. A remembered session is not a password backup; do not send the password in chat.
 
-## Superseded candidate (withheld)
+## Current candidate (withheld pending acceptance)
 
 | Field | Value |
 | --- | --- |
 | App | tia / 1.0.45 / code45 |
 | Package | `ir.wealthos.personalagent.stable40` |
-| Product source | `9129da8d78c13a777d31b6b7707eb3735410fdba` |
-| QA source | `e6b9fd96165c0a5270795ac46eb6da7f3fff0c34` (separate instrumentation; main APK unchanged) |
+| Product source | `953fe3071d73143968a66eaa00b171ee2ee92f37` |
+| Latest native-test source (separate test APK) | `def3725337dfb12a6b86da1b855b3487825b09ce` |
 | APK bytes | 59,372,659 |
-| APK SHA-256 | `31f5a0432008e0db08fddd2046ae7651f572eb60814f3c8a6b428fee1d543ba0` |
+| APK SHA-256 | `67c010c02f194adc9b90ecec6195720bef2da3612d287c51e3ce87333bd859c3` |
 | Permanent signing certificate SHA-256 | `abfd097ac3ab887977fb58505b5ae0e40c1fc5b56bf210597476105278f1e3cf` |
 | Embedded HTTPS endpoint | `https://personalagent.wealthos.ir:8443` |
 
-These bytes passed only Android 13, not the complete matrix, and are withheld. A subsequent evidenced SystemBars lifecycle fix requires new product bytes and a fresh complete Android 13/14/16 matrix; identity below is historical, not a download recommendation. Instrumentation/diagnostic APKs must not be installed on the owner's phone or published as the app. The initial 45 candidate (`094697…895d2`) also failed acceptance; version number alone does not identify the file.
+The current signed bytes also bound unresolved account loading. Exact-file run `38057534839` passed API33 but failed API34's UI-acknowledgement bound and API36's teardown/native sequence; that failed result is retained. Test-only source `def3725337dfb12a6b86da1b855b3487825b09ce` waits for actual window detachment instead of assuming Activity destruction proves it. The API34/36 recheck [38059537215](https://github.com/tparkhondeh/personalAgent/actions/runs/38059537215) **passed API34, including all26 native tests, but failed API36 with a native crash**. The hierarchy-removal test now passed there; it did not resolve the separate crash. Thus these exact main bytes have passing API33 and API34 branches, but not API36 acceptance. All five main/test/diagnostic hashes and signatures were verified; the **main APK bytes are unchanged**. The temporary download capability was removed and no funded GPT fixture was enabled. No public APK45 was released or recommended. Preceding run `38054978526` also failed. Successes from other main APK hashes cannot be transferred to this candidate. Instrumentation/diagnostic APKs must not be installed on the owner's phone or published as the app. Version number alone does not identify the file.
 
 ## What changed and what passed
 
 - Capacitor 8.5.1, Next 16.3.8, sharp 0.35.5 and source-map-js 1.2.2 close the newly reported dependency advisories; the production audit reports zero **known** advisories. This is not a guarantee against every security defect. Older APK44 does not contain the native patch.
 - The disabled email-recovery UI no longer promises email delivery and explains the limitation. Login/security and future recovery code remain intact.
 - Android now recognizes nonempty service-worker recovery documents (including the deployed legacy form) and enters the private recovery instead of trapping the user on the web-only retry page. Delayed checks are fenced after activity closure or document replacement. No account/cache/storage clearing was added.
-- Type Check, Lint, optimized Build and 1,471 tests in 107 files passed. [Product CI](https://github.com/tparkhondeh/personalAgent/actions/runs/38048447061); verified Linux server package SHA-256 `ee641189fab076db5d2f4dc406716dd9405d677a89e2f23e768e45996b39a882`, embedded commit matches product source above. The package is not deployed.
+- SystemBars now rejects queued document-readiness/CSS callbacks after its Activity closes. This addresses an observed invalid destroyed-WebView call; it is not by itself proof of the root cause or resolution of the separate native Trichrome crash.
+- WebView is removed from its parent before Capacitor destroys it, following Android's lifecycle contract. No cache, cookie, history or database clearing is added. All 26 internal Android tests passed in [38054324682](https://github.com/tparkhondeh/personalAgent/actions/runs/38054324682); the exact-release matrix remains separate.
+- Unresolved account loading now keeps a bounded 20-second deadline. Web/PWA then offers a same-URL retry without switching to guest, clearing data or bypassing authentication. Android recognizes both legacy and explicitly marked loaders, retains the original navigation deadline and can enter private recovery. Ordinary task text mentioning loading does not trigger it.
+- Type Check, Lint, optimized Build and 1,486 tests in 110 files passed in [product CI](https://github.com/tparkhondeh/personalAgent/actions/runs/38056778703). The diagnostic-only follow-up passed 1,488 tests in 111 files in [CI](https://github.com/tparkhondeh/personalAgent/actions/runs/38057285372). Linux server packages are prepared, not deployed. Earlier verified package/hash in the detailed report is historical, not the current product.
+- Test-only follow-up CI38058835668 passed1,489 tests/111 files; matching internal debug Android38058835740 passed all26 native tests and smoke. These do not override the failed exact-release API36 branch. Isolated Alarm tests passed online and offline in attempt8; in attempt9 the online isolated process also crashed, while offline passed. The native root cause is not conclusively established; this is not evidence that Alarm, networking or the WebView vendor alone is responsible.
+- API34 current cold-start, bundled fallback and upgrade-preserved screenshots were opened and inspected: real app content, no system-error overlay. API33 cold-start, dark settings and TLS recovery were also inspected. This representative review is not full visual/phone acceptance; API36 remains failed.
+- Current verified Linux package: 75,122,572bytes, SHA-256 `5fa6a5544096c73b7427c07da032584302c5cea861f157ad74329aa66bce933e`, embedded source `a5e0d140061b7fd9cc301dd28c43bb2f50dad830`. The optimized local build is running on loopback3001 and both desktop/mobile stalled-session browser cases passed on it, including visual inspection. This is not an update of public Staging or the installed phone.
 - Real-browser desktop/mobile: login to Tasks, unavailable recovery, an editable proposal with three reminders, no effects before confirmation, double-click without duplicate, reload, completion with all three future reminders cancelled and logout passed with isolated synthetic data. Manual title correction was needed for one conversational phrase; local understanding is not advertised as perfect.
 - Local source/data backup and separate restore, synthetic encrypted backup/restore, and built-server HTTP/auth/cache/data-isolation checks passed. Real owner records were not cleared. No new OpenAI expenditure occurred; no second local budget was enabled.
 
@@ -36,6 +42,7 @@ The connected Android screen uses the server account. Bundled offline tasks live
 
 | Gate | Necessary action |
 | --- | --- |
+| Exact APK acceptance | Agent/Android engineering: resolve the failed release-byte checks and finish the same-file matrix and visual review. No failed/diagnostic build may be relabelled final. |
 | Reachable, patched server | Server/network administrator restores reachability of the existing HTTPS/SSH paths **from the development host**, without bypassing TLS. Then deploy the verified Staging package only after fresh data/settings/cost backup and separate restore, and recheck public assets, consent and the single $2/month budget authority. No shared-domain or Production change was made. |
 | Off-server **data** backup | Owner/admin confirms transfer of the encrypted **data** package to the approved laptop folder and establishes a recurring copy/retention routine. The already copied signing-key ZIP is different; laptop restore/custody of user data is not confirmed. |
 | Real-phone acceptance | Owner performs the short checklist below. Emulators and permission screenshots do not prove delivery under the phone's real background restrictions. |
