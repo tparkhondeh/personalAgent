@@ -188,6 +188,25 @@ public class ApplicationContextTest {
     }
 
     @Test
+    public void webViewIsRemovedFromItsParentDuringActivityTeardown() {
+        AtomicInteger removals = new AtomicInteger();
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> {
+                android.webkit.WebView view = activity.getBridge().getWebView();
+                assertTrue(view.getParent() instanceof android.view.ViewGroup);
+                ((android.view.ViewGroup) view.getParent()).setOnHierarchyChangeListener(new android.view.ViewGroup.OnHierarchyChangeListener() {
+                    @Override public void onChildViewAdded(android.view.View parent, android.view.View child) {}
+                    @Override public void onChildViewRemoved(android.view.View parent, android.view.View child) {
+                        if (child == view) removals.incrementAndGet();
+                    }
+                });
+            });
+        }
+        // Observe hierarchy removal, without calling a destroyed WebView.
+        assertEquals(1, removals.get());
+    }
+
+    @Test
     public void bundledRecoveryPageContainsRealPersianActions() throws Exception {
         Context appContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
         String recovery;

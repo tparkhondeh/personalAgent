@@ -409,6 +409,18 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
+    public void onDetachedFromWindow() {
+        // Capacitor destroys the WebView in super.onDetachedFromWindow().
+        // Android requires removing the WebView from its parent first; removing
+        // only the WebView's children does not remove the WebView itself.
+        WebView webView = getBridge() == null ? null : getBridge().getWebView();
+        if (webView != null && webView.getParent() instanceof ViewGroup parent) {
+            parent.removeView(webView);
+        }
+        super.onDetachedFromWindow();
+    }
+
+    @Override
     public void onDestroy() {
         closing = true;
         documentGeneration++;

@@ -40,4 +40,10 @@ describe('the actual Android content check expression', () => {
     const destroy = activity.slice(activity.indexOf('public void onDestroy()'));
     expect(destroy.indexOf('closing = true')).toBeLessThan(destroy.indexOf('super.onDestroy()'));
   });
+  it('removes the WebView itself before Capacitor destroys it on window detachment', () => {
+    const detach = activity.slice(activity.indexOf('public void onDetachedFromWindow()'), activity.indexOf('public void onDestroy()'));
+    expect(detach).toContain('webView.getParent() instanceof ViewGroup parent');
+    expect(detach.indexOf('parent.removeView(webView);')).toBeLessThan(detach.indexOf('super.onDetachedFromWindow();'));
+    expect(detach).not.toMatch(/clearCache|clearHistory|removeAllViews|loadUrl|removeAllCookies/);
+  });
 });
