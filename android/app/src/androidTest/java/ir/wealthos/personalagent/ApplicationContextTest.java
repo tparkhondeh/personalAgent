@@ -103,10 +103,16 @@ public class ApplicationContextTest {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             for (boolean marker : new boolean[] { false, true }) {
                 CountDownLatch recovered = new CountDownLatch(1);
+                CountDownLatch fixtureLoaded = new CountDownLatch(1);
                 AtomicReference<com.getcapacitor.WebViewListener> registered = new AtomicReference<>();
+                AtomicReference<String> observed = new AtomicReference<>("no page callback");
                 scenario.onActivity(activity -> {
                     com.getcapacitor.WebViewListener listener = new com.getcapacitor.WebViewListener() {
                         @Override public void onPageLoaded(android.webkit.WebView view) {
+                            observed.set("loaded=" + view.getUrl());
+                            view.evaluateJavascript("document.title", title -> {
+                                if ("\"tia | اتصال برقرار نیست\"".equals(title)) fixtureLoaded.countDown();
+                            });
                             if (activity.getBridge().getErrorUrl().equals(view.getUrl())) recovered.countDown();
                         }
                     };
@@ -115,9 +121,28 @@ public class ApplicationContextTest {
                     String html = "<!doctype html><html" + (marker ? " data-tia-recovery=\"network-v1\"" : "")
                         + "><head><title>tia | اتصال برقرار نیست</title></head><body><main><h1>اتصال برقرار نیست</h1>"
                         + "<p>برای نمایش نسخه به‌روز برنامه، اتصال به سرور لازم است.</p><a href=\"/\">تلاش دوباره</a></main></body></html>";
-                    activity.getBridge().getWebView().loadDataWithBaseURL(activity.getBridge().getAppUrl(), html, "text/html", "UTF-8", null);
+                    android.webkit.WebView view = activity.getBridge().getWebView();
+                    view.stopLoading();
+                    // A null history URL makes this fixture about:blank, not a
+                    // service-worker navigation at the configured application URL.
+                    String fixtureUrl = activity.getBridge().getAppUrl() + "/__recovery_qa_" + marker;
+                    view.loadDataWithBaseURL(fixtureUrl, html, "text/html", "UTF-8", fixtureUrl);
                 });
-                assertTrue("Service-worker recovery did not reach bundled recovery", recovered.await(15, TimeUnit.SECONDS));
+                assertTrue("Recovery fixture never loaded: " + observed.get(), fixtureLoaded.await(10, TimeUnit.SECONDS));
+                boolean didRecover = recovered.await(15, TimeUnit.SECONDS);
+                if (!didRecover) {
+                    CountDownLatch inspected = new CountDownLatch(1);
+                    scenario.onActivity(activity -> {
+                        android.webkit.WebView view = activity.getBridge().getWebView();
+                        String url = view.getUrl();
+                        view.evaluateJavascript(MainActivity.CONTENT_READY_SCRIPT, ready -> {
+                            observed.set("url=" + url + "; contentReady=" + ready);
+                            inspected.countDown();
+                        });
+                    });
+                    assertTrue("Recovery diagnostic timed out", inspected.await(5, TimeUnit.SECONDS));
+                }
+                assertTrue("Service-worker recovery did not reach bundled recovery: " + observed.get(), didRecover);
                 scenario.onActivity(activity -> {
                     assertEquals(activity.getBridge().getErrorUrl(), activity.getBridge().getWebView().getUrl());
                     activity.getBridge().removeWebViewListener(registered.get());

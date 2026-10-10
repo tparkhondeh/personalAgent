@@ -43,6 +43,8 @@ The separate internal debug run `38046532741` attempt1 also crashed in Trichrome
 
 ## Independent remaining gates
 
+The new internal Android run `38048447047` completed 24 tests with one failure in the new service-worker-recovery regression: no private recovery transition was observed. It is **not** a passing run. Its fixture used a null history URL and competed with the initial navigation. The test now stops only the test navigation, uses an explicit same-origin history URL, proves the synthetic document actually loaded and collects URL/readiness diagnostics on failure. Product code and signed candidate bytes are unchanged by this test correction; the next observed result, not this hypothesis, determines acceptance.
+
 | Gate | Evidence / responsible party |
 | --- | --- |
 | Current secure public connection and deployment | Server/network administrator: restore reachable documented SSH and public 8443 from client networks without bypassing TLS or changing shared routing. Agent: deploy only a verified Staging package after fresh server/data/budget backup and separate restore. Production remains unchanged. |
