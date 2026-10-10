@@ -193,8 +193,9 @@ public class ApplicationContextTest {
     }
 
     @Test
-    public void webViewIsRemovedFromItsParentDuringActivityTeardown() {
+    public void webViewIsRemovedFromItsParentDuringActivityTeardown() throws Exception {
         AtomicInteger removals = new AtomicInteger();
+        CountDownLatch detached = new CountDownLatch(1);
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {
                 android.webkit.WebView view = activity.getBridge().getWebView();
@@ -202,12 +203,14 @@ public class ApplicationContextTest {
                 ((android.view.ViewGroup) view.getParent()).setOnHierarchyChangeListener(new android.view.ViewGroup.OnHierarchyChangeListener() {
                     @Override public void onChildViewAdded(android.view.View parent, android.view.View child) {}
                     @Override public void onChildViewRemoved(android.view.View parent, android.view.View child) {
-                        if (child == view) removals.incrementAndGet();
+                        if (child == view) { removals.incrementAndGet(); detached.countDown(); }
                     }
                 });
             });
         }
-        // Observe hierarchy removal, without calling a destroyed WebView.
+        // ActivityScenario.close waits for DESTROYED, not window detachment.
+        // Observe the actual hierarchy callback, never touch a destroyed WebView.
+        assertTrue("WebView hierarchy removal was not observed", detached.await(5, TimeUnit.SECONDS));
         assertEquals(1, removals.get());
     }
 

@@ -65,4 +65,11 @@ describe('the actual Android content check expression', () => {
     expect(detach.indexOf('parent.removeView(webView);')).toBeLessThan(detach.indexOf('super.onDetachedFromWindow();'));
     expect(detach).not.toMatch(/clearCache|clearHistory|removeAllViews|loadUrl|removeAllCookies/);
   });
+  it('observes asynchronous hierarchy removal in the native regression, without synthesizing it', () => {
+    const source = readFileSync('android/app/src/androidTest/java/ir/wealthos/personalagent/ApplicationContextTest.java', 'utf8');
+    const test = source.slice(source.indexOf('public void webViewIsRemovedFromItsParentDuringActivityTeardown'), source.indexOf('public void bundledRecoveryPageContainsRealPersianActions'));
+    expect(test).toContain('detached.await(5, TimeUnit.SECONDS)');
+    expect(test).toContain('assertEquals(1, removals.get())');
+    expect(test).not.toMatch(/removeView\(|\.destroy\(|\.onDetachedFromWindow\(/);
+  });
 });
