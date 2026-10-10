@@ -1,8 +1,8 @@
 diff --git a/capacitor/src/main/java/com/getcapacitor/Bridge.java b/capacitor/src/main/java/com/getcapacitor/Bridge.java
-index d4995fbbc9e4d3f0db7ac0330ef78e2f3547b055..69d22b65d3bc2f4e18adb39456ec23b2190f71b6 100644
+index 0aa27d39ee482b8cb84d0eb97f14e73feb2f14d3..70ca58c106d1d31b67de9dfe48833235453cf170 100644
 --- a/capacitor/src/main/java/com/getcapacitor/Bridge.java
-+++ b/capacitor/src/main/java/com/getcapacitor/Bridge.java	
-@@ -879,11 +879,13 @@ public class Bridge {
++++ b/capacitor/src/main/java/com/getcapacitor/Bridge.java
+@@ -885,11 +885,13 @@ public class Bridge {
      }
  
      public void triggerJSEvent(final String eventName, final String target) {
@@ -21,7 +21,7 @@ index d4995fbbc9e4d3f0db7ac0330ef78e2f3547b055..69d22b65d3bc2f4e18adb39456ec23b2
 diff --git a/capacitor/src/main/java/com/getcapacitor/cordova/MockCordovaWebViewImpl.java b/capacitor/src/main/java/com/getcapacitor/cordova/MockCordovaWebViewImpl.java
 index 020c1457a18360a1f9f85d217ca6051a003051e8..7af988177ff2b772652f1c28861f1319f9d4a036 100644
 --- a/capacitor/src/main/java/com/getcapacitor/cordova/MockCordovaWebViewImpl.java
-+++ b/capacitor/src/main/java/com/getcapacitor/cordova/MockCordovaWebViewImpl.java	
++++ b/capacitor/src/main/java/com/getcapacitor/cordova/MockCordovaWebViewImpl.java
 @@ -190,7 +190,7 @@ public class MockCordovaWebViewImpl implements CordovaWebView {
      }
  
@@ -31,3 +31,37 @@ index 020c1457a18360a1f9f85d217ca6051a003051e8..7af988177ff2b772652f1c28861f1319
      }
  
      @Override
+diff --git a/capacitor/src/main/java/com/getcapacitor/plugin/SystemBars.java b/capacitor/src/main/java/com/getcapacitor/plugin/SystemBars.java
+index b3c95916a74f19bc50bcd81f7529e444c9f109ca..ea6aa94b75d8094a30891205d022817ef397d4d7 100644
+--- a/capacitor/src/main/java/com/getcapacitor/plugin/SystemBars.java
++++ b/capacitor/src/main/java/com/getcapacitor/plugin/SystemBars.java
+@@ -152,11 +152,20 @@ public class SystemBars extends Plugin {
+         call.resolve();
+     }
+ 
++    private boolean isActivityUnavailable() {
++        return getActivity() == null || getActivity().isFinishing() || getActivity().isDestroyed();
++    }
++
+     @JavascriptInterface
+     public void onDOMReady() {
++        if (isActivityUnavailable()) return;
+         if (INSETS_HANDLING_CSS.equals(insetsHandling)) {
+             getActivity().runOnUiThread(() -> {
++                // Document readiness may arrive after the owning Activity was
++                // destroyed. Check inside the queued runnable and its JS reply.
++                if (isActivityUnavailable()) return;
+                 this.bridge.getWebView().evaluateJavascript(viewportMetaJSFunction, (res) -> {
++                    if (isActivityUnavailable()) return;
+                     hasViewportCover = res.equals("true");
+ 
+                     getBridge().getWebView().requestApplyInsets();
+@@ -257,7 +266,7 @@ public class SystemBars extends Plugin {
+ 
+         // Execute JavaScript to inject the CSS
+         getBridge().executeOnMainThread(() -> {
+-            if (bridge != null && bridge.getWebView() != null) {
++            if (!isActivityUnavailable() && bridge != null && bridge.getWebView() != null) {
+                 String script = String.format(
+                     Locale.US,
+                     """

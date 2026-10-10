@@ -152,6 +152,21 @@ public class ApplicationContextTest {
     }
 
     @Test
+    public void lateSystemBarsReadinessRejectsDestroyedActivity() throws Exception {
+        AtomicReference<com.getcapacitor.plugin.SystemBars> bars = new AtomicReference<>();
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> bars.set((com.getcapacitor.plugin.SystemBars)
+                activity.getBridge().getPlugin("SystemBars").getInstance()));
+        }
+        assertNotNull(bars.get());
+        java.lang.reflect.Method unavailable = com.getcapacitor.plugin.SystemBars.class.getDeclaredMethod("isActivityUnavailable");
+        unavailable.setAccessible(true);
+        assertEquals(true, unavailable.invoke(bars.get()));
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> bars.get().onDOMReady());
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+    }
+
+    @Test
     public void bundledRecoveryPageContainsRealPersianActions() throws Exception {
         Context appContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
         String recovery;

@@ -14,7 +14,7 @@ overrides:
   sharp@<0.35.5: 0.35.5
 
 patchedDependencies:
-  '@capacitor/android@8.5.1': b522f3b1d92b17b18974cbed523f86ad74c25bd45554ed4bf85419ee801dbd85
+  '@capacitor/android@8.5.1': 7abcb065becb52dfeed5c708f7b6a4f688da307032a8acd5773e6786be7218d7
   '@capacitor/local-notifications@8.3.1': 2d69c50c7efa987f7257e733487094237e1ad606eda93188a0e4e023e41ec9a6
 
 importers:
@@ -29,7 +29,7 @@ importers:
         version: 1.7.2(@better-auth/core@1.7.2(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.4.0(zod@4.5.2))(jose@6.2.10)(kysely@0.29.5)(nanostores@1.5.2))(@better-auth/utils@0.4.2)(@prisma/client@7.10.0(prisma@7.10.0(@types/node@20.19.43)(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(better-sqlite3@12.11.1)(magicast@0.5.4)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@5.9.3))(typescript@5.9.3))(prisma@7.10.0(@types/node@20.19.43)(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(better-sqlite3@12.11.1)(magicast@0.5.4)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@5.9.3))
       '@capacitor/android':
         specifier: 8.5.1
-        version: 8.5.1(patch_hash=b522f3b1d92b17b18974cbed523f86ad74c25bd45554ed4bf85419ee801dbd85)(@capacitor/core@8.5.1)
+        version: 8.5.1(patch_hash=7abcb065becb52dfeed5c708f7b6a4f688da307032a8acd5773e6786be7218d7)(@capacitor/core@8.5.1)
       '@capacitor/app':
         specifier: 8.1.1
         version: 8.1.1(@capacitor/core@8.5.1)
@@ -3996,7 +3996,7 @@ snapshots:
 
   '@better-fetch/fetch@1.3.1': {}
 
-  '@capacitor/android@8.5.1(patch_hash=b522f3b1d92b17b18974cbed523f86ad74c25bd45554ed4bf85419ee801dbd85)(@capacitor/core@8.5.1)':
+  '@capacitor/android@8.5.1(patch_hash=7abcb065becb52dfeed5c708f7b6a4f688da307032a8acd5773e6786be7218d7)(@capacitor/core@8.5.1)':
     dependencies:
       '@capacitor/core': 8.5.1
 
