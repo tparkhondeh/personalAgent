@@ -113,7 +113,9 @@ public class ApplicationContextTest {
                 Thread.sleep(100);
             } while (android.os.SystemClock.elapsedRealtime() < initialDeadline);
             assertTrue("Initial private recovery document did not settle", initialReady);
-            for (boolean marker : new boolean[] { false, true }) {
+            for (String fixture : new String[] { "legacy", "marked", "pending" }) {
+                boolean marker = "marked".equals(fixture);
+                boolean pending = "pending".equals(fixture);
                 CountDownLatch recovered = new CountDownLatch(1);
                 CountDownLatch fixtureLoaded = new CountDownLatch(1);
                 AtomicReference<com.getcapacitor.WebViewListener> registered = new AtomicReference<>();
@@ -142,15 +144,18 @@ public class ApplicationContextTest {
                     String html = "<!doctype html><html" + (marker ? " data-tia-recovery=\"network-v1\"" : "")
                         + "><head><title>tia | اتصال برقرار نیست</title></head><body><main><h1>اتصال برقرار نیست</h1>"
                         + "<p>برای نمایش نسخه به‌روز برنامه، اتصال به سرور لازم است.</p><a href=\"/\">تلاش دوباره</a></main></body></html>";
+                    if (pending) html = "<!doctype html><html><head><title>tia | اتصال برقرار نیست</title></head>"
+                        + "<body><main class=\"session-loading\" role=\"status\">در حال آماده‌سازی tia…</main></body></html>";
                     android.webkit.WebView view = activity.getBridge().getWebView();
                     view.stopLoading();
                     // A null history URL makes this fixture about:blank, not a
                     // service-worker navigation at the configured application URL.
-                    String fixtureUrl = activity.getBridge().getAppUrl() + "/__recovery_qa_" + marker;
+                    String fixtureUrl = activity.getBridge().getAppUrl() + "/__recovery_qa_" + fixture;
                     view.loadDataWithBaseURL(fixtureUrl, html, "text/html", "UTF-8", fixtureUrl);
                 });
                 assertTrue("Recovery fixture never loaded: " + observed.get(), fixtureLoaded.await(10, TimeUnit.SECONDS));
-                boolean didRecover = recovered.await(15, TimeUnit.SECONDS);
+                if (pending) assertFalse("A pending session must have a grace period", recovered.await(4, TimeUnit.SECONDS));
+                boolean didRecover = recovered.await(pending ? 25 : 15, TimeUnit.SECONDS);
                 if (!didRecover) {
                     CountDownLatch inspected = new CountDownLatch(1);
                     scenario.onActivity(activity -> {

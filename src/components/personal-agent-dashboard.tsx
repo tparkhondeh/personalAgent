@@ -1,5 +1,6 @@
 "use client";
 import { TiaMark } from "@/components/tia-mark";
+import { SessionLoading } from "@/components/session-loading";
 import { PoemCard } from "@/components/poem-card";
 import { PersianDateField, Time24Field } from "@/components/persian-date-time";
 import { planInstant } from "@/lib/agent-planner";
@@ -88,7 +89,7 @@ function reminderOffsetsLabel(offsets: readonly number[]) {
 
 export function PersonalAgentDashboard() {
   const { data: session, isPending } = authClient.useSession();
-  if (isPending) return <main className="session-loading" role="status">در حال آماده‌سازی tia…</main>;
+  if (isPending) return <SessionLoading />;
   // A new account boundary discards private in-memory state and late responses.
   // An authenticated component must never become the guest localStorage writer.
   return <SessionDashboard key={session?.user.id ? `user:${session.user.id}` : "guest"} session={session} />;

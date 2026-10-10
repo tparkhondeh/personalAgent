@@ -5,7 +5,7 @@ describe("dashboard account boundary", () => {
   const source = readFileSync("src/components/personal-agent-dashboard.tsx", "utf8");
   it("waits for authentication before mounting the guest persistence effects", () => {
     const wrapper = source.split("export function PersonalAgentDashboard()")[1].split("function SessionDashboard")[0];
-    expect(wrapper).toContain('if (isPending) return <main className="session-loading"');
+    expect(wrapper).toContain('if (isPending) return <SessionLoading />;');
     expect(wrapper).toContain('key={session?.user.id ? `user:${session.user.id}` : "guest"}');
     expect(wrapper).not.toContain("localStorage.setItem(");
   });

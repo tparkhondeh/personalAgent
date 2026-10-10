@@ -45,6 +45,10 @@ public class MainActivity extends BridgeActivity {
     static final String CONTENT_READY_SCRIPT = "Boolean(document.body && document.body.innerText && document.body.innerText.trim().length > 1"
         + " && document.documentElement.getAttribute('data-tia-recovery') !== 'network-v1'"
         + " && !(document.title === 'tia | اتصال برقرار نیست' && document.querySelector('main > h1')?.textContent.trim() === 'اتصال برقرار نیست' && document.querySelector('main > a[href=\"/\"]')?.textContent.trim() === 'تلاش دوباره'))";
+    // Legacy deployed loaders have no marker. Require the exact main/status and
+    // whole document text; a task which merely mentions loading is not a loader.
+    static final String CONTENT_PENDING_SCRIPT = "Boolean(document.querySelector('main[data-tia-loading=\"session-v1\"]')"
+        + " || (document.querySelector('main.session-loading[role=\"status\"]') && document.body?.innerText.trim() === 'در حال آماده‌سازی tia…'))";
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private Runnable loadTimeout;
@@ -159,7 +163,6 @@ public class MainActivity extends BridgeActivity {
             @Override
             public void onPageCommitVisible(WebView view, String url) {
                 if (closing || isFinishing() || isDestroyed()) return;
-                cancelLoadTimeout();
                 hideLoadingOverlay();
                 scheduleContentCheck(view, url);
             }
@@ -167,7 +170,6 @@ public class MainActivity extends BridgeActivity {
             @Override
             public void onPageLoaded(WebView view) {
                 if (closing || isFinishing() || isDestroyed()) return;
-                cancelLoadTimeout();
                 hideLoadingOverlay();
                 scheduleContentCheck(view, view.getUrl());
             }
@@ -270,10 +272,14 @@ public class MainActivity extends BridgeActivity {
         final long generation = documentGeneration;
         contentCheck = () -> {
             if (closing || isFinishing() || isDestroyed() || generation != documentGeneration) return;
-            webView.evaluateJavascript(CONTENT_READY_SCRIPT, result -> {
+            webView.evaluateJavascript(CONTENT_PENDING_SCRIPT + " ? 'pending' : (" + CONTENT_READY_SCRIPT + " ? 'ready' : 'recovery')", result -> {
                 if (closing || isFinishing() || isDestroyed() || generation != documentGeneration
                         || !java.util.Objects.equals(url, webView.getUrl())) return;
-                if (!"true".equals(result) && !isRecoveryPage(webView.getUrl())) showRecoveryPage();
+                if ("\"ready\"".equals(result)) cancelLoadTimeout();
+                else if ("\"pending\"".equals(result)) {
+                    // Poll without extending the original navigation deadline.
+                    scheduleContentCheck(webView, url);
+                } else if (!isRecoveryPage(webView.getUrl())) showRecoveryPage();
             });
         };
         mainHandler.postDelayed(contentCheck, CONTENT_CHECK_DELAY_MS);
