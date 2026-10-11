@@ -1,4 +1,16 @@
-# tia 1.0.45 — withheld after failed acceptance, 10 October 2026
+# tia 1.0.45 — current acceptance, 11 October 2026
+
+## Latest candidate — not yet released
+
+Source `0c9b0e7247b13256d8316e72208a1e0c0c40faac`, main APK SHA256 `0fe8dcf96f513c3c54d76232d7b3f3edd16d1ebf9dd307aa3a3f4ca49159a1a2`, supersedes the historical candidates below. App `tia`, version1.0.45/code45, package `ir.wealthos.personalagent.stable40`, existing certificate and stable8443 endpoint remain unchanged. No data or key was cleared or replaced.
+
+Capacitor8.5.2's official SystemBars lifecycle correction plus guarded/removed owned callbacks addresses concrete lifetime defects. Appearance messages are fenced after close; loading stops before teardown. A three-cycle Alarm recreation test now detects a failure hidden by isolated single-case tests. Both old public44 and the previous45 crashed in that online stress case on API36, while offline passed; this does not prove the exact native root cause. See [preserved diagnostic history](ANDROID16_DIAGNOSIS_2026-10-11.md).
+
+[CI38141897117](https://github.com/tparkhondeh/personalAgent/actions/runs/38141897117) passed Type Check, Lint,1504 tests/115files and Build. Release build38141901096, internal debug Android38141897139 and local verification of all five signed files passed. [Exact-file acceptance38142565657](https://github.com/tparkhondeh/personalAgent/actions/runs/38142565657) is pending. New closure fences alone did not resolve the prior native failure; the current candidate additionally releases the document before later native/window destruction, without clearing storage. The previous71620e2 candidate passed34/30native cases but failed33's later connected launch and36's repeated native case; those failures remain evidence, not current-file acceptance. No owner-phone acceptance, public APK45 or current GPT acceptance is claimed.
+
+The [administrator connection report](SERVER_ACCESS_2026-10-11.md) separates a working TCP path from incomplete TLS and pre-auth SSH key exchange, through this Windows host's `singbox_tun`. No server/CDN/security setting was changed and no paid GPT call was made. Previous server/GPT success is not current connectivity proof. Email recovery remains intentionally deferred; user-data off-server backup and real-phone acceptance remain independent of signing-key custody.
+
+## Historical 10 October candidate and evidence (not the current file)
 
 The personal-use scope excludes store publication and deliberately defers email password recovery. Existing recovery code and authentication protections remain; no email service, credential or charge was created. Keep the account password in a trusted password manager. A remembered session is not a password backup; do not send the password in chat.
 
