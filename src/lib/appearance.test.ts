@@ -26,8 +26,22 @@ describe("explicit saved appearance",()=>{
   });
   it('limits the native bridge to main frames and trusted origins',()=>{
     const native=readFileSync('android/app/src/main/java/ir/wealthos/personalagent/AppearanceController.java','utf8');
-    expect(native).toContain('!mainFrame || !origins.contains(origin.toString())');
+    expect(native).toContain('!mainFrame || !origins.contains(origin)');
     expect(native).toContain('WebViewFeature.DOCUMENT_START_SCRIPT');
     expect(native).not.toContain('Set.of("*")');
+  });
+  it('fences late native appearance messages before every state or WebView mutation',()=>{
+    const native=readFileSync('android/app/src/main/java/ir/wealthos/personalagent/AppearanceController.java','utf8');
+    const accept=native.slice(native.indexOf('void acceptMessage('),native.indexOf('String bootstrap()'));
+    expect(accept.indexOf('if (destroyed) return;')).toBeLessThan(accept.indexOf('getSharedPreferences'));
+    expect(native).toContain('destroyed = true;');
+    expect(native).toContain('seed = null;');
+  });
+  it('cancels navigation before bridge teardown without deleting storage',()=>{
+    const native=readFileSync('android/app/src/main/java/ir/wealthos/personalagent/MainActivity.java','utf8');
+    const close=native.slice(native.indexOf('public void onDestroy()'));
+    expect(close.indexOf('stopLoading()')).toBeLessThan(close.indexOf('appearance.destroy()'));
+    expect(close.indexOf('closing = true')).toBeLessThan(close.indexOf('stopLoading()'));
+    expect(close).not.toMatch(/clearCache|clearHistory|deleteAllData|removeAllCookies/);
   });
 });

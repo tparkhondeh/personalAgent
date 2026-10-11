@@ -104,6 +104,7 @@ public class MainActivity extends BridgeActivity {
     }
 
     private void applyAppearance() {
+        if (closing || isFinishing() || isDestroyed()) return;
         int background = appearanceColor(R.color.appearance_light_bg, R.color.appearance_dark_bg);
         if (getBridge() != null) getBridge().getWebView().setBackgroundColor(background);
         if (loadingOverlay != null) loadingOverlay.setBackgroundColor(background);
@@ -431,6 +432,12 @@ public class MainActivity extends BridgeActivity {
         closing = true;
         documentGeneration++;
         mainHandler.removeCallbacks(refreshAppearance);
+        // Cancel in-flight navigation while the WebView is still alive. Activity
+        // teardown must not leave a network load racing listener/bridge removal.
+        // This does not clear cookies, Web Storage, task transactions or alarms.
+        if (getBridge() != null && getBridge().getWebView() != null) {
+            getBridge().getWebView().stopLoading();
+        }
         if (appearance != null) appearance.destroy();
         if (taskStorage != null) taskStorage.destroy();
         cancelLoadTimeout();

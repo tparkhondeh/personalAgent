@@ -215,6 +215,37 @@ public class ApplicationContextTest {
     }
 
     @Test
+    public void closedAppearanceControllerIgnoresLateMessagesAndRepeatedClose() {
+        AtomicInteger changes = new AtomicInteger();
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+            android.content.SharedPreferences prefs = context.getSharedPreferences("hamrah_appearance", Context.MODE_PRIVATE);
+            java.util.Map<String, ?> before = new java.util.HashMap<>(prefs.getAll());
+            android.webkit.WebView view = new android.webkit.WebView(context);
+            AppearanceController controller = new AppearanceController(context, view,
+                java.util.Collections.singleton("https://localhost"), changes::incrementAndGet);
+            controller.destroy();
+            view.destroy();
+            // No WebView or preference call is legal after the controller closes.
+            controller.acceptMessage("dark", "https://localhost", true);
+            controller.acceptMessage("light", "https://localhost", true);
+            controller.destroy();
+            assertEquals(before, prefs.getAll());
+            assertEquals(0, changes.get());
+        });
+    }
+
+    @Test
+    public void repeatedAlarmActivityRecreationKeepsDataAndDoesNotCrash() throws Exception {
+        // Exercise several real create/recreate/detach cycles in ONE process.
+        // Isolated single-test success must not hide accumulated lifecycle faults.
+        for (int cycle = 0; cycle < 3; cycle++) {
+            alarmSoundBridgePersistsChoiceAndPreservesPendingChannels();
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+        }
+    }
+
+    @Test
     public void bundledRecoveryPageContainsRealPersianActions() throws Exception {
         Context appContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
         String recovery;

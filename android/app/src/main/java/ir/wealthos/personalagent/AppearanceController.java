@@ -17,6 +17,7 @@ final class AppearanceController {
     private final Set<String> origins;
     private final Runnable onChange;
     private ScriptHandler seed;
+    private boolean destroyed;
     private static final String BRIDGE = "HamrahAppearanceNative";
 
     static String read(Context context) {
@@ -36,15 +37,21 @@ final class AppearanceController {
         this.context = context; this.webView = webView; this.origins = origins; this.onChange = onChange;
         if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
             WebViewCompat.addWebMessageListener(webView, BRIDGE, origins, (view, message, origin, mainFrame, reply) -> {
-                String value = message.getData();
-                if (!mainFrame || !origins.contains(origin.toString()) || !("light".equals(value) || "dark".equals(value))) return;
-                context.getSharedPreferences("hamrah_appearance", Context.MODE_PRIVATE).edit().putString("theme", value).apply();
-                refreshSeed();
-                applyMode(context);
-                onChange.run();
+                acceptMessage(message.getData(), origin.toString(), mainFrame);
             });
         }
         refreshSeed();
+    }
+
+    // A queued document message may outlive listener removal. Check lifetime
+    // before touching preferences, document scripts, global mode or window UI.
+    void acceptMessage(String value, String origin, boolean mainFrame) {
+        if (destroyed) return;
+        if (!mainFrame || !origins.contains(origin) || !("light".equals(value) || "dark".equals(value))) return;
+        context.getSharedPreferences("hamrah_appearance", Context.MODE_PRIVATE).edit().putString("theme", value).apply();
+        refreshSeed();
+        applyMode(context);
+        onChange.run();
     }
 
     String bootstrap() {
@@ -52,6 +59,7 @@ final class AppearanceController {
     }
 
     private void refreshSeed() {
+        if (destroyed) return;
         if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
             if (seed != null) seed.remove();
             seed = WebViewCompat.addDocumentStartJavaScript(webView, bootstrap(), origins);
@@ -59,7 +67,10 @@ final class AppearanceController {
     }
 
     void destroy() {
+        if (destroyed) return;
+        destroyed = true;
         if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT) && seed != null) seed.remove();
+        seed = null;
         if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER))
             WebViewCompat.removeWebMessageListener(webView, BRIDGE);
     }
