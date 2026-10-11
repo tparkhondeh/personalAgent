@@ -1,8 +1,38 @@
 diff --git a/capacitor/src/main/java/com/getcapacitor/Bridge.java b/capacitor/src/main/java/com/getcapacitor/Bridge.java
-index 9a3c6e0739682c9ff3b1254324ef59bb4fb2f4bd..070657978aba82fb1cbd7b3f50510806641766df 100644
+index 9a3c6e0739682c9ff3b1254324ef59bb4fb2f4bd..d8edcb60abccd203dc808babf5a4861740147255 100644
 --- a/capacitor/src/main/java/com/getcapacitor/Bridge.java
 +++ b/capacitor/src/main/java/com/getcapacitor/Bridge.java
-@@ -885,11 +885,12 @@ public class Bridge {
+@@ -79,6 +79,13 @@ import org.json.JSONException;
+  */
+ public class Bridge {
+ 
++    private volatile boolean destroyed;
++    private boolean webViewDestroyed;
++
++    public boolean isDestroyed() {
++        return destroyed || getActivity() == null || getActivity().isFinishing() || getActivity().isDestroyed();
++    }
++
+     private static final String PERMISSION_PREFS_NAME = "PluginPermStates";
+     private static final String BUNDLE_LAST_PLUGIN_ID_KEY = "capacitorLastActivityPluginId";
+     private static final String BUNDLE_LAST_PLUGIN_CALL_METHOD_NAME_KEY = "capacitorLastActivityPluginMethod";
+@@ -872,8 +879,14 @@ public class Bridge {
+      *                 after calling the JS
+      */
+     public void eval(final String js, final ValueCallback<String> callback) {
++        if (isDestroyed()) return;
+         Handler mainHandler = new Handler(context.getMainLooper());
+-        mainHandler.post(() -> webView.evaluateJavascript(js, callback));
++        mainHandler.post(() -> {
++            if (isDestroyed()) return;
++            webView.evaluateJavascript(js, result -> {
++                if (!isDestroyed() && callback != null) callback.onReceiveValue(result);
++            });
++        });
+     }
+ 
+     public void logToJs(final String message, final String level) {
+@@ -885,11 +898,12 @@ public class Bridge {
      }
  
      public void triggerJSEvent(final String eventName, final String target) {
@@ -17,11 +47,135 @@ index 9a3c6e0739682c9ff3b1254324ef59bb4fb2f4bd..070657978aba82fb1cbd7b3f50510806
      }
  
      public void triggerWindowJSEvent(final String eventName) {
+@@ -1395,6 +1409,7 @@ public class Bridge {
+      * Handle onDestroy lifecycle event and notify the plugins
+      */
+     public void onDestroy() {
++        destroyed = true;
+         for (PluginHandle plugin : plugins.values()) {
+             plugin.getInstance().handleOnDestroy();
+         }
+@@ -1410,6 +1425,9 @@ public class Bridge {
+      * Handle onDetachedFromWindow lifecycle event
+      */
+     public void onDetachedFromWindow() {
++        destroyed = true;
++        if (webViewDestroyed) return;
++        webViewDestroyed = true;
+         webView.removeAllViews();
+         webView.destroy();
+     }
+diff --git a/capacitor/src/main/java/com/getcapacitor/BridgeWebViewClient.java b/capacitor/src/main/java/com/getcapacitor/BridgeWebViewClient.java
+index f9df97b5717cb062b0f66138a55af90b2c9f3b2f..4af2324dd085de6eec1b00b75bbd6338d0a02406 100644
+--- a/capacitor/src/main/java/com/getcapacitor/BridgeWebViewClient.java
++++ b/capacitor/src/main/java/com/getcapacitor/BridgeWebViewClient.java
+@@ -20,17 +20,20 @@ public class BridgeWebViewClient extends WebViewClient {
+ 
+     @Override
+     public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
++        if (bridge.isDestroyed()) return null;
+         return bridge.getLocalServer().shouldInterceptRequest(request);
+     }
+ 
+     @Override
+     public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
++        if (bridge.isDestroyed()) return true;
+         Uri url = request.getUrl();
+         return bridge.launchIntent(url);
+     }
+ 
+     @Override
+     public void onPageFinished(WebView view, String url) {
++        if (bridge.isDestroyed()) return;
+         super.onPageFinished(view, url);
+         List<WebViewListener> webViewListeners = bridge.getWebViewListeners();
+ 
+@@ -43,6 +46,7 @@ public class BridgeWebViewClient extends WebViewClient {
+ 
+     @Override
+     public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
++        if (bridge.isDestroyed()) return;
+         super.onReceivedError(view, request, error);
+ 
+         List<WebViewListener> webViewListeners = bridge.getWebViewListeners();
+@@ -60,6 +64,7 @@ public class BridgeWebViewClient extends WebViewClient {
+ 
+     @Override
+     public void onPageStarted(WebView view, String url, Bitmap favicon) {
++        if (bridge.isDestroyed()) return;
+         super.onPageStarted(view, url, favicon);
+         bridge.reset();
+         List<WebViewListener> webViewListeners = bridge.getWebViewListeners();
+@@ -73,6 +78,7 @@ public class BridgeWebViewClient extends WebViewClient {
+ 
+     @Override
+     public void onReceivedHttpError(WebView view, WebResourceRequest request, WebResourceResponse errorResponse) {
++        if (bridge.isDestroyed()) return;
+         super.onReceivedHttpError(view, request, errorResponse);
+ 
+         List<WebViewListener> webViewListeners = bridge.getWebViewListeners();
+@@ -90,6 +96,7 @@ public class BridgeWebViewClient extends WebViewClient {
+ 
+     @Override
+     public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
++        if (bridge.isDestroyed()) return true;
+         super.onRenderProcessGone(view, detail);
+         boolean result = false;
+ 
+@@ -105,6 +112,7 @@ public class BridgeWebViewClient extends WebViewClient {
+ 
+     @Override
+     public void onPageCommitVisible(WebView view, String url) {
++        if (bridge.isDestroyed()) return;
+         super.onPageCommitVisible(view, url);
+ 
+         List<WebViewListener> webViewListeners = bridge.getWebViewListeners();
 diff --git a/capacitor/src/main/java/com/getcapacitor/cordova/MockCordovaWebViewImpl.java b/capacitor/src/main/java/com/getcapacitor/cordova/MockCordovaWebViewImpl.java
-index 020c1457a18360a1f9f85d217ca6051a003051e8..7af988177ff2b772652f1c28861f1319f9d4a036 100644
+index 020c1457a18360a1f9f85d217ca6051a003051e8..92ef30c0f8419500beb5a2d8eca3e66b7844066e 100644
 --- a/capacitor/src/main/java/com/getcapacitor/cordova/MockCordovaWebViewImpl.java
 +++ b/capacitor/src/main/java/com/getcapacitor/cordova/MockCordovaWebViewImpl.java
-@@ -190,7 +190,7 @@ public class MockCordovaWebViewImpl implements CordovaWebView {
+@@ -31,6 +31,12 @@ public class MockCordovaWebViewImpl implements CordovaWebView {
+     private CapacitorCordovaCookieManager cookieManager;
+     private WebView webView;
+     private boolean hasPausedEver;
++    private volatile boolean destroyed;
++
++    private boolean isDestroyed() {
++        return destroyed || (context instanceof android.app.Activity activity
++            && (activity.isFinishing() || activity.isDestroyed()));
++    }
+ 
+     public MockCordovaWebViewImpl(Context context) {
+         this.context = context;
+@@ -71,6 +77,7 @@ public class MockCordovaWebViewImpl implements CordovaWebView {
+         @Override
+         public void onNativeToJsMessageAvailable(final NativeToJsMessageQueue queue) {
+             cordova.getActivity().runOnUiThread(() -> {
++                if (cordova.getActivity().isFinishing() || cordova.getActivity().isDestroyed()) return;
+                 String js = queue.popAndEncodeAsJs();
+                 if (js != null) {
+                     webView.evaluateJavascript(js, null);
+@@ -172,6 +179,7 @@ public class MockCordovaWebViewImpl implements CordovaWebView {
+ 
+     @Override
+     public void handleDestroy() {
++        destroyed = true;
+         if (!isInitialized()) {
+             return;
+         }
+@@ -185,12 +193,18 @@ public class MockCordovaWebViewImpl implements CordovaWebView {
+     }
+ 
+     public void eval(final String js, final ValueCallback<String> callback) {
++        if (isDestroyed()) return;
+         Handler mainHandler = new Handler(context.getMainLooper());
+-        mainHandler.post(() -> webView.evaluateJavascript(js, callback));
++        mainHandler.post(() -> {
++            if (isDestroyed()) return;
++            webView.evaluateJavascript(js, result -> {
++                if (!isDestroyed() && callback != null) callback.onReceiveValue(result);
++            });
++        });
      }
  
      public void triggerDocumentEvent(final String eventName) {

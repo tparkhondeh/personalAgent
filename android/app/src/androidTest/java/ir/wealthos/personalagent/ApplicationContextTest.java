@@ -256,6 +256,52 @@ public class ApplicationContextTest {
     }
 
     @Test
+    public void closedBridgeRejectsLateNavigationAndJavascript() throws Exception {
+        AtomicReference<com.getcapacitor.Bridge> bridge = new AtomicReference<>();
+        AtomicReference<android.webkit.WebViewClient> client = new AtomicReference<>();
+        AtomicInteger replies = new AtomicInteger();
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> {
+                bridge.set(activity.getBridge());
+                client.set(activity.getBridge().getWebView().getWebViewClient());
+                assertFalse(bridge.get().isDestroyed());
+            });
+        }
+        assertTrue(bridge.get().isDestroyed());
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            // Real old client, after real Activity destruction: it must not
+            // inspect the old WebView, reset plugins or launch recovery again.
+            client.get().onPageFinished(null, "https://localhost/");
+            client.get().onPageStarted(null, "https://localhost/", null);
+            client.get().onPageCommitVisible(null, "https://localhost/");
+            client.get().onReceivedError(null, null, null);
+            client.get().onReceivedHttpError(null, null, null);
+            assertTrue(client.get().shouldOverrideUrlLoading(null, (android.webkit.WebResourceRequest) null));
+            assertEquals(null, client.get().shouldInterceptRequest(null, (android.webkit.WebResourceRequest) null));
+            bridge.get().eval("throw new Error('closed bridge must not evaluate')", result -> replies.incrementAndGet());
+        });
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+        assertEquals(0, replies.get());
+    }
+
+    @Test
+    public void closedCordovaAdapterRejectsQueuedAndNewJavascript() {
+        AtomicInteger replies = new AtomicInteger();
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            // No WebView is initialized deliberately: any attempted evaluation
+            // would fail. Queue first, destroy in the same main-loop turn.
+            com.getcapacitor.cordova.MockCordovaWebViewImpl adapter =
+                new com.getcapacitor.cordova.MockCordovaWebViewImpl(
+                    InstrumentationRegistry.getInstrumentation().getTargetContext());
+            adapter.eval("true", result -> replies.incrementAndGet());
+            adapter.handleDestroy();
+            adapter.eval("true", result -> replies.incrementAndGet());
+        });
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+        assertEquals(0, replies.get());
+    }
+
+    @Test
     public void bundledRecoveryPageContainsRealPersianActions() throws Exception {
         Context appContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
         String recovery;

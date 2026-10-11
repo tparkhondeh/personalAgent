@@ -56,7 +56,7 @@ public class MainActivity extends BridgeActivity {
     private View loadingOverlay;
     private WebViewListener recoveryListener;
     private boolean showingRecovery;
-    private boolean closing;
+    private volatile boolean closing;
     private long documentGeneration;
     private AppearanceController appearance;
     private TaskStoreController taskStorage;
@@ -351,6 +351,7 @@ public class MainActivity extends BridgeActivity {
 
         @Override
         public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+            if (closing || getBridge() == null || getBridge().isDestroyed()) return null;
             // Public, fixed APK assets only. Remote documents may read these weights,
             // never files, cookies or audio. TLS validation for remote pages is unchanged.
             String speechPath = request.getUrl().toString().replace(bundledOrigin() + "/speech/", "");
