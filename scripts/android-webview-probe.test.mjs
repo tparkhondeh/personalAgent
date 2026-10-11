@@ -26,6 +26,12 @@ describe('framework-only diagnostic boundaries', () => {
     expect(boot).toContain('Service input: found');
     expect(boot).toContain('Service window: found');
     expect(boot).toContain('ready >= 3');
+    expect(boot).toContain('deadline=$((SECONDS + 180))');
+    expect(boot).toContain('timeout 8s adb shell service check input');
+    expect(boot).toContain('timeout 10s adb emu kill');
+    expect(boot).toContain('export ANDROID_AVD_HOME="$probe_avd_root"');
+    expect(boot).toContain('[[ -f "$probe_avd_root/tia_webview_probe.ini" ]]');
+    expect(boot.indexOf('emulator -list-avds')).toBeLessThan(boot.indexOf('emulator -avd'));
     expect(boot.indexOf('(( ready >= 3 ))')).toBeLessThan(boot.indexOf('adb shell input keyevent 82'));
     expect(boot).not.toMatch(/adb reboot|pm clear|adb uninstall|curl.*apk/);
   });

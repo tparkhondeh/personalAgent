@@ -55,6 +55,7 @@ jobs:
           script: bash scripts/android-emulator-settle.sh artifacts/probe/prepare && bash scripts/android-webview-probe.sh '${{ matrix.blank }}'
       - name: Boot official36.1 only after framework services are actually ready
         if: matrix.image == '36.1'
+        timeout-minutes: 18
         run: bash scripts/android-webview-probe-boot.sh '${{ matrix.blank }}'
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
