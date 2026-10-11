@@ -67,7 +67,11 @@ describe('the actual Android content check expression', () => {
   });
   it('observes asynchronous hierarchy removal in the native regression, without synthesizing it', () => {
     const source = readFileSync('android/app/src/androidTest/java/ir/wealthos/personalagent/ApplicationContextTest.java', 'utf8');
-    const test = source.slice(source.indexOf('public void webViewIsRemovedFromItsParentDuringActivityTeardown'), source.indexOf('public void bundledRecoveryPageContainsRealPersianActions'));
+    const start = source.indexOf('public void webViewIsRemovedFromItsParentDuringActivityTeardown');
+    expect(start).toBeGreaterThan(-1);
+    const end = source.indexOf('@Test', start);
+    expect(end).toBeGreaterThan(start);
+    const test = source.slice(start, end);
     expect(test).toContain('detached.await(5, TimeUnit.SECONDS)');
     expect(test).toContain('assertEquals(1, removals.get())');
     expect(test).not.toMatch(/removeView\(|\.destroy\(|\.onDetachedFromWindow\(/);
