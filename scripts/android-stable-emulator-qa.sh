@@ -120,6 +120,10 @@ fi
 adb install -r "$stable_apk"
 if [[ "$release_inspection" == true ]]; then
   node scripts/android-release-coldcheck.mjs "$package_name" "$evidence_dir" "$api_level" "$staging_expectation"
+  # Record and use the actual cold-launch network state, not the stale health
+  # probe made before the five-minute emulator warm-up. Recovery is not a pass
+  # for connected GPT; that distinct gate below must still fail when requested.
+  staging_expectation="$(node -e 'const fs=require("fs");const r=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));if(!r.passed||!["online","recovery"].includes(r.actual))process.exit(1);process.stdout.write(r.actual);' "$evidence_dir/release-cold.json")"
   adb install -r -t "$test_apk"
 fi
 adb shell pm grant "$package_name" android.permission.POST_NOTIFICATIONS || true
