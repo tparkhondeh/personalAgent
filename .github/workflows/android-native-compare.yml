@@ -52,7 +52,7 @@ jobs:
           unzip -q artifacts/signed-qa.zip -d artifacts/personal-signed
           "${ANDROID_SDK_ROOT:-$ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" 'build-tools;35.0.0'
           node scripts/verify-personal-android.mjs
-          printf '%s  %s\n' '67c010c02f194adc9b90ecec6195720bef2da3612d287c51e3ce87333bd859c3' artifacts/personal-signed/tia-1.0.45.apk | sha256sum -c -
+          printf '%s  %s\n' 'ad83a9e18dcbf5bd6df9796ad55851a4e3b19c0b9cbadbd298db9b34ea69aa88' artifacts/personal-signed/tia-1.0.45.apk | sha256sum -c -
           curl --fail --silent --show-error --connect-timeout 30 --max-time 180 -L https://github.com/tparkhondeh/personalAgent/releases/download/personal-1.0.44/tia-1.0.44.apk -o artifacts/upgrade-from-44.apk
           printf '%s  %s\n' 'fa62f5b0f9e55270fc78f01dc16441162a7ba0e13337a81d8c24d2fcbfbfa377' artifacts/upgrade-from-44.apk | sha256sum -c -
           node scripts/verify-android-upgrade.mjs artifacts/upgrade-from-44.apk artifacts/personal-signed/tia-1.0.45.apk

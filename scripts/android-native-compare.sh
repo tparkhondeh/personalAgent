@@ -31,7 +31,7 @@ for mode in online offline; do
   else adb shell settings put global http_proxy :0; fi
   # Each mode starts a process once; no retry, reinstall, data reset or log clearing.
   timeout 90s adb shell am instrument -w \
-    -e class ir.wealthos.personalagent.ApplicationContextTest#alarmSoundBridgePersistsChoiceAndPreservesPendingChannels \
+    -e class ir.wealthos.personalagent.ApplicationContextTest#repeatedAlarmActivityRecreationKeepsDataAndDoesNotCrash \
     "$package_name.test/ir.wealthos.personalagent.ReleaseQaRunner" > "$out/$mode.txt" 2>&1 || failed=1
   adb logcat -d > "$out/$mode-logcat.txt"
   grep -Fq 'OK (1 test)' "$out/$mode.txt" || failed=1
