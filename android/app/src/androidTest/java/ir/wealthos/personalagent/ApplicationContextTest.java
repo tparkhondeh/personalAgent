@@ -290,12 +290,19 @@ public class ApplicationContextTest {
         InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
             // No WebView is initialized deliberately: any attempted evaluation
             // would fail. Queue first, destroy in the same main-loop turn.
-            com.getcapacitor.cordova.MockCordovaWebViewImpl adapter =
-                new com.getcapacitor.cordova.MockCordovaWebViewImpl(
+            // Cordova is an implementation dependency of the target APK, not a
+            // test compile dependency. Invoke its real public adapter at runtime
+            // without packaging a second Cordova implementation in the test APK.
+            try {
+                Class<?> type = Class.forName("com.getcapacitor.cordova.MockCordovaWebViewImpl");
+                Object adapter = type.getConstructor(Context.class).newInstance(
                     InstrumentationRegistry.getInstrumentation().getTargetContext());
-            adapter.eval("true", result -> replies.incrementAndGet());
-            adapter.handleDestroy();
-            adapter.eval("true", result -> replies.incrementAndGet());
+                java.lang.reflect.Method eval = type.getMethod("eval", String.class, android.webkit.ValueCallback.class);
+                android.webkit.ValueCallback<String> reply = result -> replies.incrementAndGet();
+                eval.invoke(adapter, "true", reply);
+                type.getMethod("handleDestroy").invoke(adapter);
+                eval.invoke(adapter, "true", reply);
+            } catch (ReflectiveOperationException error) { throw new AssertionError(error); }
         });
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
         assertEquals(0, replies.get());
