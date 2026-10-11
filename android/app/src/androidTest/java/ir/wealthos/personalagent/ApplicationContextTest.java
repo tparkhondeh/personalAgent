@@ -309,6 +309,102 @@ public class ApplicationContextTest {
     }
 
     @Test
+    public void pluginWorkerRepliesRunOnMainAndAreFencedBeforeTeardown() throws Exception {
+        AtomicInteger replies = new AtomicInteger();
+        CountDownLatch liveReply = new CountDownLatch(1);
+        AtomicReference<com.getcapacitor.MessageHandler> handler = new AtomicReference<>();
+        AtomicReference<android.webkit.WebView> isolatedView = new AtomicReference<>();
+        AtomicReference<com.getcapacitor.PluginCall> late = new AtomicReference<>();
+        java.lang.reflect.Field proxyField = com.getcapacitor.MessageHandler.class.getDeclaredField("javaScriptReplyProxy");
+        proxyField.setAccessible(true);
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> {
+                try {
+                    // A separate, never-navigated WebView has no real page/plugin
+                    // traffic capable of replacing the synthetic reply target.
+                    isolatedView.set(new android.webkit.WebView(activity));
+                    handler.set((com.getcapacitor.MessageHandler) com.getcapacitor.MessageHandler.class
+                        .getConstructor(com.getcapacitor.Bridge.class, android.webkit.WebView.class,
+                            Class.forName("org.apache.cordova.PluginManager"))
+                        .newInstance(activity.getBridge(), isolatedView.get(), null));
+                    proxyField.set(handler.get(), new androidx.webkit.JavaScriptReplyProxy() {
+                        @Override public void postMessage(String message) {
+                            assertEquals(android.os.Looper.getMainLooper(), android.os.Looper.myLooper());
+                            try { assertEquals("synthetic-live", new JSONObject(message).getString("callbackId")); }
+                            catch (org.json.JSONException error) { throw new AssertionError(error); }
+                            replies.incrementAndGet(); liveReply.countDown();
+                        }
+                        @Override public void postMessage(byte[] message) { throw new AssertionError("Unexpected binary reply"); }
+                    });
+                } catch (ReflectiveOperationException error) { throw new AssertionError(error); }
+            });
+            com.getcapacitor.PluginCall live = new com.getcapacitor.PluginCall(handler.get(), "TiaAlarmSounds", "synthetic-live", "getSelection", new com.getcapacitor.JSObject());
+            scenario.onActivity(activity -> {
+                Thread worker = new Thread(live::resolve, "synthetic-plugin-worker");
+                worker.start();
+                try {
+                    worker.join(5000);
+                    assertFalse(worker.isAlive());
+                    // Simulate a different document's reply target arriving
+                    // before the UI queue drains. Never redirect the old reply.
+                    proxyField.set(handler.get(), new androidx.webkit.JavaScriptReplyProxy() {
+                        @Override public void postMessage(String message) { throw new AssertionError("Reply crossed documents or closure"); }
+                        @Override public void postMessage(byte[] message) { throw new AssertionError("Unexpected binary reply"); }
+                    });
+                } catch (ReflectiveOperationException | InterruptedException error) { throw new AssertionError(error); }
+            });
+            assertTrue("Plugin reply must reach UI thread", liveReply.await(5, TimeUnit.SECONDS));
+            assertTrue(live.isReleased());
+            scenario.onActivity(activity -> {
+                late.set(new com.getcapacitor.PluginCall(handler.get(), "TiaAlarmSounds", "synthetic-late", "getSelection", new com.getcapacitor.JSObject()));
+                // Resolve on a worker while the UI loop cannot yet deliver it.
+                Thread queued = new Thread(late.get()::resolve, "synthetic-late-worker");
+                queued.start();
+                try { queued.join(5000); } catch (InterruptedException error) { throw new AssertionError(error); }
+                assertFalse(queued.isAlive());
+                activity.getBridge().beginDestroy();
+            });
+        }
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+        assertEquals(1, replies.get());
+        assertTrue(late.get().isReleased());
+        // Resolving another accepted call after actual closure also drops only
+        // its UI reply, without undoing the native work or retaining the call.
+        com.getcapacitor.PluginCall closed = new com.getcapacitor.PluginCall(handler.get(), "TiaAlarmSounds", "synthetic-closed", "getSelection", new com.getcapacitor.JSObject());
+        closed.resolve();
+        assertTrue(closed.isReleased());
+        assertEquals(1, replies.get());
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> isolatedView.get().destroy());
+    }
+
+    @Test
+    public void rendererLossCallbackFencesOldBridgeAndRecreatesActivity() throws Exception {
+        AtomicReference<MainActivity> old = new AtomicReference<>();
+        AtomicReference<com.getcapacitor.Bridge> bridge = new AtomicReference<>();
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> {
+                old.set(activity); bridge.set(activity.getBridge());
+                android.webkit.WebView view = bridge.get().getWebView();
+                // Dispatch the real callback without intentionally crashing the
+                // shared renderer. This is lifecycle-path, not crash-injection QA.
+                assertTrue(view.getWebViewClient().onRenderProcessGone(view, null));
+                assertTrue(bridge.get().isDestroyed());
+            });
+            long deadline = android.os.SystemClock.uptimeMillis() + 10000;
+            AtomicReference<MainActivity> current = new AtomicReference<>(old.get());
+            do {
+                InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+                scenario.onActivity(current::set);
+                if (current.get() != old.get()) break;
+                Thread.sleep(50);
+            } while (android.os.SystemClock.uptimeMillis() < deadline);
+            assertTrue("Renderer loss must create a fresh Activity", current.get() != old.get());
+            scenario.onActivity(activity -> assertFalse(activity.getBridge().isDestroyed()));
+        }
+        assertTrue(bridge.get().isDestroyed());
+    }
+
+    @Test
     public void bundledRecoveryPageContainsRealPersianActions() throws Exception {
         Context appContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
         String recovery;

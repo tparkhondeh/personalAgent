@@ -67,11 +67,15 @@ final class AppearanceController {
     }
 
     void destroy() {
+        destroy(true);
+    }
+
+    void destroy(boolean webViewUsable) {
         if (destroyed) return;
         destroyed = true;
-        if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT) && seed != null) seed.remove();
+        if (webViewUsable && WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT) && seed != null) seed.remove();
         seed = null;
-        if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER))
+        if (webViewUsable && WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER))
             WebViewCompat.removeWebMessageListener(webView, BRIDGE);
     }
 }

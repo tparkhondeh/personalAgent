@@ -1,8 +1,8 @@
 diff --git a/capacitor/src/main/java/com/getcapacitor/Bridge.java b/capacitor/src/main/java/com/getcapacitor/Bridge.java
-index 9a3c6e0739682c9ff3b1254324ef59bb4fb2f4bd..d8edcb60abccd203dc808babf5a4861740147255 100644
+index 9a3c6e0739682c9ff3b1254324ef59bb4fb2f4bd..f3c7e0fff5525f0a58ac925ed9ec856e4d154d0a 100644
 --- a/capacitor/src/main/java/com/getcapacitor/Bridge.java
 +++ b/capacitor/src/main/java/com/getcapacitor/Bridge.java
-@@ -79,6 +79,13 @@ import org.json.JSONException;
+@@ -79,6 +79,20 @@ import org.json.JSONException;
   */
  public class Bridge {
  
@@ -13,10 +13,17 @@ index 9a3c6e0739682c9ff3b1254324ef59bb4fb2f4bd..d8edcb60abccd203dc808babf5a48617
 +        return destroyed || getActivity() == null || getActivity().isFinishing() || getActivity().isDestroyed();
 +    }
 +
++    // Fence document work before application-owned teardown or renderer loss.
++    // Actual plugin/window cleanup still runs through the normal lifecycle.
++    public void beginDestroy() {
++        destroyed = true;
++        if (cordovaWebView instanceof com.getcapacitor.cordova.MockCordovaWebViewImpl adapter) adapter.beginDestroy();
++    }
++
      private static final String PERMISSION_PREFS_NAME = "PluginPermStates";
      private static final String BUNDLE_LAST_PLUGIN_ID_KEY = "capacitorLastActivityPluginId";
      private static final String BUNDLE_LAST_PLUGIN_CALL_METHOD_NAME_KEY = "capacitorLastActivityPluginMethod";
-@@ -872,8 +879,14 @@ public class Bridge {
+@@ -872,8 +886,14 @@ public class Bridge {
       *                 after calling the JS
       */
      public void eval(final String js, final ValueCallback<String> callback) {
@@ -32,7 +39,7 @@ index 9a3c6e0739682c9ff3b1254324ef59bb4fb2f4bd..d8edcb60abccd203dc808babf5a48617
      }
  
      public void logToJs(final String message, final String level) {
-@@ -885,11 +898,12 @@ public class Bridge {
+@@ -885,11 +905,12 @@ public class Bridge {
      }
  
      public void triggerJSEvent(final String eventName, final String target) {
@@ -47,7 +54,7 @@ index 9a3c6e0739682c9ff3b1254324ef59bb4fb2f4bd..d8edcb60abccd203dc808babf5a48617
      }
  
      public void triggerWindowJSEvent(final String eventName) {
-@@ -1395,6 +1409,7 @@ public class Bridge {
+@@ -1395,6 +1416,7 @@ public class Bridge {
       * Handle onDestroy lifecycle event and notify the plugins
       */
      public void onDestroy() {
@@ -55,7 +62,7 @@ index 9a3c6e0739682c9ff3b1254324ef59bb4fb2f4bd..d8edcb60abccd203dc808babf5a48617
          for (PluginHandle plugin : plugins.values()) {
              plugin.getInstance().handleOnDestroy();
          }
-@@ -1410,6 +1425,9 @@ public class Bridge {
+@@ -1410,6 +1432,9 @@ public class Bridge {
       * Handle onDetachedFromWindow lifecycle event
       */
      public void onDetachedFromWindow() {
@@ -130,11 +137,94 @@ index f9df97b5717cb062b0f66138a55af90b2c9f3b2f..4af2324dd085de6eec1b00b75bbd6338
          super.onPageCommitVisible(view, url);
  
          List<WebViewListener> webViewListeners = bridge.getWebViewListeners();
+diff --git a/capacitor/src/main/java/com/getcapacitor/MessageHandler.java b/capacitor/src/main/java/com/getcapacitor/MessageHandler.java
+index dc91c9b01e74b315d1f290daa86d831fae839f8f..665ea9456b554418eff1c5b6891657538261e931 100644
+--- a/capacitor/src/main/java/com/getcapacitor/MessageHandler.java
++++ b/capacitor/src/main/java/com/getcapacitor/MessageHandler.java
+@@ -16,7 +16,7 @@ public class MessageHandler {
+     private Bridge bridge;
+     private WebView webView;
+     private PluginManager cordovaPluginManager;
+-    private JavaScriptReplyProxy javaScriptReplyProxy;
++    private volatile JavaScriptReplyProxy javaScriptReplyProxy;
+ 
+     public MessageHandler(Bridge bridge, WebView webView, PluginManager cordovaPluginManager) {
+         this.bridge = bridge;
+@@ -25,9 +25,10 @@ public class MessageHandler {
+ 
+         if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER) && !bridge.getConfig().isUsingLegacyBridge()) {
+             WebViewCompat.WebMessageListener capListener = (view, message, sourceOrigin, isMainFrame, replyProxy) -> {
++                if (bridge.isDestroyed()) return;
+                 if (isMainFrame) {
+-                    postMessage(message.getData());
+                     javaScriptReplyProxy = replyProxy;
++                    postMessage(message.getData());
+                 } else {
+                     Logger.warn("Plugin execution is allowed in Main Frame only");
+                 }
+@@ -50,6 +51,7 @@ public class MessageHandler {
+     @JavascriptInterface
+     @SuppressWarnings("unused")
+     public void postMessage(String jsonStr) {
++        if (bridge.isDestroyed()) return;
+         try {
+             JSObject postData = new JSObject(jsonStr);
+ 
+@@ -99,6 +101,10 @@ public class MessageHandler {
+     }
+ 
+     public void sendResponseMessage(PluginCall call, PluginResult successResult, PluginResult errorResult) {
++        if (bridge.isDestroyed()) {
++            call.release(bridge);
++            return;
++        }
+         try {
+             PluginResult data = new PluginResult();
+             data.put("save", call.isKeptAlive());
+@@ -120,13 +126,21 @@ public class MessageHandler {
+ 
+             boolean isValidCallbackId = !call.getCallbackId().equals(PluginCall.CALLBACK_ID_DANGLING);
+             if (isValidCallbackId) {
+-                if (bridge.getConfig().isUsingLegacyBridge()) {
+-                    legacySendResponseMessage(data);
+-                } else if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER) && javaScriptReplyProxy != null) {
+-                    javaScriptReplyProxy.postMessage(data.toString());
+-                } else {
+-                    legacySendResponseMessage(data);
+-                }
++                final JavaScriptReplyProxy responseProxy = javaScriptReplyProxy;
++                bridge.executeOnMainThread(() -> {
++                    if (bridge.isDestroyed()) return;
++                    try {
++                        if (bridge.getConfig().isUsingLegacyBridge()) {
++                            legacySendResponseMessage(data);
++                        } else if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER) && responseProxy != null) {
++                            responseProxy.postMessage(data.toString());
++                        } else {
++                            legacySendResponseMessage(data);
++                        }
++                    } catch (RuntimeException detachedDocument) {
++                        Logger.warn("Plugin reply document is no longer available.");
++                    }
++                });
+             } else {
+                 bridge.getApp().fireRestoredResult(data);
+             }
+@@ -140,8 +154,7 @@ public class MessageHandler {
+ 
+     private void legacySendResponseMessage(PluginResult data) {
+         final String runScript = "window.Capacitor.fromNative(" + data.toString() + ")";
+-        final WebView webView = this.webView;
+-        webView.post(() -> webView.evaluateJavascript(runScript, null));
++        bridge.eval(runScript, null);
+     }
+ 
+     private void callPluginMethod(String callbackId, String pluginId, String methodName, JSObject methodData) {
 diff --git a/capacitor/src/main/java/com/getcapacitor/cordova/MockCordovaWebViewImpl.java b/capacitor/src/main/java/com/getcapacitor/cordova/MockCordovaWebViewImpl.java
-index 020c1457a18360a1f9f85d217ca6051a003051e8..92ef30c0f8419500beb5a2d8eca3e66b7844066e 100644
+index 020c1457a18360a1f9f85d217ca6051a003051e8..b923dd76940a21abcf708a4736ecb928d8ea6ddb 100644
 --- a/capacitor/src/main/java/com/getcapacitor/cordova/MockCordovaWebViewImpl.java
 +++ b/capacitor/src/main/java/com/getcapacitor/cordova/MockCordovaWebViewImpl.java
-@@ -31,6 +31,12 @@ public class MockCordovaWebViewImpl implements CordovaWebView {
+@@ -31,6 +31,16 @@ public class MockCordovaWebViewImpl implements CordovaWebView {
      private CapacitorCordovaCookieManager cookieManager;
      private WebView webView;
      private boolean hasPausedEver;
@@ -144,18 +234,46 @@ index 020c1457a18360a1f9f85d217ca6051a003051e8..92ef30c0f8419500beb5a2d8eca3e66b
 +        return destroyed || (context instanceof android.app.Activity activity
 +            && (activity.isFinishing() || activity.isDestroyed()));
 +    }
++
++    public void beginDestroy() {
++        destroyed = true;
++    }
  
      public MockCordovaWebViewImpl(Context context) {
          this.context = context;
-@@ -71,6 +77,7 @@ public class MockCordovaWebViewImpl implements CordovaWebView {
+@@ -52,7 +62,7 @@ public class MockCordovaWebViewImpl implements CordovaWebView {
+         this.pluginManager = new PluginManager(this, this.cordova, pluginEntries);
+         this.resourceApi = new CordovaResourceApi(this.context, this.pluginManager);
+         nativeToJsMessageQueue = new NativeToJsMessageQueue();
+-        nativeToJsMessageQueue.addBridgeMode(new CapacitorEvalBridgeMode(webView, this.cordova));
++        nativeToJsMessageQueue.addBridgeMode(new CapacitorEvalBridgeMode(webView, this.cordova, this::isDestroyed));
+         nativeToJsMessageQueue.setBridgeMode(0);
+         this.cookieManager = new CapacitorCordovaCookieManager(webView);
+         this.pluginManager.init();
+@@ -62,15 +72,22 @@ public class MockCordovaWebViewImpl implements CordovaWebView {
+ 
+         private final WebView webView;
+         private final CordovaInterface cordova;
++        private final java.util.function.BooleanSupplier closed;
+ 
+         public CapacitorEvalBridgeMode(WebView webView, CordovaInterface cordova) {
++            this(webView, cordova, () -> false);
++        }
++
++        private CapacitorEvalBridgeMode(WebView webView, CordovaInterface cordova, java.util.function.BooleanSupplier closed) {
+             this.webView = webView;
+             this.cordova = cordova;
++            this.closed = closed;
+         }
+ 
          @Override
          public void onNativeToJsMessageAvailable(final NativeToJsMessageQueue queue) {
              cordova.getActivity().runOnUiThread(() -> {
-+                if (cordova.getActivity().isFinishing() || cordova.getActivity().isDestroyed()) return;
++                if (closed.getAsBoolean() || cordova.getActivity().isFinishing() || cordova.getActivity().isDestroyed()) return;
                  String js = queue.popAndEncodeAsJs();
                  if (js != null) {
                      webView.evaluateJavascript(js, null);
-@@ -172,6 +179,7 @@ public class MockCordovaWebViewImpl implements CordovaWebView {
+@@ -172,6 +189,7 @@ public class MockCordovaWebViewImpl implements CordovaWebView {
  
      @Override
      public void handleDestroy() {
@@ -163,7 +281,7 @@ index 020c1457a18360a1f9f85d217ca6051a003051e8..92ef30c0f8419500beb5a2d8eca3e66b
          if (!isInitialized()) {
              return;
          }
-@@ -185,12 +193,18 @@ public class MockCordovaWebViewImpl implements CordovaWebView {
+@@ -185,12 +203,18 @@ public class MockCordovaWebViewImpl implements CordovaWebView {
      }
  
      public void eval(final String js, final ValueCallback<String> callback) {
@@ -185,7 +303,7 @@ index 020c1457a18360a1f9f85d217ca6051a003051e8..92ef30c0f8419500beb5a2d8eca3e66b
  
      @Override
 diff --git a/capacitor/src/main/java/com/getcapacitor/plugin/SystemBars.java b/capacitor/src/main/java/com/getcapacitor/plugin/SystemBars.java
-index 8b9de88493bd3269247cffbe9d290fc381fc088f..6f5f178dddc2908cee7caca5b675270d7734a093 100644
+index 8b9de88493bd3269247cffbe9d290fc381fc088f..7ed8cc46430fc033108be98f37d797d2a3d961ef 100644
 --- a/capacitor/src/main/java/com/getcapacitor/plugin/SystemBars.java
 +++ b/capacitor/src/main/java/com/getcapacitor/plugin/SystemBars.java
 @@ -61,6 +61,11 @@ public class SystemBars extends Plugin {
@@ -195,7 +313,7 @@ index 8b9de88493bd3269247cffbe9d290fc381fc088f..6f5f178dddc2908cee7caca5b675270d
 +    private boolean destroyed;
 +
 +    private boolean isActivityUnavailable() {
-+        return destroyed || getActivity() == null || getActivity().isFinishing() || getActivity().isDestroyed();
++        return destroyed || bridge == null || bridge.isDestroyed() || getActivity() == null || getActivity().isFinishing() || getActivity().isDestroyed();
 +    }
  
      private void warnAboutUnsupportedConfigurationValues() {

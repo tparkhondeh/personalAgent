@@ -2,6 +2,8 @@
 
 ## Latest candidate — not yet released
 
+Update after independent review: exact run38142565657 passed all three APIs, including30 native tests and connected release launches. Before publication a real read-only specialist identified renderer-death and plugin-reply lifetime gaps. Narrow follow-up guards plus two native regression methods are being verified; delivery remains withheld until the new exact main APK passes. The preceding file was never published.
+
 Source `0c9b0e7247b13256d8316e72208a1e0c0c40faac`, main APK SHA256 `0fe8dcf96f513c3c54d76232d7b3f3edd16d1ebf9dd307aa3a3f4ca49159a1a2`, supersedes the historical candidates below. App `tia`, version1.0.45/code45, package `ir.wealthos.personalagent.stable40`, existing certificate and stable8443 endpoint remain unchanged. No data or key was cleared or replaced.
 
 Capacitor8.5.2's official SystemBars lifecycle correction plus guarded/removed owned callbacks addresses concrete lifetime defects. Appearance messages are fenced after close; loading stops before teardown. A three-cycle Alarm recreation test now detects a failure hidden by isolated single-case tests. Both old public44 and the previous45 crashed in that online stress case on API36, while offline passed; this does not prove the exact native root cause. See [preserved diagnostic history](ANDROID16_DIAGNOSIS_2026-10-11.md).

@@ -40,7 +40,7 @@ describe("explicit saved appearance",()=>{
   it('cancels navigation before bridge teardown without deleting storage',()=>{
     const native=readFileSync('android/app/src/main/java/ir/wealthos/personalagent/MainActivity.java','utf8');
     const close=native.slice(native.indexOf('public void onDestroy()'));
-    expect(close.indexOf('stopLoading()')).toBeLessThan(close.indexOf('appearance.destroy()'));
+    expect(close.indexOf('stopLoading()')).toBeLessThan(close.indexOf('appearance.destroy(!rendererGone)'));
     expect(close.indexOf('closing = true')).toBeLessThan(close.indexOf('stopLoading()'));
     expect(close).not.toMatch(/clearCache|clearHistory|deleteAllData|removeAllCookies/);
   });

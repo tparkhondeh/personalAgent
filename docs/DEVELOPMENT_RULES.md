@@ -1,5 +1,7 @@
 # Durable development rules
 
+- Android teardown must distinguish a live document from a dead renderer: only the former may load about:blank. Close every owned/Capacitor/Cordova callback path before queued work touches a dying view, without cancelling accepted durable writes. Plugin replies must retain their captured document target, execute on UI, and recheck lifetime after queueing. Regression tests need isolated reply traffic, exact callback IDs and queued-close/document-switch cases; a worker reply mock is not a renderer-crash reproduction.
+
 - October10 handoff supersedes the historical Oct3 APK44 recommendation below: dependency security patches require new native bytes; candidate45 is withheld because exact API36 acceptance still fails. API33/API34 passes and internal debug success do not erase that failure. See PERSONAL_45_HANDOFF.md. Email recovery is deliberately deferred by the owner, not a delivery gate; data preservation, the single budget authority and real-phone acceptance remain separate requirements.
 
 - Android offline acceptance must include a previously controlled service-worker page: a nonempty PWA recovery document may bypass WebView's network-error callbacks. Recognize the explicit recovery marker and the exact deployed legacy document, then offer the private bundled interface without deleting cookies/caches/data. Fence delayed content checks after activity destruction or document replacement. A successful health endpoint or fresh-install offline check alone does not cover this transition.

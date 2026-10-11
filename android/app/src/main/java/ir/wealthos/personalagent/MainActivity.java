@@ -57,6 +57,7 @@ public class MainActivity extends BridgeActivity {
     private WebViewListener recoveryListener;
     private boolean showingRecovery;
     private volatile boolean closing;
+    private boolean rendererGone;
     private long documentGeneration;
     private AppearanceController appearance;
     private TaskStoreController taskStorage;
@@ -257,6 +258,7 @@ public class MainActivity extends BridgeActivity {
     private void scheduleLoadTimeout(WebView webView) {
         cancelLoadTimeout();
         loadTimeout = () -> {
+            if (closing || isFinishing() || isDestroyed()) return;
             if (!isRecoveryPage(webView.getUrl())) showRecoveryPage();
         };
         mainHandler.postDelayed(loadTimeout, LOAD_TIMEOUT_MS);
@@ -410,8 +412,17 @@ public class MainActivity extends BridgeActivity {
 
         @Override
         public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
+            if (closing) return true;
+            rendererGone = true;
+            closing = true;
+            cancelLoadTimeout();
+            getBridge().beginDestroy();
+            // A dead renderer's WebView must not be used again. Fence queued
+            // application replies immediately, without calling its provider.
+            if (appearance != null) appearance.destroy(false);
+            if (taskStorage != null) taskStorage.destroy(false);
             Logger.error("HamrahRecovery", "Android WebView renderer stopped; restarting the activity.", null);
-            mainHandler.post(() -> { if (!closing && !isFinishing() && !isDestroyed()) recreate(); });
+            mainHandler.post(() -> { if (!isFinishing() && !isDestroyed()) recreate(); });
             return true;
         }
     }
@@ -431,24 +442,25 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onDestroy() {
         closing = true;
+        if (getBridge() != null) getBridge().beginDestroy();
         documentGeneration++;
         mainHandler.removeCallbacks(refreshAppearance);
         // Cancel in-flight navigation while the WebView is still alive. Activity
         // teardown must not leave a network load racing listener/bridge removal.
         // This does not clear cookies, Web Storage, task transactions or alarms.
-        if (getBridge() != null && getBridge().getWebView() != null) {
+        if (!rendererGone && getBridge() != null && getBridge().getWebView() != null) {
             getBridge().getWebView().stopLoading();
             // Release this document's resources before window detachment destroys
             // the native view. stopLoading alone does not end already running JS.
             // about:blank has no trusted origin/bridge and does not clear storage.
             getBridge().getWebView().loadUrl("about:blank");
         }
-        if (appearance != null) appearance.destroy();
-        if (taskStorage != null) taskStorage.destroy();
+        if (appearance != null) appearance.destroy(!rendererGone);
+        if (taskStorage != null) taskStorage.destroy(!rendererGone);
         cancelLoadTimeout();
         if (contentCheck != null) mainHandler.removeCallbacks(contentCheck);
         if (getBridge() != null) {
-            getBridge().getWebView().removeJavascriptInterface(RECOVERY_INTERFACE);
+            if (!rendererGone) getBridge().getWebView().removeJavascriptInterface(RECOVERY_INTERFACE);
             if (recoveryListener != null) getBridge().removeWebViewListener(recoveryListener);
         }
         super.onDestroy();

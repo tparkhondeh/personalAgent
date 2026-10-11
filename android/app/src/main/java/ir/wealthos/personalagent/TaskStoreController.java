@@ -115,8 +115,13 @@ final class TaskStoreController {
     }
 
     void destroy() {
+        destroy(true);
+    }
+
+    void destroy(boolean webViewUsable) {
+        if (destroyed) return;
         destroyed = true;
-        if (installed) WebViewCompat.removeWebMessageListener(view, BRIDGE);
+        if (webViewUsable && installed) WebViewCompat.removeWebMessageListener(view, BRIDGE);
         // Never discard the process store/poison or interrupt already accepted transactions.
     }
 }

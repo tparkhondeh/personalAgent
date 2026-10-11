@@ -5,6 +5,7 @@ const source = readFileSync('node_modules/@capacitor/android/capacitor/src/main/
 describe('installed SystemBars teardown fencing', () => {
   it('refuses missing, finishing and destroyed activities', () => {
     expect(source).toContain('getActivity() == null || getActivity().isFinishing() || getActivity().isDestroyed()');
+    expect(source).toContain('bridge == null || bridge.isDestroyed()');
   });
   it('fences the single page listener before evaluation and inside its reply', () => {
     const ready = source.slice(source.indexOf('public void onPageCommitVisible'), source.indexOf('protected void handleOnDestroy'));
