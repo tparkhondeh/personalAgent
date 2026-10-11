@@ -180,15 +180,25 @@ public class ApplicationContextTest {
     @Test
     public void lateSystemBarsReadinessRejectsDestroyedActivity() throws Exception {
         AtomicReference<com.getcapacitor.plugin.SystemBars> bars = new AtomicReference<>();
+        AtomicReference<com.getcapacitor.WebViewListener> readiness = new AtomicReference<>();
+        java.lang.reflect.Field listenerField = com.getcapacitor.plugin.SystemBars.class.getDeclaredField("webViewListener");
+        listenerField.setAccessible(true);
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
-            scenario.onActivity(activity -> bars.set((com.getcapacitor.plugin.SystemBars)
-                activity.getBridge().getPlugin("SystemBars").getInstance()));
+            scenario.onActivity(activity -> {
+                bars.set((com.getcapacitor.plugin.SystemBars) activity.getBridge().getPlugin("SystemBars").getInstance());
+                try { readiness.set((com.getcapacitor.WebViewListener) listenerField.get(bars.get())); }
+                catch (IllegalAccessException error) { throw new AssertionError(error); }
+            });
         }
         assertNotNull(bars.get());
+        assertNotNull(readiness.get());
+        assertEquals(null, listenerField.get(bars.get()));
         java.lang.reflect.Method unavailable = com.getcapacitor.plugin.SystemBars.class.getDeclaredMethod("isActivityUnavailable");
         unavailable.setAccessible(true);
         assertEquals(true, unavailable.invoke(bars.get()));
-        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> bars.get().onDOMReady());
+        // Invoke the old, already-unregistered callback after real destruction.
+        // It must return before dereferencing either WebView or Activity.
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> readiness.get().onPageCommitVisible(null, "https://localhost"));
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
     }
 

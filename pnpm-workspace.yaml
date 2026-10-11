@@ -13,5 +13,5 @@ overrides:
   'source-map-js@>=1.0.0 <1.2.2': 1.2.2
   'sharp@<0.35.5': 0.35.5
 patchedDependencies:
-  '@capacitor/android@8.5.1': patches/@capacitor__android@8.5.1.patch
+  '@capacitor/android@8.5.2': patches/@capacitor__android@8.5.2.patch
   '@capacitor/local-notifications@8.3.1': patches/@capacitor__local-notifications@8.3.1.patch

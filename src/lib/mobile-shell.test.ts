@@ -19,7 +19,7 @@ describe("offline Android mobile shell", () => {
   it("keeps the patched Capacitor proxy closed to documents and disabled HTTP plugins", () => {
     // Source/package regression guard; emulator acceptance tests the actual APK separately.
     const root = resolve(process.cwd(), "node_modules/@capacitor/android");
-    expect(JSON.parse(readFileSync(resolve(root, "package.json"), "utf8")).version).toBe("8.5.1");
+    expect(JSON.parse(readFileSync(resolve(root, "package.json"), "utf8")).version).toBe("8.5.2");
     const server = readFileSync(resolve(root, "capacitor/src/main/java/com/getcapacitor/WebViewLocalServer.java"), "utf8");
     expect(server).toContain('getPluginConfiguration("CapacitorHttp").getBoolean("enabled", false)');
     expect(server).toContain("if (!httpEnabled || isDocumentRequest(request))");
@@ -105,7 +105,7 @@ describe("versioned Android 7 alarm compatibility", () => {
     expect(manifest.dependencies["@capacitor/local-notifications"]).toBe("8.3.1");
     expect(installed.version).toBe("8.3.1");
     expect(workspace).toContain("'@capacitor/local-notifications@8.3.1': patches/@capacitor__local-notifications@8.3.1.patch");
-    expect(workspace).toContain("'@capacitor/android@8.5.1': patches/@capacitor__android@8.5.1.patch");
+    expect(workspace).toContain("'@capacitor/android@8.5.2': patches/@capacitor__android@8.5.2.patch");
     expect([...alarmPatch.matchAll(/^diff --git a\/(\S+) b\//gm)].map(match => match[1])).toEqual([
       "android/src/main/java/com/capacitorjs/plugins/localnotifications/TiaAlarmChannels.java",
       "android/src/main/kotlin/com/capacitorjs/plugins/localnotifications/LocalNotificationManager.kt",

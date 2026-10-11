@@ -1,0 +1,137 @@
+diff --git a/capacitor/src/main/java/com/getcapacitor/Bridge.java b/capacitor/src/main/java/com/getcapacitor/Bridge.java
+index 9a3c6e0739682c9ff3b1254324ef59bb4fb2f4bd..070657978aba82fb1cbd7b3f50510806641766df 100644
+--- a/capacitor/src/main/java/com/getcapacitor/Bridge.java
++++ b/capacitor/src/main/java/com/getcapacitor/Bridge.java
+@@ -885,11 +885,12 @@ public class Bridge {
+     }
+ 
+     public void triggerJSEvent(final String eventName, final String target) {
+-        eval("window.Capacitor.triggerEvent(\"" + eventName + "\", \"" + target + "\")", (s) -> {});
++        // Lifecycle callbacks may arrive before the current document's bridge.
++        eval("if (window.Capacitor && typeof window.Capacitor.triggerEvent === 'function') { window.Capacitor.triggerEvent(\"" + eventName + "\", \"" + target + "\"); }", (s) -> {});
+     }
+ 
+     public void triggerJSEvent(final String eventName, final String target, final String data) {
+-        eval("window.Capacitor.triggerEvent(\"" + eventName + "\", \"" + target + "\", " + data + ")", (s) -> {});
++        eval("if (window.Capacitor && typeof window.Capacitor.triggerEvent === 'function') { window.Capacitor.triggerEvent(\"" + eventName + "\", \"" + target + "\", " + data + "); }", (s) -> {});
+     }
+ 
+     public void triggerWindowJSEvent(final String eventName) {
+diff --git a/capacitor/src/main/java/com/getcapacitor/cordova/MockCordovaWebViewImpl.java b/capacitor/src/main/java/com/getcapacitor/cordova/MockCordovaWebViewImpl.java
+index 020c1457a18360a1f9f85d217ca6051a003051e8..7af988177ff2b772652f1c28861f1319f9d4a036 100644
+--- a/capacitor/src/main/java/com/getcapacitor/cordova/MockCordovaWebViewImpl.java
++++ b/capacitor/src/main/java/com/getcapacitor/cordova/MockCordovaWebViewImpl.java
+@@ -190,7 +190,7 @@ public class MockCordovaWebViewImpl implements CordovaWebView {
+     }
+ 
+     public void triggerDocumentEvent(final String eventName) {
+-        eval("window.Capacitor.triggerEvent('" + eventName + "', 'document');", (s) -> {});
++        eval("if (window.Capacitor && typeof window.Capacitor.triggerEvent === 'function') { window.Capacitor.triggerEvent('" + eventName + "', 'document'); }", (s) -> {});
+     }
+ 
+     @Override
+diff --git a/capacitor/src/main/java/com/getcapacitor/plugin/SystemBars.java b/capacitor/src/main/java/com/getcapacitor/plugin/SystemBars.java
+index 8b9de88493bd3269247cffbe9d290fc381fc088f..6f5f178dddc2908cee7caca5b675270d7734a093 100644
+--- a/capacitor/src/main/java/com/getcapacitor/plugin/SystemBars.java
++++ b/capacitor/src/main/java/com/getcapacitor/plugin/SystemBars.java
+@@ -61,6 +61,11 @@ public class SystemBars extends Plugin {
+ 
+     // Declare variable at this scope to help prevent adding multiple listeners.
+     private WebViewListener webViewListener;
++    private boolean destroyed;
++
++    private boolean isActivityUnavailable() {
++        return destroyed || getActivity() == null || getActivity().isFinishing() || getActivity().isDestroyed();
++    }
+ 
+     private void warnAboutUnsupportedConfigurationValues() {
+         boolean keyboardResizeOnFullScreen = bridge.getConfig().getPluginConfiguration("Keyboard").getBoolean("resizeOnFullScreen", false);
+@@ -84,7 +89,7 @@ public class SystemBars extends Plugin {
+     protected void handleOnStart() {
+         super.handleOnStart();
+ 
+-        if (INSETS_HANDLING_DISABLE.equals(insetsHandling)) {
++        if (isActivityUnavailable() || INSETS_HANDLING_DISABLE.equals(insetsHandling)) {
+             return;
+         }
+ 
+@@ -93,7 +98,9 @@ public class SystemBars extends Plugin {
+                 @Override
+                 public void onPageCommitVisible(WebView view, String url) {
+                     super.onPageCommitVisible(view, url);
++                    if (isActivityUnavailable()) return;
+                     bridge.getWebView().evaluateJavascript(viewportMetaJSFunction, (res) -> {
++                        if (isActivityUnavailable()) return;
+                         hasViewportCover = res.equals("true");
+ 
+                         // Request new execution tree of `setOnApplyWindowInsetsListener`
+@@ -105,6 +112,19 @@ public class SystemBars extends Plugin {
+         }
+     }
+ 
++    @Override
++    protected void handleOnDestroy() {
++        destroyed = true;
++        if (bridge != null && webViewListener != null) bridge.removeWebViewListener(webViewListener);
++        webViewListener = null;
++        // SystemBars owns this listener. Release it before the Activity window
++        // detaches; an already queued callback is also fenced below.
++        if (getActivity() != null) {
++            ViewCompat.setOnApplyWindowInsetsListener(getActivity().getWindow().getDecorView(), null);
++        }
++        super.handleOnDestroy();
++    }
++
+     @Override
+     protected void handleOnConfigurationChanged(Configuration newConfig) {
+         super.handleOnConfigurationChanged(newConfig);
+@@ -142,6 +162,7 @@ public class SystemBars extends Plugin {
+         initWindowInsetsListener();
+ 
+         getBridge().executeOnMainThread(() -> {
++            if (isActivityUnavailable()) return;
+             setStyle(style, "");
+             setHidden(hidden, "");
+         });
+@@ -191,6 +212,7 @@ public class SystemBars extends Plugin {
+         View view = getActivity().getWindow().getDecorView();
+ 
+         ViewCompat.setOnApplyWindowInsetsListener(view, (v, insets) -> {
++            if (isActivityUnavailable()) return insets;
+             boolean shouldPassthroughInsets = getWebViewMajorVersion() >= WEBVIEW_VERSION_WITH_SAFE_AREA_FIX && hasViewportCover;
+ 
+             Insets systemBarsInsets = insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+@@ -240,7 +262,7 @@ public class SystemBars extends Plugin {
+     }
+ 
+     private void injectSafeAreaCSS(WindowInsetsCompat insets) {
+-        if (!INSETS_HANDLING_CSS.equals(insetsHandling)) {
++        if (isActivityUnavailable() || !INSETS_HANDLING_CSS.equals(insetsHandling)) {
+             return;
+         }
+ 
+@@ -258,7 +280,7 @@ public class SystemBars extends Plugin {
+ 
+         // Execute JavaScript to inject the CSS
+         getBridge().executeOnMainThread(() -> {
+-            if (bridge != null && bridge.getWebView() != null) {
++            if (!isActivityUnavailable() && bridge != null && bridge.getWebView() != null) {
+                 String script = String.format(
+                     Locale.US,
+                     """
+@@ -281,6 +303,7 @@ public class SystemBars extends Plugin {
+     }
+ 
+     private void setStyle(String style, String bar) {
++        if (isActivityUnavailable()) return;
+         if (style.equals(STYLE_DEFAULT)) {
+             style = getStyleForTheme();
+         }
+@@ -301,6 +324,7 @@ public class SystemBars extends Plugin {
+     }
+ 
+     private void setHidden(boolean hide, String bar) {
++        if (isActivityUnavailable()) return;
+         Window window = getActivity().getWindow();
+         WindowInsetsControllerCompat windowInsetsControllerCompat = WindowCompat.getInsetsController(window, window.getDecorView());
+ 

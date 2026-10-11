@@ -6,11 +6,21 @@ describe('installed SystemBars teardown fencing', () => {
   it('refuses missing, finishing and destroyed activities', () => {
     expect(source).toContain('getActivity() == null || getActivity().isFinishing() || getActivity().isDestroyed()');
   });
-  it('checks before enqueueing, inside the UI runnable and inside the JS reply', () => {
-    const ready = source.slice(source.indexOf('public void onDOMReady()'), source.indexOf('private Insets calcSafeAreaInsets'));
-    expect(ready.match(/if \(isActivityUnavailable\(\)\) return;/g)).toHaveLength(3);
-    expect(ready).toMatch(/runOnUiThread\(\(\) -> \{[\s\S]*?if \(isActivityUnavailable\(\)\) return;\s*this.bridge.getWebView\(\).evaluateJavascript/);
+  it('fences the single page listener before evaluation and inside its reply', () => {
+    const ready = source.slice(source.indexOf('public void onPageCommitVisible'), source.indexOf('protected void handleOnDestroy'));
+    expect(ready.match(/if \(isActivityUnavailable\(\)\) return;/g)).toHaveLength(2);
+    expect(ready).toMatch(/if \(isActivityUnavailable\(\)\) return;\s*bridge.getWebView\(\).evaluateJavascript/);
     expect(ready).toMatch(/\(res\) -> \{\s*if \(isActivityUnavailable\(\)\) return;/);
+    expect(source).not.toContain('CapacitorSystemBarsAndroidInterface');
+    expect(source).toContain('if (webViewListener == null)');
+  });
+  it('unregisters its owned callbacks on destruction without touching stored data', () => {
+    const close = source.slice(source.indexOf('protected void handleOnDestroy'), source.indexOf('protected void handleOnConfigurationChanged'));
+    expect(close).toContain('destroyed = true;');
+    expect(close).toContain('removeWebViewListener(webViewListener)');
+    expect(close).toContain('webViewListener = null;');
+    expect(close).toContain('ViewCompat.setOnApplyWindowInsetsListener(getActivity().getWindow().getDecorView(), null)');
+    expect(close).not.toMatch(/clearCache|clearHistory|WebStorage|SharedPreferences/);
   });
   it('also fences queued CSS injection without disabling insets or changing persistence', () => {
     const inject = source.slice(source.indexOf('private void injectSafeAreaCSS'), source.indexOf('private void setStyle'));
