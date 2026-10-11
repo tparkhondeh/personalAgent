@@ -26,4 +26,12 @@ describe('installed bridge destruction fences', () => {
     expect(detach).toContain('webView.destroy();');
     expect(detach).not.toMatch(/clearCache|clearHistory|WebStorage|SharedPreferences/);
   });
+  it('releases the active document before native teardown without clearing persistence', () => {
+    const source = readFileSync('android/app/src/main/java/ir/wealthos/personalagent/MainActivity.java', 'utf8');
+    const close = source.slice(source.lastIndexOf('public void onDestroy()'));
+    expect(close.indexOf('closing = true')).toBeLessThan(close.indexOf('stopLoading()'));
+    expect(close.indexOf('stopLoading()')).toBeLessThan(close.indexOf('loadUrl("about:blank")'));
+    expect(close.indexOf('loadUrl("about:blank")')).toBeLessThan(close.indexOf('super.onDestroy()'));
+    expect(close).not.toMatch(/clearCache|clearHistory|deleteAllData|removeAllCookies|sleep\(/);
+  });
 });

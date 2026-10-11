@@ -438,6 +438,10 @@ public class MainActivity extends BridgeActivity {
         // This does not clear cookies, Web Storage, task transactions or alarms.
         if (getBridge() != null && getBridge().getWebView() != null) {
             getBridge().getWebView().stopLoading();
+            // Release this document's resources before window detachment destroys
+            // the native view. stopLoading alone does not end already running JS.
+            // about:blank has no trusted origin/bridge and does not clear storage.
+            getBridge().getWebView().loadUrl("about:blank");
         }
         if (appearance != null) appearance.destroy();
         if (taskStorage != null) taskStorage.destroy();
