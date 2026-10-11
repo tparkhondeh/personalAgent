@@ -1,0 +1,7 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <application android:theme="@android:style/Theme.Material.Light.NoActionBar"
+        android:label="Internal WebView probe" android:allowBackup="false" android:usesCleartextTraffic="false">
+        <activity android:name=".ProbeActivity" android:exported="true" />
+    </application>
+</manifest>

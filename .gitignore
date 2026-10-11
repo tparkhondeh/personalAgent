@@ -51,6 +51,8 @@ yarn-error.log*
 /android/.idea/
 /android/app/build/
 /android/build/
+/diagnostics/webview-lifecycle/.gradle/
+/diagnostics/webview-lifecycle/build/
 *.jks
 *.keystore
 *.p12

@@ -1,0 +1,16 @@
+plugins { id 'com.android.application' version '8.13.0' }
+android {
+    namespace 'ir.wealthos.tia.webviewprobe'
+    compileSdk 36
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    defaultConfig {
+        applicationId 'ir.wealthos.tia.webviewprobe'
+        minSdk 26
+        targetSdk 36
+        versionCode 1
+        versionName 'diagnostic-only'
+    }
+}
