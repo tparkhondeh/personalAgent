@@ -1,6 +1,11 @@
 name: Isolate Android16 framework WebView lifecycle
 on:
   workflow_dispatch:
+    inputs:
+      image:
+        type: choice
+        default: all
+        options: [all, '36', '36.1']
 permissions:
   contents: read
 jobs:
@@ -10,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: ['36', '36.1']
+        image: ${{ fromJSON(inputs.image == '36.1' && '["36.1"]' || inputs.image == '36' && '["36"]' || '["36","36.1"]') }}
         blank: ['false', 'true']
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
@@ -34,6 +39,7 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
       - uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        if: matrix.image == '36'
         with:
           api-level: 36
           system-image-api-level: ${{ matrix.image }}
@@ -47,6 +53,9 @@ jobs:
           disable-animations: false
           emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -no-boot-anim -camera-back none
           script: bash scripts/android-emulator-settle.sh artifacts/probe/prepare && bash scripts/android-webview-probe.sh '${{ matrix.blank }}'
+      - name: Boot official36.1 only after framework services are actually ready
+        if: matrix.image == '36.1'
+        run: bash scripts/android-webview-probe-boot.sh '${{ matrix.blank }}'
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
