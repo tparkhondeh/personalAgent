@@ -90,7 +90,7 @@ jobs:
           node artifacts/server/scripts/migrate.mjs
           HOSTNAME=127.0.0.1 PORT=3000 node artifacts/server/server.js > artifacts/web-readiness/server.log 2>&1 &
           qa_pid=$!
-          trap 'kill "$qa_pid" 2>/dev/null || true' EXIT
+          trap 'qa_code=$?; kill "$qa_pid" 2>/dev/null || true; if [ "$qa_code" -ne 0 ]; then tail -80 artifacts/web-readiness/server.log; fi; exit "$qa_code"' EXIT
           healthy=false
           for attempt in {1..40}; do
             if curl -fsS http://localhost:3000/api/health > artifacts/web-readiness/health.json; then healthy=true; break; fi
@@ -113,3 +113,12 @@ jobs:
           path: artifacts/web-readiness/
           if-no-files-found: error
           retention-days: 14
+
+      - name: Preserve synthetic QA diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: failed-web-diagnostics-${{ github.run_id }}
+          path: artifacts/web-readiness/
+          if-no-files-found: ignore
+          retention-days: 7
