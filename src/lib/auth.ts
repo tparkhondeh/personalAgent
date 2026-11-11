@@ -10,6 +10,19 @@ export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL,
   secret: process.env.BETTER_AUTH_SECRET,
   database: prismaAdapter(db, { provider: "sqlite" }),
+  // Preserve the legacy NOT NULL/unique issuer column without rewriting accounts.
+  // Only the already-enabled password provider may initialize it, never API input.
+  account: { additionalFields: { issuer: { type: "string", required: false, input: false, returned: false } } },
+  databaseHooks: {
+    account: {
+      create: {
+        before: async (account) => {
+          if (account.providerId !== "credential") return false;
+          return { data: { ...account, issuer: "credential" } };
+        },
+      },
+    },
+  },
   emailAndPassword: { ...recoveryPasswordPolicy, ...(recoveryConfiguration(process.env) ? {
     sendResetPassword: ({ user, token }: { user: { id: string; email: string }; token: string }) => { after(() => sendRecoveryEmail(user, token)); return Promise.resolve(); },
   } : {}) },
