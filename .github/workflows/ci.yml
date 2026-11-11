@@ -56,6 +56,12 @@ jobs:
           qa_dir=$(mktemp -d "$RUNNER_TEMP/tia-backup-XXXXXX")
           mkdir -p artifacts/web-readiness
           bash scripts/qa-tia-staging-backup.sh scripts/backup-tia-staging.sh "$qa_dir" > artifacts/web-readiness/staging-backup.json
+      - name: Verify deployment gates and rollback with synthetic SQLite fixtures
+        run: |
+          bash -n scripts/deploy-staging-release.sh
+          bash -n scripts/qa-tia-staging-deploy.sh
+          qa_dir=$(mktemp -d "$RUNNER_TEMP/tia-deploy-XXXXXX")
+          bash scripts/qa-tia-staging-deploy.sh scripts/deploy-staging-release.sh scripts/backup-tia-staging.sh "$qa_dir" > artifacts/web-readiness/staging-deploy.json
       - run: pnpm build
       - name: Package web-only staging candidate (never deploy automatically)
         run: |
@@ -67,6 +73,10 @@ jobs:
           cp -R prisma/migrations artifacts/server/prisma/migrations
           cp scripts/migrate.mjs scripts/run-schedulers.sh scripts/integration-readiness.mjs artifacts/server/scripts/
           cp scripts/prepare-ai-monthly-budget.mjs scripts/ai-monthly-schema.sql artifacts/server/scripts/
+          # Operator tools remain separate from the HTTP/startup package.
+          mkdir -p artifacts/web-readiness/operator-tools
+          cp scripts/deploy-staging-release.sh scripts/backup-tia-staging.sh artifacts/web-readiness/operator-tools/
+          sha256sum artifacts/web-readiness/operator-tools/*.sh > artifacts/web-readiness/operator-tools/SHA256SUMS.txt
           printf '%s\n' "$GITHUB_SHA" > artifacts/server/BUILD_COMMIT.txt
           if find artifacts/server -type f \( -name '.env*' -o -name '*.db*' -o -name '*.keystore' -o -name '*.jks' \) | grep -q .; then
             echo 'Private data found in package'; exit 1

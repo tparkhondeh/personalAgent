@@ -76,4 +76,16 @@ for verified in "$root"/snapshots/snapshot-*/verified.json; do
   [[ "$(sqlite3 -readonly "$generation/restore-check/budget.db" 'SELECT sum(charged) FROM BudgetReceipt;')" == 167986 ]]
 done
 [[ "$before" == "$(sha256sum "$root/app.db" "$root/budget.db")" ]]
-printf '%s\n' '{"passed":true,"syntheticOnly":true,"liveSourceUnchanged":true,"separateRestore":true,"priorBackupsPreserved":true,"budgetReceiptsPreserved":true,"unsafePathsRejected":true,"concurrentRunRejected":true,"spaceGuardPreserved":true,"failureDiagnostics":true,"privateOutputSuppressed":true,"partialEvidenceRetained":true,"fixturesRetained":true}'
+# A failing FK command with empty stdout must not look like a clean FK result.
+(
+  sqlite3() {
+    if [[ "${!#}" == 'PRAGMA foreign_key_check;' ]]; then
+      printf '%s\n' 'SYNTHETIC_PRIVATE_ERROR /synthetic/private/database.db' >&2
+      return 49
+    fi
+    command sqlite3 "$@"
+  }; export -f sqlite3
+  refused app-snapshot-foreign-keys 49 "$root/app.db" "$root/budget.db" "$root/snapshots"
+)
+[[ "$before" == "$(sha256sum "$root/app.db" "$root/budget.db")" ]]
+printf '%s\n' '{"passed":true,"syntheticOnly":true,"liveSourceUnchanged":true,"separateRestore":true,"priorBackupsPreserved":true,"budgetReceiptsPreserved":true,"unsafePathsRejected":true,"concurrentRunRejected":true,"spaceGuardPreserved":true,"failureDiagnostics":true,"foreignKeyCommandFailureRejected":true,"privateOutputSuppressed":true,"partialEvidenceRetained":true,"fixturesRetained":true}'

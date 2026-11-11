@@ -67,7 +67,9 @@ check_db() {
   backup_stage="$2-integrity"
   [[ "$(sqlite3 -readonly "$1" 'PRAGMA integrity_check;')" == ok ]]
   backup_stage="$2-foreign-keys"
-  [[ -z "$(sqlite3 -readonly "$1" 'PRAGMA foreign_key_check;')" ]]
+  local foreign_key_errors
+  foreign_key_errors=$(sqlite3 -readonly "$1" 'PRAGMA foreign_key_check;')
+  [[ -z "$foreign_key_errors" ]]
 }
 snapshot() {
   local source="$1" name="$2" target="$generation/$2.db"
